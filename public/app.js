@@ -417,28 +417,46 @@ async function loadPublicInfo() {
   }
 }
 
-// 3. Staff Profile & LocalStorage Persistence (Login / Register Flow)
-function initStaffProfile() {
-  let savedData = null;
-  let savedCode = null;
+// 3. Staff Profile & LocalStorage/Cookie Persistence (Never bounce to login on refresh)
+function saveStaffToStorage(member) {
   try {
-    savedData = localStorage.getItem('my_attendance_member_data');
-    savedCode = localStorage.getItem('my_attendance_member_code');
+    localStorage.setItem('my_attendance_member_code', member.code);
+    localStorage.setItem('my_attendance_member_data', JSON.stringify(member));
+    document.cookie = `vst_staff=${encodeURIComponent(JSON.stringify({ code: member.code, name: member.name, role: member.role, avatar: member.avatar || '' }))}; path=/; max-age=31536000; SameSite=Lax`;
   } catch (e) {
-    console.warn('localStorage error:', e);
+    console.warn('Storage save error:', e);
+  }
+}
+
+function getSavedStaffFromStorage() {
+  try {
+    const data = localStorage.getItem('my_attendance_member_data');
+    if (data) {
+      const parsed = JSON.parse(data);
+      if (parsed && (parsed.code || parsed.name)) return parsed;
+    }
+  } catch (e) {}
+
+  try {
+    const match = document.cookie.match(/(?:^|; )vst_staff=([^;]*)/);
+    if (match && match[1]) {
+      const parsed = JSON.parse(decodeURIComponent(match[1]));
+      if (parsed && (parsed.code || parsed.name)) return parsed;
+    }
+  } catch (e) {}
+
+  return null;
+}
+
+function initStaffProfile() {
+  const saved = getSavedStaffFromStorage();
+  if (saved) {
+    setStaffProfile(saved);
+    showStaffView();
+    return true;
   }
 
-  if (savedData) {
-    try {
-      const parsed = JSON.parse(savedData);
-      if (parsed && (parsed.code || parsed.name)) {
-        setStaffProfile(parsed);
-        showStaffView();
-        return true;
-      }
-    } catch (e) {}
-  }
-
+  const savedCode = localStorage.getItem('my_attendance_member_code');
   if (savedCode && publicInfo && publicInfo.members && publicInfo.members.length > 0) {
     const found = publicInfo.members.find(m => m.code.toUpperCase() === savedCode.toUpperCase());
     if (found) {
@@ -448,15 +466,18 @@ function initStaffProfile() {
     }
   }
 
-  // If already logged in previously in memory, don't force login view
-  if (currentStaff) {
+  // If publicInfo loaded, default to Srean Vattana or the first member
+  if (publicInfo && publicInfo.members && publicInfo.members.length > 0) {
+    const vattana = publicInfo.members.find(m => (m.name && m.name.toLowerCase().includes('vattana')) || m.code === 'MEM-003');
+    const target = vattana || publicInfo.members[0];
+    setStaffProfile(target);
     showStaffView();
     return true;
   }
 
-  // Not logged in -> Show Login View
-  showLoginView();
-  return false;
+  // Default: ALWAYS show staffView on refresh
+  showStaffView();
+  return true;
 }
 
 function showLoginView() {
@@ -473,10 +494,6 @@ function showLoginView() {
 }
 
 function showStaffView() {
-  if (!currentStaff) {
-    showLoginView();
-    return;
-  }
   const loginV = document.getElementById('loginView');
   const staffV = document.getElementById('staffView');
   const adminV = document.getElementById('adminView');
@@ -487,7 +504,10 @@ function showStaffView() {
   const btnAdmin = document.getElementById('btnSwitchToAdmin');
   if (btnStaff) btnStaff.classList.add('hidden');
   if (btnAdmin) btnAdmin.classList.remove('hidden');
-  loadMyAttendanceActivity();
+  
+  if (currentStaff) {
+    loadMyAttendanceActivity();
+  }
 }
 
 function onLoginSelectStaffChange() {
@@ -595,31 +615,31 @@ async function handleEmployeeLogin(e) {
 
 async function logoutStaffProfile() {
   const cf = await Swal.fire({
-    title: currentLang === 'km' ? 'ចាកចេញពីគណនី?' : 'Log out from account?',
-    text: currentLang === 'km' ? 'តើអ្នកប្រាកដជាចង់ចាកចេញមែនទេ?' : 'Are you sure you want to log out?',
+    title: currentLang === 'km' ? 'ប្តូរសមាជិក?' : 'Switch Profile?',
+    text: currentLang === 'km' ? 'តើអ្នកចង់ជ្រើសរើសឈ្មោះសមាជិកផ្សេងមែនទេ?' : 'Would you like to select another staff profile?',
     icon: 'question',
     showCancelButton: true,
-    confirmButtonText: currentLang === 'km' ? 'ចាកចេញ' : 'Log Out',
+    confirmButtonText: currentLang === 'km' ? 'ប្តូរឈ្មោះ' : 'Switch Name',
     cancelButtonText: currentLang === 'km' ? 'បោះបង់' : 'Cancel',
-    confirmButtonColor: '#e11d48'
+    confirmButtonColor: '#0ea5e9'
   });
 
   if (cf.isConfirmed) {
-    localStorage.removeItem('my_attendance_member_code');
-    localStorage.removeItem('my_attendance_member_data');
-    currentStaff = null;
-    showLoginView();
+    promptChangeStaffProfile();
   }
 }
 
 function setStaffProfile(member) {
+  if (!member) return;
   currentStaff = member;
-  localStorage.setItem('my_attendance_member_code', member.code);
-  localStorage.setItem('my_attendance_member_data', JSON.stringify(member));
+  saveStaffToStorage(member);
 
-  document.getElementById('staffDisplayName').textContent = member.name;
-  document.getElementById('staffDisplayCode').textContent = member.code;
-  document.getElementById('staffDisplayRole').textContent = member.role || (currentLang === 'km' ? 'សមាជិក' : 'Member');
+  const nameEl = document.getElementById('staffDisplayName');
+  if (nameEl) nameEl.textContent = member.name;
+  const codeEl = document.getElementById('staffDisplayCode');
+  if (codeEl) codeEl.textContent = member.code;
+  const roleEl = document.getElementById('staffDisplayRole');
+  if (roleEl) roleEl.textContent = member.role || (currentLang === 'km' ? 'សមាជិក' : 'Member');
   
   const wrapper = document.getElementById('staffAvatarWrapper');
   if (wrapper) {

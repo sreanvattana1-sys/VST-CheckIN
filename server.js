@@ -74,14 +74,14 @@ db.exec(`
 
 // Seed default settings if not exists
 const initSettings = [
-  ['office_lat', '11.5564'],
-  ['office_lng', '104.9282'],
-  ['allowed_radius', '150'], // meters
-  ['telegram_token', ''],
-  ['telegram_chat_id', ''],
+  ['office_lat', '11.536445'],
+  ['office_lng', '104.886851'],
+  ['allowed_radius', '200'], // meters
+  ['telegram_token', '8879591305:AAFICQRiKd-ryiJ-e66CZpEPBi4PxoNuc-s'],
+  ['telegram_chat_id', '-5037746251'],
   ['telegram_enabled', 'true'],
   ['office_qr_token', 'OFFICE-ATTENDANCE-HQ-2026'],
-  ['company_name', 'ស្ថាប័ន / ក្រុមហ៊ុនយើង'],
+  ['company_name', 'VANN SITHA TRADING CO.,LTD'],
   ['admin_pin', '1234']
 ];
 
@@ -108,7 +108,8 @@ if (countMembers.count === 0) {
   const seedMember = db.prepare('INSERT INTO members (code, name, role, phone) VALUES (?, ?, ?, ?)');
   seedMember.run('MEM-001', 'សុក វិបុល (Sok Vibol)', 'Project Manager', '012 345 678');
   seedMember.run('MEM-002', 'ជា ស្រីនាង (Chea Sreynang)', 'UI/UX Designer', '098 765 432');
-  seedMember.run('MEM-003', 'ហេង ដារ៉ា (Heng Dara)', 'Developer', '015 112 233');
+  seedMember.run('MEM-003', 'Srean Vattana', 'IT Officer', '012 345 678');
+  seedMember.run('MEM-004', 'វណ្ណ ស៊ីថា (Vann Sitha)', 'CEO / General Manager', '012 000 111');
 }
 
 // Middleware
