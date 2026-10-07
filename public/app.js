@@ -342,7 +342,8 @@ function updateGreeting() {
 document.addEventListener('DOMContentLoaded', async () => {
   setLanguage(currentLang);
   initLiveClock();
-  await loadPublicInfo();
+
+  // 1. Restore saved login session synchronously to prevent login screen flashing
   initStaffProfile();
   initStaffGPS();
 
@@ -350,6 +351,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (ipDisplay) ipDisplay.textContent = mobileAppUrl;
   const posterUrl = document.getElementById('posterUrlDisplay');
   if (posterUrl) posterUrl.textContent = mobileAppUrl;
+
+  // 2. Fetch public info and update dropdowns
+  try {
+    await loadPublicInfo();
+    if (!currentStaff) {
+      initStaffProfile();
+    }
+  } catch (err) {
+    console.error('Error loading public info:', err);
+  }
 });
 
 // 1. Live Digital Clock
@@ -408,31 +419,44 @@ async function loadPublicInfo() {
 
 // 3. Staff Profile & LocalStorage Persistence (Login / Register Flow)
 function initStaffProfile() {
-  const savedData = localStorage.getItem('my_attendance_member_data');
-  const savedCode = localStorage.getItem('my_attendance_member_code');
+  let savedData = null;
+  let savedCode = null;
+  try {
+    savedData = localStorage.getItem('my_attendance_member_data');
+    savedCode = localStorage.getItem('my_attendance_member_code');
+  } catch (e) {
+    console.warn('localStorage error:', e);
+  }
 
   if (savedData) {
     try {
       const parsed = JSON.parse(savedData);
-      if (parsed && parsed.code) {
+      if (parsed && (parsed.code || parsed.name)) {
         setStaffProfile(parsed);
         showStaffView();
-        return;
+        return true;
       }
     } catch (e) {}
   }
 
-  if (savedCode && publicInfo && publicInfo.members) {
+  if (savedCode && publicInfo && publicInfo.members && publicInfo.members.length > 0) {
     const found = publicInfo.members.find(m => m.code.toUpperCase() === savedCode.toUpperCase());
     if (found) {
       setStaffProfile(found);
       showStaffView();
-      return;
+      return true;
     }
+  }
+
+  // If already logged in previously in memory, don't force login view
+  if (currentStaff) {
+    showStaffView();
+    return true;
   }
 
   // Not logged in -> Show Login View
   showLoginView();
+  return false;
 }
 
 function showLoginView() {
@@ -914,35 +938,52 @@ async function onOfficeQrCodeScanned(decodedText) {
   const minutes = cambodiaDate.getMinutes();
   const totalMins = hours * 60 + minutes;
 
+  function formatDurationUi(mins) {
+    const m = Math.abs(Math.round(mins || 0));
+    const h = Math.floor(m / 60);
+    const rem = m % 60;
+    if (currentLang === 'km') {
+      if (h > 0) return rem > 0 ? `${h} ម៉ោង ${rem} នាទី` : `${h} ម៉ោង`;
+      return `${rem} នាទី`;
+    } else {
+      if (h > 0) return rem > 0 ? `${h} hr ${rem} min` : `${h} hr`;
+      return `${rem} min`;
+    }
+  }
+
   let promptReason = false;
   let promptTitle = '';
   let promptSubtitle = '';
 
   if (currentScanAction === 'morning_in' && totalMins > 490) { // After 08:10
     const lateMins = totalMins - 480;
+    const diffStr = formatDurationUi(lateMins);
     promptReason = true;
-    promptTitle = currentLang === 'km' ? `⚠️ អ្នកមកយឺត ${lateMins} នាទី` : `⚠️ Late by ${lateMins} minutes`;
+    promptTitle = currentLang === 'km' ? `⚠️ អ្នកមកយឺត ${diffStr}` : `⚠️ Late by ${diffStr}`;
     promptSubtitle = currentLang === 'km' 
       ? 'ម៉ោងចូលធ្វើការគឺ 08:00 AM (អនុគ្រោះត្រឹម 08:10)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកមកយឺត:' 
       : 'Work starts at 08:00 AM. Please state your reason for being late:';
   } else if (currentScanAction === 'lunch_out' && totalMins < 650) { // Before 10:50
     const earlyMins = 660 - totalMins;
+    const diffStr = formatDurationUi(earlyMins);
     promptReason = true;
-    promptTitle = currentLang === 'km' ? `🏃💨 អ្នកចេញមុនម៉ោង ${earlyMins} នាទី` : `🏃💨 Early leave by ${earlyMins} minutes`;
+    promptTitle = currentLang === 'km' ? `🏃💨 អ្នកចេញមុនម៉ោង ${diffStr}` : `🏃💨 Early leave by ${diffStr}`;
     promptSubtitle = currentLang === 'km' 
       ? 'ម៉ោងចេញសម្រាកបាយគឺ 11:00 AM (អនុញ្ញាតចាប់ពី 10:50)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកចេញមុន:' 
       : 'Lunch break is at 11:00 AM. Please state your reason for leaving early:';
   } else if (currentScanAction === 'afternoon_in' && totalMins > 790) { // After 13:10
     const lateMins = totalMins - 780;
+    const diffStr = formatDurationUi(lateMins);
     promptReason = true;
-    promptTitle = currentLang === 'km' ? `⚠️ អ្នកមកយឺត ${lateMins} នាទី` : `⚠️ Late by ${lateMins} minutes`;
+    promptTitle = currentLang === 'km' ? `⚠️ អ្នកមកយឺត ${diffStr}` : `⚠️ Late by ${diffStr}`;
     promptSubtitle = currentLang === 'km' 
       ? 'ម៉ោងចូលរសៀលគឺ 01:00 PM (អនុគ្រោះត្រឹម 01:10)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកមកយឺត:' 
       : 'Afternoon starts at 01:00 PM. Please state your reason for being late:';
   } else if (currentScanAction === 'evening_out' && totalMins < 1010) { // Before 16:50
     const earlyMins = 1020 - totalMins;
+    const diffStr = formatDurationUi(earlyMins);
     promptReason = true;
-    promptTitle = currentLang === 'km' ? `🏃💨 អ្នកចេញមុនម៉ោង ${earlyMins} នាទី` : `🏃💨 Early leave by ${earlyMins} minutes`;
+    promptTitle = currentLang === 'km' ? `🏃💨 អ្នកចេញមុនម៉ោង ${diffStr}` : `🏃💨 Early leave by ${diffStr}`;
     promptSubtitle = currentLang === 'km' 
       ? 'ម៉ោងចេញធ្វើការគឺ 05:00 PM (អនុញ្ញាតចាប់ពី 04:50)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកចេញមុន:' 
       : 'End of work is at 05:00 PM. Please state your reason for leaving early:';
@@ -1311,19 +1352,7 @@ function showAdminView() {
   renderOfficeQrPoster();
 }
 
-function showStaffView() {
-  if (!currentStaff) {
-    showLoginView();
-    return;
-  }
-  const loginV = document.getElementById('loginView');
-  if (loginV) loginV.classList.add('hidden');
-  document.getElementById('adminView').classList.add('hidden');
-  document.getElementById('staffView').classList.remove('hidden');
-  document.getElementById('btnSwitchToStaff').classList.add('hidden');
-  document.getElementById('btnSwitchToAdmin').classList.remove('hidden');
-  loadMyAttendanceActivity();
-}
+// (showStaffView is defined above)
 
 function lockAdmin() {
   isAdminAuthenticated = false;
