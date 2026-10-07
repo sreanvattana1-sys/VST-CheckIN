@@ -1,14 +1,32 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const { DatabaseSync } = require('node:sqlite');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Initialize SQLite database
-const dbPath = path.join(__dirname, 'attendance.db');
+// In serverless environments (like Vercel / AWS Lambda), the deployment root is read-only.
+// We copy attendance.db to /tmp where write operations (INSERT/UPDATE) are permitted.
+let dbPath = path.join(__dirname, 'attendance.db');
+if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT) {
+  const tmpDbPath = path.join('/tmp', 'attendance.db');
+  try {
+    if (!fs.existsSync(tmpDbPath) && fs.existsSync(dbPath)) {
+      fs.copyFileSync(dbPath, tmpDbPath);
+    }
+    dbPath = tmpDbPath;
+  } catch (err) {
+    console.error('Failed to copy database to /tmp:', err);
+  }
+}
+
 const db = new DatabaseSync(dbPath);
+try {
+  db.exec('PRAGMA busy_timeout = 5000;');
+} catch (e) {}
 
 // Create tables
 db.exec(`
@@ -352,130 +370,131 @@ app.post('/api/members/login', (req, res) => {
 
 // 3. Employee Self-Check-in (Staff scans Office QR code from their mobile phone)
 app.post('/api/attendance/check', async (req, res) => {
-  const { code, type, qr_token, latitude, longitude, note } = req.body;
-  
-  if (!code) {
-    return res.status(400).json({ error: 'សូមបញ្ជាក់លេខកូដសមាជិក (Member Code)' });
-  }
+  try {
+    const { code, type, qr_token, latitude, longitude, note } = req.body;
+    
+    if (!code) {
+      return res.status(400).json({ error: 'សូមបញ្ជាក់លេខកូដសមាជិក (Member Code)' });
+    }
 
-  // Verify Office QR token if provided
-  const expectedToken = getSetting('office_qr_token') || 'OFFICE-ATTENDANCE-HQ-2026';
-  if (qr_token && qr_token.trim() !== expectedToken.trim()) {
-    return res.status(400).json({ error: 'QR Code មិនត្រឹមត្រូវទេ! សូមស្កេន QR Code ការិយាល័យផ្លូវការ។' });
-  }
+    // Verify Office QR token if provided
+    const expectedToken = getSetting('office_qr_token') || 'OFFICE-ATTENDANCE-HQ-2026';
+    if (qr_token && qr_token.trim() !== expectedToken.trim()) {
+      return res.status(400).json({ error: 'QR Code មិនត្រឹមត្រូវទេ! សូមស្កេន QR Code ការិយាល័យផ្លូវការ។' });
+    }
 
-  const member = db.prepare('SELECT * FROM members WHERE code = ? COLLATE NOCASE').get(code.trim());
-  if (!member) {
-    return res.status(404).json({ error: `រកមិនឃើញសមាជិកដែលមានកូដ "${code}" ទេ!` });
-  }
+    const member = db.prepare('SELECT * FROM members WHERE code = ? COLLATE NOCASE').get(code.trim());
+    if (!member) {
+      return res.status(404).json({ error: `រកមិនឃើញសមាជិកដែលមានកូដ "${code}" ទេ!` });
+    }
 
-  // Normalize action type (4 scans per day: morning_in, lunch_out, afternoon_in, evening_out)
-  let actionType = type;
-  if (!actionType || actionType === 'auto') {
-    const todayExisting = db.prepare(`
-      SELECT type FROM attendance 
-      WHERE member_id = ? AND date(timestamp, 'localtime') = date('now', 'localtime')
-      ORDER BY timestamp ASC
-    `).all(member.id);
+    // Normalize action type (4 scans per day: morning_in, lunch_out, afternoon_in, evening_out)
+    let actionType = type;
+    if (!actionType || actionType === 'auto') {
+      const todayExisting = db.prepare(`
+        SELECT type FROM attendance 
+        WHERE member_id = ? AND date(timestamp, 'localtime') = date('now', 'localtime')
+        ORDER BY timestamp ASC
+      `).all(member.id);
 
-    if (todayExisting.length === 0) actionType = 'morning_in';
-    else if (todayExisting.length === 1) actionType = 'lunch_out';
-    else if (todayExisting.length === 2) actionType = 'afternoon_in';
-    else actionType = 'evening_out';
-  } else {
-    if (type === 'morning_in' || type === 'check_in') actionType = 'morning_in';
-    else if (type === 'lunch_out') actionType = 'lunch_out';
-    else if (type === 'afternoon_in') actionType = 'afternoon_in';
-    else if (type === 'evening_out' || type === 'check_out') actionType = 'evening_out';
-  }
+      if (todayExisting.length === 0) actionType = 'morning_in';
+      else if (todayExisting.length === 1) actionType = 'lunch_out';
+      else if (todayExisting.length === 2) actionType = 'afternoon_in';
+      else actionType = 'evening_out';
+    } else {
+      if (type === 'morning_in' || type === 'check_in') actionType = 'morning_in';
+      else if (type === 'lunch_out') actionType = 'lunch_out';
+      else if (type === 'afternoon_in') actionType = 'afternoon_in';
+      else if (type === 'evening_out' || type === 'check_out') actionType = 'evening_out';
+    }
 
-  // Strict Geofencing Check
-  const officeLat = parseFloat(getSetting('office_lat'));
-  const officeLng = parseFloat(getSetting('office_lng'));
-  const allowedRadius = parseFloat(getSetting('allowed_radius')) || 150;
+    // Strict Geofencing Check
+    const officeLat = parseFloat(getSetting('office_lat'));
+    const officeLng = parseFloat(getSetting('office_lng'));
+    const allowedRadius = parseFloat(getSetting('allowed_radius')) || 150;
 
-  let distance = null;
-  let isWithinRange = 1;
+    let distance = null;
+    let isWithinRange = 1;
 
-  if (latitude !== undefined && longitude !== undefined && latitude !== null && longitude !== null && !isNaN(officeLat) && !isNaN(officeLng)) {
-    distance = calculateDistance(latitude, longitude, officeLat, officeLng);
-    if (distance !== null && distance > allowedRadius) {
-      isWithinRange = 0;
+    if (latitude !== undefined && longitude !== undefined && latitude !== null && longitude !== null && !isNaN(officeLat) && !isNaN(officeLng)) {
+      distance = calculateDistance(latitude, longitude, officeLat, officeLng);
+      if (distance !== null && distance > allowedRadius) {
+        isWithinRange = 0;
+        return res.status(400).json({
+          error: `អ្នកនៅក្រៅបរិវេណការិយាល័យ (${distance} ម៉ែត្រ)! ប្រព័ន្ធអនុញ្ញាតត្រឹមតែ ${allowedRadius} ម៉ែត្រប៉ុណ្ណោះ។ សូមចូលទៅក្នុងបរិវេណការិយាល័យដើម្បីស្កេនវត្តមាន។`,
+          distance: distance,
+          allowedRadius: allowedRadius
+        });
+      }
+    } else if (!isNaN(officeLat) && !isNaN(officeLng) && officeLat !== 0 && officeLng !== 0) {
+      // If office location is configured but user did not provide GPS
       return res.status(400).json({
-        error: `អ្នកនៅក្រៅបរិវេណការិយាល័យ (${distance} ម៉ែត្រ)! ប្រព័ន្ធអនុញ្ញាតត្រឹមតែ ${allowedRadius} ម៉ែត្រប៉ុណ្ណោះ។ សូមចូលទៅក្នុងបរិវេណការិយាល័យដើម្បីស្កេនវត្តមាន។`,
-        distance: distance,
-        allowedRadius: allowedRadius
+        error: 'សូមបើក Location (GPS Permission) លើទូរស័ព្ទរបស់អ្នក ដើម្បីផ្ទៀងផ្ទាត់ចម្ងាយការិយាល័យមុនពេលស្កេន!'
       });
     }
-  } else if (!isNaN(officeLat) && !isNaN(officeLng) && officeLat !== 0 && officeLng !== 0) {
-    // If office location is configured but user did not provide GPS
-    return res.status(400).json({
-      error: 'សូមបើក Location (GPS Permission) លើទូរស័ព្ទរបស់អ្នក ដើម្បីផ្ទៀងផ្ទាត់ចម្ងាយការិយាល័យមុនពេលស្កេន!'
-    });
-  }
 
-  // Record attendance
-  const insertStmt = db.prepare(`
-    INSERT INTO attendance (
-      member_id, member_name, member_code, member_role,
-      type, latitude, longitude, distance_meters, is_within_range, note
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
+    // Record attendance
+    const insertStmt = db.prepare(`
+      INSERT INTO attendance (
+        member_id, member_name, member_code, member_role,
+        type, latitude, longitude, distance_meters, is_within_range, note
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
 
-  const recordResult = insertStmt.run(
-    member.id,
-    member.name,
-    member.code,
-    member.role,
-    actionType,
-    latitude || null,
-    longitude || null,
-    distance,
-    isWithinRange,
-    note || ''
-  );
+    const recordResult = insertStmt.run(
+      member.id,
+      member.name,
+      member.code,
+      member.role,
+      actionType,
+      latitude || null,
+      longitude || null,
+      distance,
+      isWithinRange,
+      note || ''
+    );
 
-  // Check how many scans completed today
-  const todayScansCount = db.prepare(`
-    SELECT COUNT(*) as count 
-    FROM attendance 
-    WHERE member_id = ? AND date(timestamp, 'localtime') = date('now', 'localtime')
-  `).get(member.id).count;
+    // Check how many scans completed today
+    const todayScansCount = db.prepare(`
+      SELECT COUNT(*) as count 
+      FROM attendance 
+      WHERE member_id = ? AND date(timestamp, 'localtime') = date('now', 'localtime')
+    `).get(member.id).count;
 
-  // Format time and slot label (Schedule: 08:00 - 11:00 | 13:00 - 17:00)
-  const now = new Date();
-  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-  const dateStr = now.toLocaleDateString('km-KH', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
-  const dayOfWeek = now.getDay(); // 0 is Sunday
-  const isSunday = dayOfWeek === 0;
+    // Format time and slot label (Schedule: 08:00 - 11:00 | 13:00 - 17:00)
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    const dateStr = now.toLocaleDateString('km-KH', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
+    const dayOfWeek = now.getDay(); // 0 is Sunday
+    const isSunday = dayOfWeek === 0;
 
-  const slotMeta = {
-    morning_in: { labelKm: 'ព្រឹកចូលធ្វើការ (08:00)', labelEn: 'Morning Check-In', num: '1/4', badge: '🌅' },
-    lunch_out: { labelKm: 'ចេញសម្រាកបាយ (11:00)', labelEn: 'Lunch Break Out', num: '2/4', badge: '🍱' },
-    afternoon_in: { labelKm: 'រសៀលចូលធ្វើការវិញ (13:00)', labelEn: 'Afternoon Return In', num: '3/4', badge: '☕' },
-    evening_out: { labelKm: 'ល្ងាចចេញធ្វើការ (17:00)', labelEn: 'Evening Check-Out', num: '4/4', badge: '🏠' }
-  };
+    const slotMeta = {
+      morning_in: { labelKm: 'ព្រឹកចូលធ្វើការ (08:00)', labelEn: 'Morning Check-In', num: '1/4', badge: '🌅' },
+      lunch_out: { labelKm: 'ចេញសម្រាកបាយ (11:00)', labelEn: 'Lunch Break Out', num: '2/4', badge: '🍱' },
+      afternoon_in: { labelKm: 'រសៀលចូលធ្វើការវិញ (13:00)', labelEn: 'Afternoon Return In', num: '3/4', badge: '☕' },
+      evening_out: { labelKm: 'ល្ងាចចេញធ្វើការ (17:00)', labelEn: 'Evening Check-Out', num: '4/4', badge: '🏠' }
+    };
 
-  const meta = slotMeta[actionType] || { labelKm: actionType, labelEn: actionType, num: `${todayScansCount}/4`, badge: '📌' };
-  const typeLabel = `${meta.badge} ${meta.labelKm} [${meta.num}]`;
+    const meta = slotMeta[actionType] || { labelKm: actionType, labelEn: actionType, num: `${todayScansCount}/4`, badge: '📌' };
+    const typeLabel = `${meta.badge} ${meta.labelKm} [${meta.num}]`;
 
-  const companyName = getSetting('company_name') || 'VANN SITHA TRADING';
+    const companyName = getSetting('company_name') || 'VANN SITHA TRADING';
 
-  // Check punctual vs late
-  let statusText = '✨ <b>ស្ថានភាព:</b> ទាន់ពេលវេលា (On-Time)';
-  if (actionType === 'morning_in') {
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    if (hours > 8 || (hours === 8 && minutes > 15)) {
-      const lateMins = (hours - 8) * 60 + minutes;
-      statusText = `⚠️ <b>ស្ថានភាព:</b> មកយឺត (${lateMins} នាទី)`;
-    } else {
-      statusText = `✨ <b>ស្ថានភាព:</b> ទាន់ពេលវេលា (On-Time)`;
+    // Check punctual vs late
+    let statusText = '✨ <b>ស្ថានភាព:</b> ទាន់ពេលវេលា (On-Time)';
+    if (actionType === 'morning_in') {
+      const hours = now.getHours();
+      const minutes = now.getMinutes();
+      if (hours > 8 || (hours === 8 && minutes > 15)) {
+        const lateMins = (hours - 8) * 60 + minutes;
+        statusText = `⚠️ <b>ស្ថានភាព:</b> មកយឺត (${lateMins} នាទី)`;
+      } else {
+        statusText = `✨ <b>ស្ថានភាព:</b> ទាន់ពេលវេលា (On-Time)`;
+      }
     }
-  }
 
-  // Build Exact Requested Telegram Notification Message
-  const telegramMsg = `
+    // Build Exact Requested Telegram Notification Message
+    const telegramMsg = `
 🏢 <b>${companyName}</b>
 ━━━━━━━━━━━━━━
 👤 <b>បុគ្គលិក:</b> ${member.name}
@@ -486,27 +505,33 @@ ${statusText}
 📅 <b>កាលបរិច្ឆេទ:</b> ${dateStr}
 ━━━━━━━━━━━━━━
 📊 <b>ស្កេនបាន ${todayScansCount}/4 ដងសម្រាប់ថ្ងៃនេះ</b>
-  `.trim();
+    `.trim();
 
-  // Send asynchronous Telegram alert
-  sendTelegramMessage(telegramMsg).catch(err => console.error(err));
+    // Send asynchronous Telegram alert
+    sendTelegramMessage(telegramMsg).catch(err => console.error(err));
 
-  res.json({
-    success: true,
-    message: `${typeLabel} ជោគជ័យ!`,
-    attendanceId: recordResult.lastInsertRowid,
-    member: {
-      name: member.name,
-      code: member.code,
-      role: member.role
-    },
-    actionType,
-    todayScansCount,
-    timestamp: now.toISOString(),
-    distance,
-    isWithinRange,
-    isSunday
-  });
+    res.json({
+      success: true,
+      message: `${typeLabel} ជោគជ័យ!`,
+      attendanceId: recordResult.lastInsertRowid,
+      member: {
+        name: member.name,
+        code: member.code,
+        role: member.role
+      },
+      actionType,
+      todayScansCount,
+      timestamp: now.toISOString(),
+      distance,
+      isWithinRange,
+      isSunday
+    });
+  } catch (err) {
+    console.error('Error in /api/attendance/check:', err);
+    res.status(500).json({
+      error: 'មានបញ្ហាក្នុងការកត់ត្រាវត្តមាន: ' + (err.message || 'Server error')
+    });
+  }
 });
 
 // 4. Employee Today 4-Slot Summary (Smart detector)
@@ -844,11 +869,24 @@ setInterval(() => {
   }
 }, 60000); // Check every 60 seconds
 
-// Start server
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`===============================================`);
-  console.log(`🚀 Attendance Web App running at http://localhost:${PORT}`);
-  console.log(`📱 Accessible on Local Network via your PC IP Address!`);
-  console.log(`===============================================`);
+// Global error handling middleware so Express NEVER returns HTML errors for API routes
+app.use((err, req, res, next) => {
+  console.error('Unhandled server error:', err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({
+    error: 'Server internal error: ' + (err.message || 'Unknown error')
+  });
 });
+
+// Start server
+if (!process.env.VERCEL) {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`===============================================`);
+    console.log(`🚀 Attendance Web App running at http://localhost:${PORT}`);
+    console.log(`📱 Accessible on Local Network via your PC IP Address!`);
+    console.log(`===============================================`);
+  });
+}
+
+module.exports = app;
 
