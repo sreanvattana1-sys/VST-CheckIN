@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="km" class="notranslate" translate="no">
+<head>
+  <meta charset="UTF-8">
+  <meta name="google" content="notranslate">
+  <meta name="googlebot" content="notranslate">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>VANN SITHA TRADING - Smart Attendance Hub</title>
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="/logo.png">
+
+  <!-- Google Fonts: Kantumruy Pro & Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:ital,wght@0,300..700;1,300..700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Kantumruy Pro"', '"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            gold: {
+              50: '#fffbeb',
+              100: '#fef3c7',
+              200: '#fde68a',
+              300: '#fcd34d',
+              400: '#fbbf24',
+              500: '#f59e0b',
+              600: '#d97706',
+              700: '#b45309',
+              800: '#92400e',
+              900: '#78350f',
+            },
+            cyan: {
+              400: '#22d3ee',
+              500: '#06b6d4',
+              600: '#0891b2',
+              700: '#0e7490',
+            }
+          },
+          boxShadow: {
+            'glow-cyan': '0 0 35px -5px rgba(6, 182, 212, 0.45)',
+            'glow-gold': '0 0 35px -5px rgba(245, 158, 11, 0.45)',
+            'glow-emerald': '0 0 35px -5px rgba(16, 185, 129, 0.45)',
+            'glow-rose': '0 0 35px -5px rgba(244, 63, 94, 0.45)',
+            'soft': '0 12px 35px -10px rgba(15, 23, 42, 0.08)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Font Awesome 6 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- QR Code Scanner & Generator -->
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <!-- SweetAlert2 -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <style>
+    body {
+      font-family: 'Kantumruy Pro', 'Plus Jakarta Sans', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #staff-qr-reader {
+      border: none !important;
+    }
+    #staff-qr-reader__scan_region video {
+      border-radius: 20px;
+      object-fit: cover;
+    }
+    @keyframes pulseRing {
+      0% { transform: scale(0.94); opacity: 0.8; }
+      50% { transform: scale(1.15); opacity: 0.2; }
+      100% { transform: scale(0.94); opacity: 0.8; }
+    }
+    @keyframes pulseRingInner {
+      0% { transform: scale(0.97); opacity: 0.9; }
+      50% { transform: scale(1.08); opacity: 0.4; }
+      100% { transform: scale(0.97); opacity: 0.9; }
+    }
+    @keyframes conicSpin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    @keyframes floatOrb {
+      0%, 100% { transform: translate(0px, 0px) scale(1); }
+      33% { transform: translate(30px, -40px) scale(1.1); }
+      66% { transform: translate(-25px, 25px) scale(0.92); }
+    }
+    @keyframes floatOrbReverse {
+      0%, 100% { transform: translate(0px, 0px) scale(1); }
+      33% { transform: translate(-35px, 35px) scale(1.12); }
+      66% { transform: translate(25px, -30px) scale(0.94); }
+    }
+    @keyframes floatOrb3 {
+      0%, 100% { transform: translate(0px, 0px) scale(1); }
+      50% { transform: translate(20px, 35px) scale(1.08); }
+    }
+    .pulse-ring-active {
+      animation: pulseRing 2.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    .pulse-ring-inner-active {
+      animation: pulseRingInner 2.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    .conic-aura-spin {
+      animation: conicSpin 8s linear infinite;
+    }
+    .orb-float-1 {
+      animation: floatOrb 12s ease-in-out infinite;
+    }
+    .orb-float-2 {
+      animation: floatOrbReverse 15s ease-in-out infinite;
+    }
+    .orb-float-3 {
+      animation: floatOrb3 18s ease-in-out infinite;
+    }
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      box-shadow: 0 20px 45px -15px rgba(15, 23, 42, 0.08);
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.85);
+      box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.06);
+    }
+    .glass-panel-gold {
+      background: linear-gradient(135deg, rgba(255, 251, 235, 0.92) 0%, rgba(255, 255, 255, 0.88) 100%);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(251, 191, 36, 0.4);
+    }
+    @media print {
+      body * { visibility: hidden; }
+      #printArea, #printArea * { visibility: visible; }
+      #printArea { position: absolute; left: 0; top: 0; width: 100%; }
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 via-sky-50/40 to-amber-50/40 text-slate-800 min-h-screen flex flex-col antialiased selection:bg-amber-500 selection:text-white relative overflow-x-hidden">
+
+  <!-- Floating Ambient Gradient Orbs (Mesh Background Effect) -->
+  <div class="fixed inset-0 pointer-events-none overflow-hidden z-0">
+    <div class="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-gradient-to-br from-amber-400/20 via-amber-300/10 to-transparent blur-3xl orb-float-1"></div>
+    <div class="absolute top-1/4 -right-36 w-[420px] h-[420px] rounded-full bg-gradient-to-bl from-cyan-400/20 via-sky-300/10 to-transparent blur-3xl orb-float-2"></div>
+    <div class="absolute -bottom-36 left-1/3 w-[460px] h-[460px] rounded-full bg-gradient-to-tr from-emerald-400/15 via-sky-300/10 to-amber-300/10 blur-3xl orb-float-3"></div>
+  </div>
+
+  <!-- Top Multi-Color Gradient Accent Line -->
+  <div class="w-full h-1 bg-gradient-to-r from-amber-500 via-sky-400 to-cyan-500 relative z-50"></div>
+
+  <!-- ================= TOP APP BAR ================= -->
+  <header class="bg-white/85 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-40 shadow-xs">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-18 py-2.5 flex items-center justify-between">
+      
+      <!-- Company Branding with Real Logo -->
+      <div class="flex items-center gap-3">
+        <div class="relative w-12 h-12 flex-shrink-0 flex items-center justify-center p-0.5 rounded-2xl bg-gradient-to-tr from-amber-400 via-amber-500 to-cyan-500 shadow-md shadow-amber-500/20">
+          <img src="/logo.png" alt="Vann Sitha Trading Logo" class="w-full h-full object-contain rounded-xl bg-white p-0.5">
+        </div>
+        <div>
+          <h1 id="headerCompanyName" class="font-black text-sm sm:text-base text-slate-900 tracking-tight leading-snug">
+            VANN SITHA TRADING CO.,LTD
+          </h1>
+          <div class="flex items-center gap-1.5 text-[11px] text-slate-500 font-semibold">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span data-i18n="appSubtitle">ប្រព័ន្ធវត្តមានឌីជីថលឆ្លាតវៃ</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Controls: Language Switcher + Clock + Admin -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        
+        <!-- Language Switcher Pill -->
+        <div class="bg-slate-100/90 p-1 rounded-2xl flex items-center border border-slate-200/80 text-xs font-bold shadow-inner notranslate" translate="no">
+          <button id="langKmBtn" onclick="setLanguage('km')" class="px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 bg-white text-slate-900 shadow-xs font-black notranslate" translate="no">
+            <span class="text-sm">🇰🇭</span>
+            <span class="text-xs">ខ្មែរ</span>
+          </button>
+          <button id="langEnBtn" onclick="setLanguage('en')" class="px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 text-slate-500 hover:text-slate-800 font-semibold notranslate" translate="no">
+            <span class="text-sm">🇬🇧</span>
+            <span class="text-xs">English</span>
+          </button>
+        </div>
+
+        <!-- Live Clock Pill (Desktop) -->
+        <div class="hidden md:flex items-center gap-2 bg-gradient-to-r from-cyan-50 to-amber-50 px-3 py-1.5 rounded-xl border border-amber-200/60 text-xs">
+          <i class="fa-regular fa-clock text-amber-600"></i>
+          <span id="liveClock" class="font-mono font-bold text-slate-700">00:00:00</span>
+          <span class="text-slate-300">|</span>
+          <span id="liveDate" class="text-slate-600 font-medium">--</span>
+        </div>
+
+        <!-- Admin Portal Toggle -->
+        <button id="btnSwitchToAdmin" onclick="promptAdminPin()" class="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-md shadow-amber-500/20 hover:shadow-lg transition flex items-center gap-1.5">
+          <i class="fa-solid fa-lock text-amber-100"></i>
+          <span data-i18n="adminPortal">Admin</span>
+        </button>
+        <button id="btnSwitchToStaff" onclick="showStaffView()" class="hidden bg-cyan-50 hover:bg-cyan-100 text-cyan-800 text-xs font-bold px-3.5 py-2 rounded-xl border border-cyan-200 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-arrow-left"></i>
+          <span data-i18n="staffView">ទំព័របុគ្គលិក</span>
+        </button>
+
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ================= VIEW 0: EMPLOYEE LOGIN (SIGN-IN ONLY, ADMIN REGISTERS) ================= -->
+  <main id="loginView" class="hidden max-w-md mx-auto w-full px-4 py-8 flex-1 flex flex-col justify-center items-center">
+    <div class="glass-panel rounded-3xl p-6 sm:p-8 border border-white/80 shadow-soft w-full text-center space-y-6 relative overflow-hidden">
+      <!-- Glow ambient background -->
+      <div class="absolute -top-20 -left-20 w-48 h-48 rounded-full bg-amber-500/10 blur-2xl pointer-events-none"></div>
+      <div class="absolute -bottom-20 -right-20 w-48 h-48 rounded-full bg-cyan-500/10 blur-2xl pointer-events-none"></div>
+
+      <!-- Logo & Branding -->
+      <div class="flex flex-col items-center">
+        <div class="w-20 h-20 rounded-3xl p-1 bg-gradient-to-tr from-amber-400 via-amber-500 to-cyan-500 shadow-lg shadow-amber-500/25 mb-3 flex items-center justify-center">
+          <img src="/logo.png" alt="Vann Sitha Trading" class="w-full h-full object-contain rounded-2xl bg-white p-1">
+        </div>
+        <h2 class="font-black text-lg text-slate-900 tracking-tight">VANN SITHA TRADING CO.,LTD</h2>
+        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200/80 text-amber-800 text-[11px] font-bold mt-1 shadow-xs">
+          <i class="fa-solid fa-shield-halved text-amber-600"></i>
+          <span data-i18n="loginPortalSubtitle">ចូលបំពេញការងារ (Sign In)</span>
+        </div>
+      </div>
+
+      <!-- Sign In Form (Staff Name / ID + Password provided by Admin) -->
+      <form id="employeeLoginForm" onsubmit="handleEmployeeLogin(event)" class="space-y-4 text-left">
+        <!-- 1. Select Staff Member -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="lblSelectOrInput">
+            <i class="fa-solid fa-user-check text-cyan-600 mr-1"></i> ជ្រើសរើសឈ្មោះបុគ្គលិក
+          </label>
+          <select id="loginSelectStaff" onchange="onLoginSelectStaffChange()" class="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 focus:outline-none focus:ring-2 focus:ring-amber-500">
+            <option value="">-- ជ្រើសរើសឈ្មោះរបស់អ្នក --</option>
+          </select>
+        </div>
+
+        <div class="relative flex items-center justify-center my-1.5">
+          <span class="bg-white/80 px-2 text-[10px] text-slate-400 font-bold uppercase relative z-10" data-i18n="orByCode">ឬ វាយលេខកូដសម្គាល់ ID</span>
+          <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-200/60"></div></div>
+        </div>
+
+        <!-- 2. Or Type ID -->
+        <div>
+          <div class="relative">
+            <i class="fa-solid fa-id-badge absolute left-3.5 top-3.5 text-slate-400 text-xs"></i>
+            <input type="text" id="loginInputCode" placeholder="ឧ. MEM-001 ឬ MEM-002" class="w-full text-xs font-mono font-bold bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-3 uppercase focus:outline-none focus:ring-2 focus:ring-amber-500">
+          </div>
+        </div>
+
+        <!-- 3. Password (Admin assigned) -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="lblPassword">
+            <i class="fa-solid fa-key text-amber-500 mr-1"></i> លេខកូដសម្ងាត់ (Password) *
+          </label>
+          <div class="relative">
+            <i class="fa-solid fa-lock absolute left-3.5 top-3.5 text-slate-400 text-xs"></i>
+            <input type="password" id="loginInputPassword" required placeholder="បញ្ចូល Password ដែល Admin ដាក់ជូន (Default: 1234)" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-10 py-3 focus:outline-none focus:ring-2 focus:ring-amber-500">
+            <button type="button" onclick="togglePasswordVisibility('loginInputPassword', 'togglePwdIcon')" class="absolute right-3 top-3 text-slate-400 hover:text-slate-600 text-xs">
+              <i id="togglePwdIcon" class="fa-solid fa-eye"></i>
+            </button>
+          </div>
+          <p class="text-[10px] text-slate-400 mt-1" data-i18n="pwdNotice">
+            * Password គឺកំណត់ដោយ Admin ពេលចុះឈ្មោះក្នុងបញ្ជីសមាជិក (Default: <code>1234</code>)
+          </p>
+        </div>
+
+        <button type="submit" class="w-full bg-gradient-to-r from-amber-500 via-amber-600 to-cyan-600 hover:from-amber-600 hover:to-cyan-700 text-white font-bold py-3.5 rounded-2xl text-xs shadow-lg shadow-amber-500/25 transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-arrow-right-to-bracket"></i>
+          <span data-i18n="btnSignIn">ចូលបំពេញការងារ (Sign In)</span>
+        </button>
+      </form>
+
+      <!-- Admin Registration Notice -->
+      <div class="p-3 rounded-2xl bg-amber-50/70 border border-amber-200/70 text-left text-[11px] text-amber-900 leading-relaxed space-y-1">
+        <div class="font-bold flex items-center gap-1.5 text-amber-800">
+          <i class="fa-solid fa-circle-info text-amber-600"></i>
+          <span data-i18n="adminRegOnlyTitle">បុគ្គលិកថ្មីដែលមិនទាន់មានឈ្មោះ?</span>
+        </div>
+        <p class="text-amber-700 text-[10px]" data-i18n="adminRegOnlyDesc">
+          សូមទាក់ទងថ្នាក់ដឹកនាំ ឬ Admin ដើម្បីចុះឈ្មោះ និងទទួលយក Password ចូលប្រើប្រាស់។
+        </p>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ================= VIEW 1: STAFF WORKSPACE (DESKTOP & MOBILE RESPONSIVE) ================= -->
+  <main id="staffView" class="max-w-6xl mx-auto w-full px-4 sm:px-6 py-6 flex-1 flex flex-col justify-start">
+    
+    <!-- Top Greeting Banner -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+      <div>
+        <h2 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+          <span id="greetingTimeText" data-i18n="morningGreeting">អរុណសួស្តី</span>,
+          <span id="greetingStaffName" class="notranslate text-transparent bg-clip-text bg-gradient-to-r from-amber-600 to-cyan-600" translate="no">សមាជិក</span>
+          <span>👋</span>
+        </h2>
+        <p data-i18n="scanSubtitle" class="text-xs sm:text-sm text-slate-500 mt-0.5">
+          សូមស្កេន QR Code ការិយាល័យ ដើម្បីកត់ត្រាវត្តមានបំពេញការងារ
+        </p>
+      </div>
+
+      <!-- Quick Date on Mobile -->
+      <div class="md:hidden flex items-center gap-2 text-xs text-slate-500 font-medium bg-white/80 p-2 rounded-xl border border-slate-200/60 shadow-xs">
+        <i class="fa-regular fa-calendar-check text-amber-500"></i>
+        <span id="mobileLiveDate">--</span> • <span id="mobileLiveClock" class="font-mono font-bold text-slate-700">00:00:00</span>
+      </div>
+    </div>
+
+    <!-- Main Workspace Grid: Left Hero Card + Right Activity & Shift Info -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      
+      <!-- ================= HERO ATTENDANCE STATION (LEFT COLUMN) ================= -->
+      <div class="lg:col-span-7 space-y-4">
+        
+        <!-- Employee Profile Card -->
+        <div class="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-soft">
+          <div id="staffProfileSet" class="flex items-center justify-between">
+            <div class="flex items-center gap-3.5">
+              <div class="relative">
+                <div id="staffAvatar" class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 via-amber-400 to-cyan-500 text-white font-black flex items-center justify-center text-lg shadow-md shadow-amber-500/20">
+                  ?
+                </div>
+                <div class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow-xs"></div>
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h3 id="staffDisplayName" class="notranslate font-black text-base text-slate-900 leading-snug" translate="no">កំពុងផ្ទុក...</h3>
+                  <span id="staffDisplayCode" class="text-[11px] font-mono bg-gradient-to-r from-amber-50 to-cyan-50 text-amber-800 px-2.5 py-0.5 rounded-lg font-bold border border-amber-200/60">MEM</span>
+                </div>
+                <p id="staffDisplayRole" class="text-xs text-slate-500 font-medium mt-0.5">ផ្នែក / តួនាទី</p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-1.5">
+              <button onclick="promptChangeStaffProfile()" class="text-xs text-slate-600 hover:text-amber-600 bg-slate-50 hover:bg-amber-50/80 px-2.5 sm:px-3 py-2 rounded-xl font-bold border border-slate-200/60 transition flex items-center gap-1 shadow-xs" title="Switch Staff">
+                <i class="fa-solid fa-arrows-rotate text-[11px] text-amber-500"></i>
+                <span class="hidden sm:inline" data-i18n="switchStaff">ប្តូរ</span>
+              </button>
+              <button onclick="logoutStaffProfile()" class="text-xs text-rose-600 hover:text-rose-700 bg-rose-50/80 hover:bg-rose-100 px-2.5 sm:px-3 py-2 rounded-xl font-bold border border-rose-200/60 transition flex items-center gap-1 shadow-xs" title="Log Out">
+                <i class="fa-solid fa-arrow-right-from-bracket text-[11px]"></i>
+                <span class="hidden sm:inline" data-i18n="logout">ចាកចេញ</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- If profile unset -->
+          <div id="staffProfileUnset" class="hidden text-center py-4 space-y-3">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-50 to-cyan-50 text-amber-600 mx-auto flex items-center justify-center text-xl shadow-xs">
+              <i class="fa-solid fa-user-check"></i>
+            </div>
+            <div>
+              <h4 class="font-bold text-slate-800 text-sm" data-i18n="chooseProfileTitle">សូមជ្រើសរើសឈ្មោះរបស់អ្នក</h4>
+              <p class="text-xs text-slate-400 mt-0.5" data-i18n="chooseProfileDesc">ជ្រើសរើសម្តងគត់ ប្រព័ន្ធនឹងចងចាំលើទូរស័ព្ទរបស់អ្នករហូត</p>
+            </div>
+            <div class="flex gap-2 max-w-sm mx-auto">
+              <select id="selectInitialStaff" class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                <option value="">-- ជ្រើសរើសឈ្មោះរបស់អ្នក --</option>
+              </select>
+              <button onclick="saveInitialStaffProfile()" class="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md shadow-amber-500/20">
+                <span data-i18n="done">រួចរាល់</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- The Hero Check-in Card (Gold & Cyan Brand Gradient) -->
+        <div class="glass-panel rounded-3xl p-6 sm:p-8 border border-white/80 shadow-soft flex flex-col items-center text-center relative overflow-hidden">
+          
+          <!-- Background Ambient Glows -->
+          <div id="heroAmbientGlow" class="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-cyan-500/15 blur-3xl pointer-events-none transition-colors duration-700"></div>
+          <div class="absolute -bottom-24 -right-24 w-72 h-72 rounded-full bg-amber-500/15 blur-3xl pointer-events-none"></div>
+
+          <!-- Top Meta Bar: Schedule & 4-Step Progress Track -->
+          <div class="w-full max-w-md mb-5 px-1">
+            <div class="flex items-center justify-between text-xs mb-2">
+              <div class="flex items-center gap-1.5 font-bold text-slate-700">
+                <i class="fa-regular fa-calendar-check text-amber-500"></i>
+                <span data-i18n="scheduleBadge">ចន្ទ - សៅរិ៍</span>
+                <span class="text-[10px] text-slate-400 font-mono">(08:00 - 11:00 | 13:00 - 17:00)</span>
+              </div>
+              <div id="todayProgressBadge" class="font-black text-[11px] px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-50 to-cyan-50 text-slate-800 border border-amber-200/80 shadow-xs flex items-center gap-1">
+                <span data-i18n="scanProgress">ស្កេន:</span> <span id="todayScansCountText" class="text-amber-700 font-mono font-black">0</span>/4
+              </div>
+            </div>
+
+            <!-- 4-Segment Interactive Visual Progress Bar -->
+            <div class="grid grid-cols-4 gap-1.5 w-full">
+              <div id="progBarSeg1" class="h-1.5 rounded-full bg-slate-200 transition-all duration-500"></div>
+              <div id="progBarSeg2" class="h-1.5 rounded-full bg-slate-200 transition-all duration-500"></div>
+              <div id="progBarSeg3" class="h-1.5 rounded-full bg-slate-200 transition-all duration-500"></div>
+              <div id="progBarSeg4" class="h-1.5 rounded-full bg-slate-200 transition-all duration-500"></div>
+            </div>
+          </div>
+
+          <!-- Sunday Day-off Notification Banner (Shows if Sunday) -->
+          <div id="sundayWarningBadge" class="hidden mb-4 w-full max-w-md p-2.5 rounded-2xl bg-amber-100/80 border border-amber-300 text-amber-900 text-xs font-bold flex items-center justify-center gap-2 shadow-xs">
+            <i class="fa-solid fa-mug-hot text-amber-600"></i>
+            <span data-i18n="sundayOffBadge">🏖️ ថ្ងៃអាទិត្យសម្រាកការងារ (Sunday Off / OT)</span>
+          </div>
+
+          <!-- Pulsing Radar Interactive Scan Button with Rotating Conic Aura -->
+          <div class="relative my-4 flex items-center justify-center">
+            
+            <!-- Rotating Conic Aura Ring -->
+            <div class="absolute w-56 h-56 sm:w-64 sm:h-64 rounded-full p-[2px] conic-aura-spin pointer-events-none opacity-40">
+              <div class="w-full h-full rounded-full bg-gradient-to-tr from-amber-400 via-cyan-400 to-amber-500"></div>
+            </div>
+
+            <!-- Outer Pulsing Rings -->
+            <div id="radarRing" class="absolute w-52 h-52 sm:w-60 sm:h-60 rounded-full bg-cyan-500/15 pulse-ring-active pointer-events-none transition-colors duration-500"></div>
+            <div id="radarRingInner" class="absolute w-44 h-44 sm:w-52 sm:h-52 rounded-full bg-cyan-500/10 pointer-events-none"></div>
+
+            <!-- The Big Hero Button: Pure Clean SCAN with 3D Specular Highlight -->
+            <button id="heroScanButton" onclick="triggerStaffScan()" class="relative z-10 w-40 h-40 sm:w-48 sm:h-48 rounded-full bg-gradient-to-tr from-cyan-600 via-sky-500 to-amber-400 text-white shadow-glow-cyan hover:scale-105 active:scale-95 transition-all duration-300 flex flex-col items-center justify-center group focus:outline-none overflow-hidden border-2 border-white/40">
+              <!-- Specular top-light reflection -->
+              <div class="absolute top-0 inset-x-0 h-1/2 bg-gradient-to-b from-white/30 to-transparent rounded-t-full pointer-events-none"></div>
+
+              <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-3xl sm:text-4xl mb-1.5 group-hover:rotate-6 transition-transform shadow-inner border border-white/30">
+                <i class="fa-solid fa-qrcode drop-shadow-md"></i>
+              </div>
+              <span class="font-black text-xl sm:text-2xl tracking-widest uppercase drop-shadow-md">SCAN</span>
+              <span id="heroScanSubtext" data-i18n="tapToScan" class="text-[11px] text-cyan-100 font-bold mt-0.5 tracking-wide">ចុចស្កេនកាមេរ៉ា</span>
+            </button>
+
+          </div>
+
+          <!-- Next Scan Auto-Indicator & Subtitle -->
+          <div class="mt-5 space-y-2">
+            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/80 backdrop-blur-sm border border-slate-200/90 shadow-xs text-xs notranslate" translate="no">
+              <span class="text-slate-400 font-medium" data-i18n="nextScanLbl">ស្កេនបន្ទាប់:</span>
+              <span id="heroSuggestedBadge" class="font-black text-slate-800 flex items-center gap-1.5">
+                <span id="heroSuggestedIcon">🌅</span>
+                <span id="heroSuggestedText">1/4 ព្រឹកចូល (08:00)</span>
+              </span>
+            </div>
+            <p data-i18n="heroDesc" class="text-xs text-slate-400 font-medium">
+              ប្រព័ន្ធនឹងផ្ទៀងផ្ទាត់ GPS និងផ្ញើដំណឹងស្វ័យប្រវត្តិចូល Telegram
+            </p>
+          </div>
+
+          <!-- GPS Proximity Chip -->
+          <div class="mt-5 w-full max-w-sm">
+            <div id="gpsChipContainer" class="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between transition-colors">
+              <div class="flex items-center gap-2.5 text-left">
+                <div id="gpsChipIcon" class="w-8 h-8 rounded-xl bg-slate-200 text-slate-500 flex items-center justify-center text-sm shadow-xs">
+                  <i class="fa-solid fa-location-dot"></i>
+                </div>
+                <div>
+                  <div id="gpsChipTitle" data-i18n="gpsWaiting" class="text-xs font-bold text-slate-700">កំពុងផ្ទៀងផ្ទាត់ GPS...</div>
+                  <div id="gpsChipSubtitle" data-i18n="gpsAllow" class="text-[11px] text-slate-400">សូមបើក Location Permission</div>
+                </div>
+              </div>
+              <button onclick="refreshStaffGPS()" class="w-8 h-8 rounded-xl hover:bg-white text-slate-400 hover:text-amber-600 flex items-center justify-center transition border border-transparent hover:border-slate-200" title="Refresh GPS">
+                <i class="fa-solid fa-arrows-rotate text-xs"></i>
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- ================= SIDE PANEL: TODAY'S TIMELINE & ACTIVITY (RIGHT COLUMN) ================= -->
+      <div class="lg:col-span-5 space-y-4">
+        
+        <!-- Today Work Status Summary Card -->
+        <div class="glass-panel rounded-3xl p-6 border border-white/80 shadow-soft space-y-4">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <h3 class="font-extrabold text-sm text-slate-900 flex items-center gap-2">
+              <span class="w-7 h-7 rounded-xl bg-gradient-to-tr from-amber-400 to-amber-500 text-white flex items-center justify-center text-xs shadow-xs">
+                <i class="fa-solid fa-calendar-day"></i>
+              </span>
+              <span data-i18n="todayAttendance">វត្តមានរបស់ខ្ញុំថ្ងៃនេះ</span>
+            </h3>
+            <span id="badgeTodayStatus" data-i18n="notCheckedIn" class="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-slate-100 text-slate-600">
+              មិនទាន់ Check-In
+            </span>
+          </div>
+
+          <!-- 4-Slot Progress Grid (Mon - Sat: 4 Times Per Day) -->
+          <div class="grid grid-cols-2 gap-2.5 notranslate" translate="no">
+            <!-- Slot 1: Morning In (08:00) -->
+            <div id="cardSlotMorningIn" class="p-3.5 rounded-2xl bg-gradient-to-br from-cyan-500/10 via-white to-sky-500/5 border border-cyan-200/80 flex flex-col justify-between transition-all duration-300 shadow-xs hover:shadow-md">
+              <div>
+                <div class="flex items-center justify-between">
+                  <span class="text-[10px] font-bold text-cyan-900 uppercase tracking-wider flex items-center gap-1">
+                    <span>🌅</span> <span>1. ព្រឹកចូល</span>
+                  </span>
+                  <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-100/80 text-cyan-800 font-black">08:00</span>
+                </div>
+                <div id="timeSlotMorningIn" class="text-lg font-black text-slate-800 font-mono mt-1">--:--</div>
+              </div>
+              <span id="statusSlotMorningIn" class="text-[10px] text-slate-400 font-semibold mt-1.5 flex items-center gap-1">
+                <span>រង់ចាំ</span>
+              </span>
+            </div>
+
+            <!-- Slot 2: Lunch Break Out (11:00) -->
+            <div id="cardSlotLunchOut" class="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500/10 via-white to-orange-500/5 border border-amber-200/80 flex flex-col justify-between transition-all duration-300 shadow-xs hover:shadow-md">
+              <div>
+                <div class="flex items-center justify-between">
+                  <span class="text-[10px] font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1">
+                    <span>🍱</span> <span>2. សម្រាកបាយ</span>
+                  </span>
+                  <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-100/80 text-amber-800 font-black">11:00</span>
+                </div>
+                <div id="timeSlotLunchOut" class="text-lg font-black text-slate-800 font-mono mt-1">--:--</div>
+              </div>
+              <span id="statusSlotLunchOut" class="text-[10px] text-slate-400 font-semibold mt-1.5 flex items-center gap-1">
+                <span>រង់ចាំ</span>
+              </span>
+            </div>
+
+            <!-- Slot 3: Afternoon Return In (13:00) -->
+            <div id="cardSlotAfternoonIn" class="p-3.5 rounded-2xl bg-gradient-to-br from-sky-500/10 via-white to-blue-500/5 border border-sky-200/80 flex flex-col justify-between transition-all duration-300 shadow-xs hover:shadow-md">
+              <div>
+                <div class="flex items-center justify-between">
+                  <span class="text-[10px] font-bold text-sky-900 uppercase tracking-wider flex items-center gap-1">
+                    <span>☕</span> <span>3. ចូលវិញ</span>
+                  </span>
+                  <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-sky-100/80 text-sky-800 font-black">13:00</span>
+                </div>
+                <div id="timeSlotAfternoonIn" class="text-lg font-black text-slate-800 font-mono mt-1">--:--</div>
+              </div>
+              <span id="statusSlotAfternoonIn" class="text-[10px] text-slate-400 font-semibold mt-1.5 flex items-center gap-1">
+                <span>រង់ចាំ</span>
+              </span>
+            </div>
+
+            <!-- Slot 4: Evening Out (17:00) -->
+            <div id="cardSlotEveningOut" class="p-3.5 rounded-2xl bg-gradient-to-br from-rose-500/10 via-white to-pink-500/5 border border-rose-200/80 flex flex-col justify-between transition-all duration-300 shadow-xs hover:shadow-md">
+              <div>
+                <div class="flex items-center justify-between">
+                  <span class="text-[10px] font-bold text-rose-900 uppercase tracking-wider flex items-center gap-1">
+                    <span>🏠</span> <span>4. ល្ងាចចេញ</span>
+                  </span>
+                  <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-rose-100/80 text-rose-800 font-black">17:00</span>
+                </div>
+                <div id="timeSlotEveningOut" class="text-lg font-black text-slate-800 font-mono mt-1">--:--</div>
+              </div>
+              <span id="statusSlotEveningOut" class="text-[10px] text-slate-400 font-semibold mt-1.5 flex items-center gap-1">
+                <span>រង់ចាំ</span>
+              </span>
+            </div>
+          </div>
+
+          <!-- Shift & Office Info -->
+          <div class="space-y-2 pt-2 text-xs text-slate-500">
+            <div class="flex items-center justify-between">
+              <span><i class="fa-regular fa-clock text-amber-500 mr-1.5"></i> <span data-i18n="workHours">កាលវិភាគបំពេញការងារ</span></span>
+              <span class="font-bold text-slate-800">ចន្ទ - សៅរិ៍ (08:00 - 11:00 | 13:00 - 17:00)</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span><i class="fa-solid fa-map-pin text-cyan-500 mr-1.5"></i> <span data-i18n="officialOffice">ការិយាល័យផ្លូវការ</span></span>
+              <span id="officeAllowedRadiusText" class="font-bold text-slate-800">រង្វង់ 150 ម៉ែត្រ</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- My Recent Activity Stream -->
+        <div class="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-soft space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="font-extrabold text-sm text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-clock-rotate-left text-cyan-600"></i>
+              <span data-i18n="myRecentActivity">ប្រវត្តិស្កេនថ្មីៗរបស់ខ្ញុំ</span>
+            </h3>
+            <span data-i18n="last5times" class="text-[10px] text-slate-400 font-medium">5 ដងចុងក្រោយ</span>
+          </div>
+
+          <div id="myRecentScansList" class="space-y-2.5">
+            <div data-i18n="loadingData" class="py-6 text-center text-xs text-slate-400">កំពុងទាញយកទិន្នន័យ...</div>
+          </div>
+        </div>
+
+        <!-- Clean Instructions Banner -->
+        <div class="bg-gradient-to-r from-amber-50/70 via-cyan-50/70 to-amber-50/50 rounded-2xl p-4 border border-amber-200/60 text-xs text-slate-700 flex items-start gap-3 shadow-xs">
+          <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500 to-cyan-500 text-white flex-shrink-0 flex items-center justify-center text-sm mt-0.5 shadow-xs">
+            <i class="fa-solid fa-lightbulb"></i>
+          </div>
+          <div class="space-y-1">
+            <h5 data-i18n="guideTitle" class="font-black text-slate-900">របៀបស្កេនងាយស្រួល</h5>
+            <p data-i18n="guideDesc" class="text-slate-600 leading-relaxed text-[11px]">
+              ចុចប៊ូតុងស្កេនធំនៅកណ្តាល រួចចង្អុលកាមេរ៉ាទៅកាន់ QR Code ការិយាល័យដែលបិទលើជញ្ជាំង។ សារជូនដំណឹងនឹងលោតចូល Telegram របស់ថ្នាក់ដឹកនាំភ្លាមៗ។
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ================= VIEW 2: ADMIN PORTAL (SECURE DASHBOARD) ================= -->
+  <div id="adminView" class="hidden flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-6 space-y-6">
+    
+    <!-- Admin Header & Navigation Tabs -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-3 rounded-2xl border border-slate-200/80 shadow-soft">
+      <div class="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+        <button onclick="switchAdminTab('dashboard')" id="adm-tab-dashboard" class="adm-tab px-3.5 py-2 rounded-xl text-xs font-bold text-amber-700 bg-amber-50 transition">
+          <i class="fa-solid fa-chart-pie mr-1"></i> Dashboard
+        </button>
+        <button onclick="switchAdminTab('office-qr')" id="adm-tab-office-qr" class="adm-tab px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition">
+          <i class="fa-solid fa-qrcode mr-1"></i> QR ការិយាល័យ
+        </button>
+        <button onclick="switchAdminTab('members')" id="adm-tab-members" class="adm-tab px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition">
+          <i class="fa-solid fa-users mr-1"></i> បញ្ជីសមាជិក
+        </button>
+        <button onclick="switchAdminTab('history')" id="adm-tab-history" class="adm-tab px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition">
+          <i class="fa-solid fa-clock-rotate-left mr-1"></i> ប្រវត្តិវត្តមាន
+        </button>
+        <button onclick="switchAdminTab('settings')" id="adm-tab-settings" class="adm-tab px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition">
+          <i class="fa-solid fa-gear mr-1"></i> Telegram & GPS
+        </button>
+      </div>
+
+      <button onclick="lockAdmin()" class="self-end sm:self-auto text-xs text-rose-600 hover:text-rose-700 font-bold bg-rose-50 hover:bg-rose-100 px-3.5 py-2 rounded-xl transition flex items-center gap-1.5">
+        <i class="fa-solid fa-arrow-right-from-bracket"></i>
+        <span data-i18n="lock">ចាកចេញ (Lock)</span>
+      </button>
+    </div>
+
+    <!-- Admin Section: Dashboard -->
+    <section id="adm-sec-dashboard" class="adm-section space-y-6">
+      
+      <!-- 4 High-End Stat Metric Cards -->
+      <!-- 4 High-End Stat Metric Cards with Vibrant Brand Gradients -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <div class="glass-card rounded-3xl p-5 border border-amber-200/60 shadow-soft relative overflow-hidden group hover:scale-[1.02] transition-transform">
+          <div class="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-amber-400/15 to-transparent rounded-bl-full pointer-events-none"></div>
+          <div class="flex items-center justify-between text-slate-500 mb-2">
+            <span class="text-xs font-bold uppercase tracking-wider" data-i18n="statTotal">សមាជិកសរុប</span>
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 to-amber-500 text-white flex items-center justify-center text-xs shadow-xs">
+              <i class="fa-solid fa-users"></i>
+            </div>
+          </div>
+          <h3 id="statTotalMembers" class="text-3xl font-black text-slate-900 font-mono">0</h3>
+          <p class="text-[11px] text-amber-700/80 font-semibold mt-1" data-i18n="statTotalSub">ក្នុងប្រព័ន្ធទាំងអស់</p>
+        </div>
+
+        <div class="glass-card rounded-3xl p-5 border border-cyan-200/60 shadow-soft relative overflow-hidden group hover:scale-[1.02] transition-transform">
+          <div class="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-cyan-400/15 to-transparent rounded-bl-full pointer-events-none"></div>
+          <div class="flex items-center justify-between text-cyan-600 mb-2">
+            <span class="text-xs font-bold uppercase tracking-wider" data-i18n="statTodayIn">ចូលធ្វើការថ្ងៃនេះ</span>
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-sky-500 text-white flex items-center justify-center text-xs shadow-xs">
+              <i class="fa-solid fa-arrow-right-to-bracket"></i>
+            </div>
+          </div>
+          <h3 id="statTodayCheckIns" class="text-3xl font-black text-cyan-600 font-mono">0</h3>
+          <p class="text-[11px] text-cyan-700 font-semibold mt-1">Check-In</p>
+        </div>
+
+        <div class="glass-card rounded-3xl p-5 border border-sky-200/60 shadow-soft relative overflow-hidden group hover:scale-[1.02] transition-transform">
+          <div class="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-sky-400/15 to-transparent rounded-bl-full pointer-events-none"></div>
+          <div class="flex items-center justify-between text-sky-600 mb-2">
+            <span class="text-xs font-bold uppercase tracking-wider" data-i18n="statTodayOut">ចេញពីធ្វើការ</span>
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500 to-blue-500 text-white flex items-center justify-center text-xs shadow-xs">
+              <i class="fa-solid fa-arrow-right-from-bracket"></i>
+            </div>
+          </div>
+          <h3 id="statTodayCheckOuts" class="text-3xl font-black text-sky-600 font-mono">0</h3>
+          <p class="text-[11px] text-sky-700 font-semibold mt-1">Check-Out</p>
+        </div>
+
+        <div class="glass-card rounded-3xl p-5 border border-rose-200/60 shadow-soft relative overflow-hidden group hover:scale-[1.02] transition-transform">
+          <div class="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-rose-400/15 to-transparent rounded-bl-full pointer-events-none"></div>
+          <div class="flex items-center justify-between text-rose-600 mb-2">
+            <span class="text-xs font-bold uppercase tracking-wider" data-i18n="statAbsent">មិនទាន់មក</span>
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-rose-500 to-pink-500 text-white flex items-center justify-center text-xs shadow-xs">
+              <i class="fa-solid fa-user-xmark"></i>
+            </div>
+          </div>
+          <h3 id="statAbsentCount" class="text-3xl font-black text-rose-600 font-mono">0</h3>
+          <p class="text-[11px] text-rose-600 font-semibold mt-1" data-i18n="statAbsentSub">អវត្តមានថ្ងៃនេះ</p>
+        </div>
+
+      </div>
+
+      <!-- Local Network Share Bar -->
+      <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-cyan-950 text-white rounded-3xl p-5 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4 border border-cyan-900/30">
+        <div class="space-y-1">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
+            <h4 class="font-bold text-sm" data-i18n="shareWifiTitle">📱 Link សម្រាប់ឱ្យបុគ្គលិកបើកលើទូរស័ព្ទក្នុង Wi-Fi</h4>
+          </div>
+          <p class="text-xs text-slate-300" data-i18n="shareWifiDesc">បុគ្គលិកគ្រាន់តែបើក Link នេះលើ Safari/Chrome លើទូរស័ព្ទដៃរបស់ពួកគេ</p>
+        </div>
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <code id="localNetworkUrlDisplay" class="bg-white/10 text-amber-300 font-mono text-xs px-3 py-2 rounded-xl border border-white/10 flex-1 sm:flex-none">
+            http://192.168.1.17:3000
+          </code>
+          <button onclick="copyMobileUrl()" class="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition flex items-center gap-1.5 shadow">
+            <i class="fa-solid fa-copy"></i> <span data-i18n="copy">Copy</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Live Recent Feed Table -->
+      <div class="bg-white rounded-3xl border border-slate-200/80 shadow-soft overflow-hidden">
+        <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-cyan-500"></span>
+            <h4 class="font-bold text-slate-900 text-sm" data-i18n="recentLiveFeed">សកម្មភាពវត្តមានថ្មីៗថ្ងៃនេះ (Live Feed)</h4>
+          </div>
+          <button onclick="switchAdminTab('history')" class="text-xs text-amber-600 font-bold hover:underline" data-i18n="viewAll">
+            មើលទាំងអស់ &rarr;
+          </button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-slate-600">
+            <thead class="bg-slate-50 text-slate-400 font-bold uppercase">
+              <tr>
+                <th class="py-3 px-5" data-i18n="colMember">សមាជិក</th>
+                <th class="py-3 px-5" data-i18n="colAction">សកម្មភាព</th>
+                <th class="py-3 px-5" data-i18n="colTime">ម៉ោង</th>
+                <th class="py-3 px-5" data-i18n="colLocation">ទីតាំង Geofence</th>
+              </tr>
+            </thead>
+            <tbody id="recentLogsTable" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Admin Section: Office QR Poster -->
+    <section id="adm-sec-office-qr" class="adm-section hidden space-y-6">
+      <div class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-soft max-w-xl mx-auto text-center space-y-5">
+        <div>
+          <h3 class="font-black text-slate-900 text-xl tracking-tight" data-i18n="posterTitle">🖨️ បោះពុម្ព QR Code ការិយាល័យ (Office QR)</h3>
+          <p class="text-xs text-slate-500 mt-1" data-i18n="posterDesc">បោះពុម្ពសន្លឹក QR នេះបិទលើជញ្ជាំង ឬតុ Reception ដើម្បីឱ្យបុគ្គលិកយកទូរស័ព្ទស្កេន</p>
+        </div>
+
+        <!-- The Printable Poster Card with Real Logo -->
+        <div id="printArea" class="bg-gradient-to-b from-amber-50/40 via-white to-cyan-50/40 border-4 border-amber-500 rounded-3xl p-8 flex flex-col items-center shadow-lg">
+          <div class="w-20 h-20 mb-3 flex items-center justify-center p-1 rounded-2xl bg-white shadow-md border border-amber-200">
+            <img src="/logo.png" alt="Vann Sitha Trading" class="w-full h-full object-contain">
+          </div>
+          <h2 id="posterCompanyName" class="text-2xl font-black text-slate-900 tracking-tight">VANN SITHA TRADING CO.,LTD</h2>
+          <p class="text-xs font-bold text-amber-600 uppercase tracking-widest mt-1">DIGITAL ATTENDANCE CHECK-IN</p>
+
+          <div class="my-6 p-4 bg-white rounded-2xl shadow-md border-2 border-slate-100 flex items-center justify-center">
+            <div id="officeQrCodeDisplay"></div>
+          </div>
+
+          <div class="bg-gradient-to-r from-amber-500 to-cyan-600 text-white px-6 py-2.5 rounded-2xl text-xs font-bold shadow-md mb-2 flex items-center gap-2">
+            <i class="fa-solid fa-mobile-screen"></i> <span data-i18n="posterScanText">សូមបើកទូរស័ព្ទដៃ រួចស្កេន QR នេះ</span>
+          </div>
+          <p class="text-xs text-slate-500 font-mono">Link: <span id="posterUrlDisplay">http://192.168.1.17:3000</span></p>
+        </div>
+
+        <button onclick="window.print()" class="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold py-3.5 rounded-2xl text-sm shadow-lg shadow-amber-500/25 transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-print"></i> <span data-i18n="printPoster">បោះពុម្ពសន្លឹក QR នេះ (Print Poster)</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Admin Section: Members -->
+    <section id="adm-sec-members" class="adm-section hidden space-y-4">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-soft">
+        <div class="w-full sm:w-80 relative">
+          <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-xs"></i>
+          <input type="text" id="adminSearchMemberInput" oninput="filterAdminMembers()" placeholder="ស្វែងរកតាមឈ្មោះ ឬកូដ..." class="w-full pl-9 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500">
+        </div>
+        <button onclick="openAddMemberModal()" class="w-full sm:w-auto bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-md shadow-amber-500/20 flex items-center justify-center gap-2">
+          <i class="fa-solid fa-user-plus"></i> <span data-i18n="addNewMember">បន្ថែមសមាជិកថ្មី</span>
+        </button>
+      </div>
+      <div id="adminMembersContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+    </section>
+
+    <!-- Admin Section: History -->
+    <section id="adm-sec-history" class="adm-section hidden space-y-4">
+      <div class="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-soft space-y-4">
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold text-slate-700" data-i18n="filterDate">កាលបរិច្ឆេទ:</span>
+            <input type="date" id="adminHistoryDateFilter" onchange="loadAttendanceHistory()" class="text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+          </div>
+          <button onclick="exportHistoryCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs shadow flex items-center gap-1.5">
+            <i class="fa-solid fa-file-csv"></i> <span data-i18n="exportExcel">Export Excel/CSV</span>
+          </button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-slate-600">
+            <thead class="bg-slate-50 text-slate-400 font-bold uppercase">
+              <tr>
+                <th class="py-3 px-4">#</th>
+                <th class="py-3 px-4" data-i18n="colName">ឈ្មោះ</th>
+                <th class="py-3 px-4" data-i18n="colCode">កូដ</th>
+                <th class="py-3 px-4" data-i18n="colRole">តួនាទី</th>
+                <th class="py-3 px-4" data-i18n="colAction">សកម្មភាព</th>
+                <th class="py-3 px-4" data-i18n="colTime">ម៉ោង</th>
+                <th class="py-3 px-4" data-i18n="colDistance">ចម្ងាយ GPS</th>
+                <th class="py-3 px-4" data-i18n="colGeofence">Geofence</th>
+              </tr>
+            </thead>
+            <tbody id="fullHistoryTable" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Admin Section: Settings -->
+    <section id="adm-sec-settings" class="adm-section hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- Telegram Settings -->
+        <div class="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-soft space-y-4">
+          <div class="flex items-center justify-between">
+            <h4 class="font-bold text-slate-900 text-sm flex items-center gap-2">
+              <i class="fa-brands fa-telegram text-sky-500 text-lg"></i> Telegram Bot Notification
+            </h4>
+            <span class="text-[10px] bg-sky-50 text-sky-700 font-bold px-2 py-0.5 rounded-full">Free</span>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Telegram Bot Token</label>
+            <input type="password" id="inputTelegramToken" placeholder="7123456789:AAFl..." class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-mono">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Telegram Chat ID</label>
+            <input type="text" id="inputTelegramChatId" placeholder="-1001234567890" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-mono">
+          </div>
+          <div class="flex items-center gap-2 pt-1">
+            <input type="checkbox" id="inputTelegramEnabled" class="w-4 h-4 text-amber-600 rounded">
+            <label for="inputTelegramEnabled" class="text-xs text-slate-700 font-medium" data-i18n="enableTelegramAlert">បើកផ្ញើសារ Alert ពេលបុគ្គលិកស្កេន</label>
+          </div>
+          <div class="flex gap-2 pt-2">
+            <button onclick="saveTelegramSettings()" class="flex-1 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold py-2.5 rounded-xl text-xs shadow-md shadow-amber-500/20" data-i18n="save">រក្សាទុក</button>
+            <button onclick="testTelegramConnection()" class="bg-sky-50 hover:bg-sky-100 text-sky-700 font-bold px-4 py-2.5 rounded-xl text-xs border border-sky-200" data-i18n="testTelegram">តេស្តផ្ញើសារ</button>
+          </div>
+        </div>
+
+        <!-- Office & Security Settings -->
+        <div class="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-soft space-y-4">
+          <h4 class="font-bold text-slate-900 text-sm flex items-center gap-2">
+            <i class="fa-solid fa-map-location-dot text-rose-500 text-lg"></i> <span data-i18n="secTitle">ទីតាំង & សុវត្ថិភាព</span>
+          </h4>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1" data-i18n="lblCompanyName">ឈ្មោះក្រុមហ៊ុន / ស្ថាប័ន</label>
+            <input type="text" id="inputCompanyName" placeholder="ឈ្មោះក្រុមហ៊ុន" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-bold">
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Latitude</label>
+              <input type="text" id="inputOfficeLat" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-mono">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Longitude</label>
+              <input type="text" id="inputOfficeLng" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-mono">
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1" data-i18n="lblRadius">រង្វង់អនុញ្ញាត (Radius ម៉ែត្រ)</label>
+              <input type="number" id="inputAllowedRadius" placeholder="150" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-mono">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Admin PIN</label>
+              <input type="text" id="inputAdminPin" placeholder="1234" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-mono">
+            </div>
+          </div>
+          <button onclick="saveGeofenceSettings()" class="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold py-2.5 rounded-xl text-xs shadow-md shadow-amber-500/20 mt-2" data-i18n="saveSettings">រក្សាទុកការកំណត់</button>
+        </div>
+
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ================= MODERN MODAL: STAFF CAMERA SCANNER ================= -->
+  <div id="staffScannerModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 hidden flex flex-col items-center justify-between p-4 sm:p-6">
+    <div class="w-full max-w-sm flex items-center justify-between text-white pt-2">
+      <div class="flex items-center gap-2">
+        <span id="staffScanModalBadge" class="px-3 py-1 rounded-full text-xs font-black bg-cyan-500">Check-In</span>
+        <span class="text-xs text-slate-300 font-medium" data-i18n="modalScanPrompt">ស្កេន QR ការិយាល័យ</span>
+      </div>
+      <button onclick="closeStaffScannerModal()" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-sm transition">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <!-- Camera Viewport with Futuristic Corner Target Borders -->
+    <div class="w-full max-w-xs aspect-square relative rounded-3xl overflow-hidden border-2 border-amber-400/30 shadow-2xl bg-black my-auto">
+      <div id="staff-qr-reader" class="w-full h-full"></div>
+      
+      <!-- Target Overlay Corners (Gold theme) -->
+      <div class="absolute inset-4 pointer-events-none flex flex-col justify-between">
+        <div class="flex justify-between">
+          <div class="w-8 h-8 border-t-4 border-l-4 border-amber-400 rounded-tl-xl"></div>
+          <div class="w-8 h-8 border-t-4 border-r-4 border-amber-400 rounded-tr-xl"></div>
+        </div>
+        <div class="flex justify-between">
+          <div class="w-8 h-8 border-b-4 border-l-4 border-amber-400 rounded-bl-xl"></div>
+          <div class="w-8 h-8 border-b-4 border-r-4 border-amber-400 rounded-br-xl"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="w-full max-w-sm text-center pb-4 text-white space-y-2">
+      <p class="text-xs text-slate-300" data-i18n="aimCamera">សូមចង្អុលកាមេរ៉ាទៅចំកណ្តាល QR Code ការិយាល័យ</p>
+      <button onclick="closeStaffScannerModal()" class="bg-white/15 hover:bg-white/25 text-white px-6 py-2 rounded-full text-xs font-bold transition" data-i18n="cancel">
+        បោះបង់
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: ADD / EDIT MEMBER (COMPREHENSIVE EMPLOYEE REGISTRATION) ================= -->
+  <div id="addMemberModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="glass-panel rounded-3xl max-w-2xl w-full p-6 sm:p-7 shadow-2xl border border-white/80 my-auto max-h-[92vh] flex flex-col">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between pb-3.5 border-b border-slate-100 flex-shrink-0">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-400 to-cyan-500 text-white flex items-center justify-center text-lg shadow-md shadow-amber-500/20">
+            <i class="fa-solid fa-user-plus"></i>
+          </div>
+          <div>
+            <h3 id="memberModalTitle" class="font-black text-slate-900 text-base" data-i18n="addNewMember">ចុះឈ្មោះសមាជិកបុគ្គលិកថ្មី</h3>
+            <p class="text-[11px] text-slate-400 font-medium" data-i18n="memberModalSubtitle">បំពេញព័ត៌មានលម្អិត និងកំណត់លេខកូដសម្ងាត់ Password សម្រាប់ចូលប្រើ</p>
+          </div>
+        </div>
+        <button onclick="closeAddMemberModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <!-- Form Body (Scrollable) -->
+      <form id="addMemberForm" onsubmit="handleAddMember(event)" class="space-y-4 pt-4 overflow-y-auto pr-1">
+        <input type="hidden" id="memberFormId" value="">
+
+        <!-- SECTION 1: ACCOUNT & LOGIN ACCESS -->
+        <div class="p-3.5 rounded-2xl bg-amber-50/60 border border-amber-200/60 space-y-3">
+          <div class="flex items-center gap-1.5 text-xs font-black text-amber-900 uppercase tracking-wider">
+            <i class="fa-solid fa-key text-amber-600"></i>
+            <span data-i18n="secLoginAccess">ព័ត៌មានគណនី & Password សម្រាប់បុគ្គលិកចូលប្រើ</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="colCode">លេខកូដសមាជិក (Member ID) *</label>
+              <div class="relative">
+                <i class="fa-solid fa-id-badge absolute left-3 top-3 text-slate-400 text-xs"></i>
+                <input type="text" id="memberFormCode" required placeholder="ឧ. MEM-005" class="w-full text-xs bg-white border border-slate-200 rounded-xl pl-8 pr-3 py-2.5 uppercase font-mono font-bold focus:ring-2 focus:ring-amber-500">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="colPassword">លេខកូដសម្ងាត់ (Password) *</label>
+              <div class="relative">
+                <i class="fa-solid fa-lock absolute left-3 top-3 text-slate-400 text-xs"></i>
+                <input type="text" id="memberFormPassword" required placeholder="ឧ. 1234 ឬ 8888" value="1234" class="w-full text-xs bg-white border border-slate-200 rounded-xl pl-8 pr-3 py-2.5 font-mono font-bold focus:ring-2 focus:ring-amber-500">
+              </div>
+              <span class="text-[10px] text-slate-400 mt-0.5 block">* ផ្តល់លេខកូដនេះឱ្យបុគ្គលិកដើម្បី Sign In ចូលបំពេញការងារ</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 2: PERSONAL INFORMATION -->
+        <div class="space-y-3">
+          <div class="flex items-center gap-1.5 text-xs font-black text-slate-800 uppercase tracking-wider">
+            <i class="fa-solid fa-id-card text-cyan-600"></i>
+            <span data-i18n="secPersonalInfo">ព័ត៌មានផ្ទាល់ខ្លួនបុគ្គលិក (Personal Profile)</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="colName">ឈ្មោះពេញបុគ្គលិក *</label>
+              <input type="text" id="memberFormName" required placeholder="ឧ. ជា ស្រីនាង (Chea Sreynang)" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-bold focus:ring-2 focus:ring-amber-500">
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="colGender">ភេទ (Gender)</label>
+              <select id="memberFormGender" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-semibold focus:ring-2 focus:ring-amber-500">
+                <option value="">-- ជ្រើសរើស --</option>
+                <option value="ស្រី (Female)">ស្រី (Female)</option>
+                <option value="ប្រុស (Male)">ប្រុស (Male)</option>
+                <option value="ផ្សេងៗ (Other)">ផ្សេងៗ (Other)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="colDob">ថ្ងៃខែឆ្នាំកំណើត (DOB)</label>
+              <input type="date" id="memberFormDob" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-amber-500">
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="colNationalId">អត្តសញ្ញាណប័ណ្ណ / Passport</label>
+              <input type="text" id="memberFormNationalId" placeholder="ឧ. 010203040" class="w-full text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-amber-500">
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="colPhone">លេខទូរស័ព្ទផ្ទាល់ខ្លួន</label>
+              <input type="text" id="memberFormPhone" placeholder="ឧ. 012 345 678" class="w-full text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-amber-500">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="colEmail">អ៊ីមែល (Email Address)</label>
+              <input type="email" id="memberFormEmail" placeholder="sreynang@vannsitha.com" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-amber-500">
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="colEmergency">លេខទំនាក់ទំនងបន្ទាន់ (Emergency)</label>
+              <input type="text" id="memberFormEmergency" placeholder="ឧ. 098 111 222 (ម្តាយ/ប្តី)" class="w-full text-xs font-mono bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-amber-500">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="colAddress">អាសយដ្ឋានបច្ចុប្បន្ន (Current Address)</label>
+            <input type="text" id="memberFormAddress" placeholder="ឧ. ផ្ទះលេខ..., ផ្លូវ..., សង្កាត់..., ខណ្ឌ..., រាជធានីភ្នំពេញ" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-amber-500">
+          </div>
+        </div>
+
+        <!-- SECTION 3: WORK & EMPLOYMENT DETAILS -->
+        <div class="space-y-3 pt-1">
+          <div class="flex items-center gap-1.5 text-xs font-black text-slate-800 uppercase tracking-wider">
+            <i class="fa-solid fa-briefcase text-sky-600"></i>
+            <span data-i18n="secWorkInfo">ព័ត៌មានការងារ & កិច្ចសន្យា (Employment Info)</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="colRole">ផ្នែក ឬ តួនាទី *</label>
+              <input type="text" id="memberFormRole" required placeholder="ឧ. UI/UX Designer, Sales..." class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-amber-500">
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="colJoinDate">កាលបរិច្ឆេទចូលធ្វើការ</label>
+              <input type="date" id="memberFormJoinDate" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-amber-500">
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="colSalaryType">ប្រភេទបើកប្រាក់បៀវត្ស</label>
+              <select id="memberFormSalaryType" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-semibold focus:ring-2 focus:ring-amber-500">
+                <option value="monthly">ប្រចាំខែ (Monthly)</option>
+                <option value="daily">ប្រចាំថ្ងៃ (Daily)</option>
+                <option value="hourly">តាមម៉ោង (Hourly)</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1" data-i18n="colNotes">កំណត់សម្គាល់បន្ថែម (Notes)</label>
+            <textarea id="memberFormNotes" rows="2" placeholder="ព័ត៌មានបន្ថែមអំពីបុគ្គលិក ជំនាញ ឬកំណត់សម្គាល់ផ្សេងៗ..." class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-amber-500"></textarea>
+          </div>
+        </div>
+
+        <!-- Buttons -->
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 flex-shrink-0">
+          <button type="button" onclick="closeAddMemberModal()" class="px-5 py-2.5 text-xs text-slate-500 font-bold hover:bg-slate-100 rounded-xl transition" data-i18n="cancel">
+            បោះបង់
+          </button>
+          <button type="submit" class="bg-gradient-to-r from-amber-500 via-amber-600 to-cyan-600 hover:from-amber-600 hover:to-cyan-700 text-white font-bold px-6 py-2.5 rounded-xl text-xs shadow-lg shadow-amber-500/25 transition flex items-center gap-1.5" data-i18n="save">
+            <i class="fa-solid fa-check"></i> <span>រក្សាទុកទិន្នន័យបុគ្គលិក</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <footer class="text-center py-4 text-xs text-slate-400 mt-auto bg-white/60 border-t border-slate-200/60">
+    VANN SITHA TRADING CO.,LTD &copy; 2026 • <span data-i18n="footerPowered">Smart Attendance System with GPS Geofencing & Telegram Bot</span>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
