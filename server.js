@@ -132,6 +132,36 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return Math.round(R * c);
 }
 
+// Cambodia (UTC+7 / Asia/Phnom_Penh) Date and Time Helpers
+function getCambodiaDate() {
+  const now = new Date();
+  return new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Phnom_Penh' }));
+}
+
+function getCambodiaDateString() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Phnom_Penh' }).format(new Date());
+}
+
+function formatCambodiaTime(dateObj = new Date()) {
+  return dateObj.toLocaleTimeString('en-US', {
+    timeZone: 'Asia/Phnom_Penh',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
+}
+
+function formatCambodiaDate(dateObj = new Date()) {
+  return dateObj.toLocaleDateString('km-KH', {
+    timeZone: 'Asia/Phnom_Penh',
+    weekday: 'long',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
+}
+
 // Helper: Get setting
 function getSetting(key) {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
@@ -389,18 +419,26 @@ app.post('/api/attendance/check', async (req, res) => {
     }
 
     // Normalize action type (4 scans per day: morning_in, lunch_out, afternoon_in, evening_out)
+    // Strict max 4 scans check per day (Cambodia time)
+    const todayExisting = db.prepare(`
+      SELECT * FROM attendance 
+      WHERE member_id = ? AND date(timestamp, '+7 hours') = date('now', '+7 hours')
+      ORDER BY timestamp ASC
+    `).all(member.id);
+
+    if (todayExisting.length >= 4) {
+      return res.status(400).json({
+        error: 'អ្នកបានស្កេនគ្រប់ចំនួន ៤ ដង (4/4) សម្រាប់ថ្ងៃនេះរួចរាល់ហើយ! មិនអាចស្កេនបន្ថែមទៀតបានទេ។',
+        alreadyMax: true
+      });
+    }
+
     let actionType = type;
     if (!actionType || actionType === 'auto') {
-      const todayExisting = db.prepare(`
-        SELECT type FROM attendance 
-        WHERE member_id = ? AND date(timestamp, 'localtime') = date('now', 'localtime')
-        ORDER BY timestamp ASC
-      `).all(member.id);
-
       if (todayExisting.length === 0) actionType = 'morning_in';
       else if (todayExisting.length === 1) actionType = 'lunch_out';
       else if (todayExisting.length === 2) actionType = 'afternoon_in';
-      else actionType = 'evening_out';
+      else if (todayExisting.length === 3) actionType = 'evening_out';
     } else {
       if (type === 'morning_in' || type === 'check_in') actionType = 'morning_in';
       else if (type === 'lunch_out') actionType = 'lunch_out';
@@ -433,6 +471,81 @@ app.post('/api/attendance/check', async (req, res) => {
       });
     }
 
+    // Calculate Cambodia Time (UTC+7) & Punctual / Late / Early departure status
+    const cambodiaNow = getCambodiaDate();
+    const hours = cambodiaNow.getHours();
+    const minutes = cambodiaNow.getMinutes();
+    const totalMinutes = hours * 60 + minutes;
+
+    let isLate = false;
+    let isEarlyLeave = false;
+    let diffMinutes = 0;
+    let statusText = '🟢✨ <b>ស្ថានភាព:</b> ទាន់ពេលវេលា (On-Time)';
+
+    // Slot Schedule Rules:
+    // 1. morning_in: Target 08:00 (480 mins). Grace 10 mins (up to 08:10 = 490 mins). Late if > 490.
+    // 2. lunch_out: Target 11:00 (660 mins). Early threshold 10:50 (650 mins). Early if < 650.
+    // 3. afternoon_in: Target 13:00 (780 mins). Grace 10 mins (up to 13:10 = 790 mins). Late if > 790.
+    // 4. evening_out: Target 17:00 (1020 mins). Early threshold 16:50 (1010 mins). Early if < 1010.
+
+    if (actionType === 'morning_in') {
+      if (totalMinutes > 490) { // After 08:10
+        isLate = true;
+        diffMinutes = totalMinutes - 480;
+        statusText = `🔴⚠️ <b>ស្ថានភាព:</b> មកយឺត (${diffMinutes} នាទី)`;
+      } else if (totalMinutes <= 480) {
+        const earlyMins = 480 - totalMinutes;
+        statusText = earlyMins > 0 
+          ? `🟢✨ <b>ស្ថានភាព:</b> មកទាន់ពេល (មកមុន ${earlyMins} នាទី)` 
+          : `🟢✨ <b>ស្ថានភាព:</b> មកទាន់ពេលវេលា (On-Time)`;
+      } else {
+        statusText = `🟢✨ <b>ស្ថានភាព:</b> មកទាន់ពេលវេលា (ក្នុងអនុគ្រោះ 10 នាទី)`;
+      }
+    } else if (actionType === 'lunch_out') {
+      if (totalMinutes < 650) { // Before 10:50
+        isEarlyLeave = true;
+        diffMinutes = 660 - totalMinutes;
+        statusText = `🟠🏃💨 <b>ស្ថានភាព:</b> ចេញមុនម៉ោង (${diffMinutes} នាទី)`;
+      } else {
+        statusText = `🟢🍱 <b>ស្ថានភាព:</b> ចេញសម្រាកបាយតាមកាលវិភាគ`;
+      }
+    } else if (actionType === 'afternoon_in') {
+      if (totalMinutes > 790) { // After 13:10
+        isLate = true;
+        diffMinutes = totalMinutes - 780;
+        statusText = `🔴⚠️ <b>ស្ថានភាព:</b> មកយឺត (${diffMinutes} នាទី)`;
+      } else if (totalMinutes <= 780) {
+        const earlyMins = 780 - totalMinutes;
+        statusText = earlyMins > 0 
+          ? `🟢✨ <b>ស្ថានភាព:</b> ចូលទាន់ពេល (មុន ${earlyMins} នាទី)` 
+          : `🟢✨ <b>ស្ថានភាព:</b> ចូលទាន់ពេលវេលា (On-Time)`;
+      } else {
+        statusText = `🟢✨ <b>ស្ថានភាព:</b> ចូលទាន់ពេលវេលា (ក្នុងអនុគ្រោះ 10 នាទី)`;
+      }
+    } else if (actionType === 'evening_out') {
+      if (totalMinutes < 1010) { // Before 16:50
+        isEarlyLeave = true;
+        diffMinutes = 1020 - totalMinutes;
+        statusText = `🟠🏃💨 <b>ស្ថានភាព:</b> ចេញមុនម៉ោង (${diffMinutes} នាទី)`;
+      } else {
+        statusText = `🟢🏠 <b>ស្ថានភាព:</b> ចេញធ្វើការតាមកាលវិភាគ`;
+      }
+    }
+
+    // Require reason if late or early leave
+    const trimmedNote = (note || '').trim();
+    if ((isLate || isEarlyLeave) && !trimmedNote) {
+      return res.status(400).json({
+        error: isLate 
+          ? `អ្នកមកយឺត ${diffMinutes} នាទី! សូមបញ្ជាក់មូលហេតុដែលអ្នកមកយឺត។` 
+          : `អ្នកចេញមុនម៉ោង ${diffMinutes} នាទី! សូមបញ្ជាក់មូលហេតុដែលអ្នកចេញមុនម៉ោង។`,
+        requiresReason: true,
+        reasonType: isLate ? 'late' : 'early',
+        diffMinutes: diffMinutes,
+        actionType
+      });
+    }
+
     // Record attendance
     const insertStmt = db.prepare(`
       INSERT INTO attendance (
@@ -451,22 +564,13 @@ app.post('/api/attendance/check', async (req, res) => {
       longitude || null,
       distance,
       isWithinRange,
-      note || ''
+      trimmedNote
     );
 
-    // Check how many scans completed today
-    const todayScansCount = db.prepare(`
-      SELECT COUNT(*) as count 
-      FROM attendance 
-      WHERE member_id = ? AND date(timestamp, 'localtime') = date('now', 'localtime')
-    `).get(member.id).count;
-
-    // Format time and slot label (Schedule: 08:00 - 11:00 | 13:00 - 17:00)
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-    const dateStr = now.toLocaleDateString('km-KH', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
-    const dayOfWeek = now.getDay(); // 0 is Sunday
-    const isSunday = dayOfWeek === 0;
+    const todayScansCount = todayExisting.length + 1;
+    const timeStr = formatCambodiaTime(cambodiaNow);
+    const dateStr = formatCambodiaDate(cambodiaNow);
+    const isSunday = cambodiaNow.getDay() === 0;
 
     const slotMeta = {
       morning_in: { labelKm: 'ព្រឹកចូលធ្វើការ (08:00)', labelEn: 'Morning Check-In', num: '1/4', badge: '🌅' },
@@ -478,22 +582,10 @@ app.post('/api/attendance/check', async (req, res) => {
     const meta = slotMeta[actionType] || { labelKm: actionType, labelEn: actionType, num: `${todayScansCount}/4`, badge: '📌' };
     const typeLabel = `${meta.badge} ${meta.labelKm} [${meta.num}]`;
 
-    const companyName = getSetting('company_name') || 'VANN SITHA TRADING';
+    const companyName = getSetting('company_name') || 'VANN SITHA TRADING CO.,LTD';
+    const reasonLine = trimmedNote ? `\n📝 <b>មូលហេតុ:</b> ${trimmedNote}` : '';
 
-    // Check punctual vs late
-    let statusText = '✨ <b>ស្ថានភាព:</b> ទាន់ពេលវេលា (On-Time)';
-    if (actionType === 'morning_in') {
-      const hours = now.getHours();
-      const minutes = now.getMinutes();
-      if (hours > 8 || (hours === 8 && minutes > 15)) {
-        const lateMins = (hours - 8) * 60 + minutes;
-        statusText = `⚠️ <b>ស្ថានភាព:</b> មកយឺត (${lateMins} នាទី)`;
-      } else {
-        statusText = `✨ <b>ស្ថានភាព:</b> ទាន់ពេលវេលា (On-Time)`;
-      }
-    }
-
-    // Build Exact Requested Telegram Notification Message
+    // Build Telegram Notification Message with Emojis
     const telegramMsg = `
 🏢 <b>${companyName}</b>
 ━━━━━━━━━━━━━━
@@ -501,7 +593,7 @@ app.post('/api/attendance/check', async (req, res) => {
 💼 <b>តួនាទី:</b> ${member.role || 'ទូទៅ'}
 ⏰ <b>វេនស្កេន:</b> ${meta.badge} ${meta.labelKm}
 🕒 <b>ម៉ោងស្កេន:</b> ${timeStr}
-${statusText}
+${statusText}${reasonLine}
 📅 <b>កាលបរិច្ឆេទ:</b> ${dateStr}
 ━━━━━━━━━━━━━━
 📊 <b>ស្កេនបាន ${todayScansCount}/4 ដងសម្រាប់ថ្ងៃនេះ</b>
@@ -521,10 +613,12 @@ ${statusText}
       },
       actionType,
       todayScansCount,
-      timestamp: now.toISOString(),
+      timestamp: cambodiaNow.toISOString(),
       distance,
       isWithinRange,
-      isSunday
+      isSunday,
+      statusText,
+      note: trimmedNote
     });
   } catch (err) {
     console.error('Error in /api/attendance/check:', err);
@@ -548,7 +642,7 @@ app.get('/api/attendance/today-summary', (req, res) => {
 
   const todayLogs = db.prepare(`
     SELECT * FROM attendance 
-    WHERE member_id = ? AND date(timestamp, 'localtime') = date('now', 'localtime')
+    WHERE member_id = ? AND date(timestamp, '+7 hours') = date('now', '+7 hours')
     ORDER BY timestamp ASC
   `).all(member.id);
 
@@ -574,7 +668,9 @@ app.get('/api/attendance/today-summary', (req, res) => {
 
   // Calculate next suggested scan slot
   let nextSuggestedSlot = 'morning_in';
-  if (!slots.morning_in) {
+  if (todayLogs.length >= 4) {
+    nextSuggestedSlot = 'completed';
+  } else if (!slots.morning_in) {
     nextSuggestedSlot = 'morning_in';
   } else if (!slots.lunch_out) {
     nextSuggestedSlot = 'lunch_out';
@@ -586,14 +682,15 @@ app.get('/api/attendance/today-summary', (req, res) => {
     nextSuggestedSlot = 'completed';
   }
 
-  const now = new Date();
-  const dayOfWeek = now.getDay(); // 0 is Sunday
+  const cambodiaNow = getCambodiaDate();
+  const dayOfWeek = cambodiaNow.getDay(); // 0 is Sunday
   const isSunday = dayOfWeek === 0;
 
   res.json({
     member: { id: member.id, code: member.code, name: member.name },
     slots,
-    totalScansToday: todayLogs.length,
+    totalScansToday: Math.min(4, todayLogs.length),
+    isMaxReached: todayLogs.length >= 4,
     nextSuggestedSlot,
     isSunday,
     schedule: 'ចន្ទ - សៅរិ៍ (08:00 - 11:00 | 13:00 - 17:00)',
@@ -684,18 +781,18 @@ app.post('/api/settings/test-telegram', async (req, res) => {
 // 7. Daily Evening Summary Report (Calculation & Formatting)
 function generateDailySummaryReport() {
   const companyName = getSetting('company_name') || 'VANN SITHA TRADING CO., LTD';
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('km-KH', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
-  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  const cambodiaNow = getCambodiaDate();
+  const dateStr = formatCambodiaDate(cambodiaNow);
+  const timeStr = formatCambodiaTime(cambodiaNow);
 
   // Get all active members
   const activeMembers = db.prepare("SELECT * FROM members WHERE status = 'active' ORDER BY name ASC").all();
   const totalCount = activeMembers.length;
 
-  // Get all attendance logs for today
+  // Get all attendance logs for today (Cambodia date)
   const todayLogs = db.prepare(`
     SELECT * FROM attendance 
-    WHERE date(timestamp, 'localtime') = date('now', 'localtime')
+    WHERE date(timestamp, '+7 hours') = date('now', '+7 hours')
     ORDER BY timestamp ASC
   `).all();
 
@@ -726,21 +823,21 @@ function generateDailySummaryReport() {
       const morningLog = logs.find(l => l.type === 'morning_in' || l.type === 'check_in') || logs[0];
       if (morningLog) {
         const logDate = new Date(morningLog.timestamp);
-        // Convert to local hours and minutes
-        const localTimeStr = new Date(morningLog.timestamp).toLocaleTimeString('en-US', { hour12: false });
-        const parts = localTimeStr.split(':');
-        const h = parseInt(parts[0], 10);
-        const m = parseInt(parts[1], 10);
+        const timeFormat = formatCambodiaTime(logDate);
+        const cambodiaLogDate = new Date(logDate.toLocaleString('en-US', { timeZone: 'Asia/Phnom_Penh' }));
+        const h = cambodiaLogDate.getHours();
+        const m = cambodiaLogDate.getMinutes();
 
-        // Schedule is 08:00 with 15 mins grace (late if > 08:15)
-        if (h > 8 || (h === 8 && m > 15)) {
+        // Schedule is 08:00 with 10 mins grace (late if > 08:10)
+        if (h > 8 || (h === 8 && m > 10)) {
           const lateMinutes = (h - 8) * 60 + m;
-          const timeFormat = logDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+          const reasonText = morningLog.note ? ` | 📝 មូលហេតុ: ${morningLog.note}` : '';
           lateList.push({
             member,
             lateMinutes,
             time: timeFormat,
-            scansCount: logs.length
+            scansCount: logs.length,
+            reason: reasonText
           });
         } else {
           onTimeList.push(member);
@@ -763,7 +860,7 @@ function generateDailySummaryReport() {
   let lateSection = '<i>• គ្មានបុគ្គលិកមកយឺតទេ</i>';
   if (lateList.length > 0) {
     lateSection = lateList.map((item, idx) => 
-      `${idx + 1}. ${item.member.name}\n   └ ⏰ មកដល់: ${item.time} (យឺត ${item.lateMinutes} នាទី | ស្កេន ${item.scansCount}/4)`
+      `${idx + 1}. ${item.member.name}\n   └ ⏰ មកដល់: ${item.time} (យឺត ${item.lateMinutes} នាទី | ស្កេន ${item.scansCount}/4)${item.reason || ''}`
     ).join('\n');
   }
 
@@ -837,13 +934,13 @@ app.post('/api/attendance/send-daily-summary', async (req, res) => {
 // 9. Automated Schedule: Daily evening report at 17:30 (Monday - Saturday)
 let lastAutoSentDate = '';
 setInterval(() => {
-  const now = new Date();
-  const dayOfWeek = now.getDay(); // 0 is Sunday
+  const cambodiaNow = getCambodiaDate();
+  const dayOfWeek = cambodiaNow.getDay(); // 0 is Sunday
   if (dayOfWeek === 0) return; // Skip Sunday
 
-  const hours = now.getHours();
-  const minutes = now.getMinutes();
-  const todayDateStr = now.toISOString().slice(0, 10);
+  const hours = cambodiaNow.getHours();
+  const minutes = cambodiaNow.getMinutes();
+  const todayDateStr = getCambodiaDateString();
 
   // Trigger automatically at 17:30 or later if not yet sent today
   if (hours >= 17 && minutes >= 30 && lastAutoSentDate !== todayDateStr) {

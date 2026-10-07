@@ -4,9 +4,10 @@ let publicInfo = null;
 let currentStaff = null; // { code, name, role }
 let userCoords = { lat: null, lng: null };
 let staffScanner = null;
-let currentScanAction = 'check_in'; // 'check_in' or 'check_out'
+let currentScanAction = 'morning_in'; // 4-slot attendance
 let isStaffScannerRunning = false;
 let isAdminAuthenticated = false;
+let todayScansTotalCount = 0;
 let allAdminMembers = [];
 
 // Local network IP address display
@@ -697,6 +698,17 @@ function setAttendanceAction(action) {
 }
 
 function triggerStaffScan() {
+  if (todayScansTotalCount >= 4) {
+    Swal.fire({
+      icon: 'info',
+      title: currentLang === 'km' ? 'គ្រប់ 4/4 ដងរួចរាល់' : 'All Scans Completed',
+      text: currentLang === 'km' 
+        ? 'អ្នកបានស្កេនគ្រប់ចំនួន ៤ ដង (4/4) សម្រាប់ថ្ងៃនេះរួចរាល់ហើយ! មិនអាចស្កេនបន្ថែមទៀតបានទេ។' 
+        : 'You have completed all 4 scans (4/4) for today.',
+      confirmButtonColor: '#0ea5e9'
+    });
+    return;
+  }
   openStaffScannerModal(currentScanAction);
 }
 
@@ -806,6 +818,18 @@ async function openStaffScannerModal(actionType) {
     return;
   }
 
+  if (todayScansTotalCount >= 4) {
+    Swal.fire({
+      icon: 'info',
+      title: currentLang === 'km' ? 'គ្រប់ 4/4 ដងរួចរាល់' : 'All Scans Completed',
+      text: currentLang === 'km' 
+        ? 'អ្នកបានស្កេនគ្រប់ចំនួន ៤ ដង (4/4) សម្រាប់ថ្ងៃនេះរួចរាល់ហើយ! មិនអាចស្កេនបន្ថែមទៀតបានទេ។' 
+        : 'You have completed all 4 scans (4/4) for today.',
+      confirmButtonColor: '#0ea5e9'
+    });
+    return;
+  }
+
   currentScanAction = actionType;
   const badge = document.getElementById('staffScanModalBadge');
   const slotBadges = {
@@ -864,10 +888,93 @@ async function closeStaffScannerModal() {
 let isSubmitting = false;
 async function onOfficeQrCodeScanned(decodedText) {
   if (isSubmitting) return;
-  isSubmitting = true;
 
+  if (todayScansTotalCount >= 4) {
+    await closeStaffScannerModal();
+    Swal.fire({
+      icon: 'info',
+      title: currentLang === 'km' ? 'គ្រប់ 4/4 ដងរួចរាល់' : 'All Scans Completed',
+      text: currentLang === 'km' 
+        ? 'អ្នកបានស្កេនគ្រប់ចំនួន ៤ ដង (4/4) សម្រាប់ថ្ងៃនេះរួចរាល់ហើយ! មិនអាចស្កេនបន្ថែមទៀតបានទេ។' 
+        : 'You have completed all 4 scans (4/4) for today.',
+      confirmButtonColor: '#0ea5e9'
+    });
+    return;
+  }
+
+  isSubmitting = true;
   playBeep();
   await closeStaffScannerModal();
+
+  // Check Cambodia Time (UTC+7) for Late Check-In or Early Check-Out
+  const now = new Date();
+  const cambodiaStr = now.toLocaleString('en-US', { timeZone: 'Asia/Phnom_Penh' });
+  const cambodiaDate = new Date(cambodiaStr);
+  const hours = cambodiaDate.getHours();
+  const minutes = cambodiaDate.getMinutes();
+  const totalMins = hours * 60 + minutes;
+
+  let promptReason = false;
+  let promptTitle = '';
+  let promptSubtitle = '';
+
+  if (currentScanAction === 'morning_in' && totalMins > 490) { // After 08:10
+    const lateMins = totalMins - 480;
+    promptReason = true;
+    promptTitle = currentLang === 'km' ? `⚠️ អ្នកមកយឺត ${lateMins} នាទី` : `⚠️ Late by ${lateMins} minutes`;
+    promptSubtitle = currentLang === 'km' 
+      ? 'ម៉ោងចូលធ្វើការគឺ 08:00 AM (អនុគ្រោះត្រឹម 08:10)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកមកយឺត:' 
+      : 'Work starts at 08:00 AM. Please state your reason for being late:';
+  } else if (currentScanAction === 'lunch_out' && totalMins < 650) { // Before 10:50
+    const earlyMins = 660 - totalMins;
+    promptReason = true;
+    promptTitle = currentLang === 'km' ? `🏃💨 អ្នកចេញមុនម៉ោង ${earlyMins} នាទី` : `🏃💨 Early leave by ${earlyMins} minutes`;
+    promptSubtitle = currentLang === 'km' 
+      ? 'ម៉ោងចេញសម្រាកបាយគឺ 11:00 AM (អនុញ្ញាតចាប់ពី 10:50)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកចេញមុន:' 
+      : 'Lunch break is at 11:00 AM. Please state your reason for leaving early:';
+  } else if (currentScanAction === 'afternoon_in' && totalMins > 790) { // After 13:10
+    const lateMins = totalMins - 780;
+    promptReason = true;
+    promptTitle = currentLang === 'km' ? `⚠️ អ្នកមកយឺត ${lateMins} នាទី` : `⚠️ Late by ${lateMins} minutes`;
+    promptSubtitle = currentLang === 'km' 
+      ? 'ម៉ោងចូលរសៀលគឺ 01:00 PM (អនុគ្រោះត្រឹម 01:10)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកមកយឺត:' 
+      : 'Afternoon starts at 01:00 PM. Please state your reason for being late:';
+  } else if (currentScanAction === 'evening_out' && totalMins < 1010) { // Before 16:50
+    const earlyMins = 1020 - totalMins;
+    promptReason = true;
+    promptTitle = currentLang === 'km' ? `🏃💨 អ្នកចេញមុនម៉ោង ${earlyMins} នាទី` : `🏃💨 Early leave by ${earlyMins} minutes`;
+    promptSubtitle = currentLang === 'km' 
+      ? 'ម៉ោងចេញធ្វើការគឺ 05:00 PM (អនុញ្ញាតចាប់ពី 04:50)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកចេញមុន:' 
+      : 'End of work is at 05:00 PM. Please state your reason for leaving early:';
+  }
+
+  let staffReason = '';
+  if (promptReason) {
+    const reasonResult = await Swal.fire({
+      title: promptTitle,
+      text: promptSubtitle,
+      input: 'textarea',
+      inputPlaceholder: currentLang === 'km' ? 'ឧ. ស្ទះចរាចរណ៍, ឈឺ/មិនស្រួលខ្លួន, មានធុរៈផ្ទាល់ខ្លួន...' : 'e.g. Traffic jam, doctor appointment...',
+      icon: 'warning',
+      confirmButtonText: currentLang === 'km' ? 'បញ្ជាក់ និងកត់ត្រាវត្តមាន' : 'Confirm & Check In',
+      cancelButtonText: currentLang === 'km' ? 'បោះបង់' : 'Cancel',
+      showCancelButton: true,
+      confirmButtonColor: '#f59e0b',
+      cancelButtonColor: '#64748b',
+      allowOutsideClick: false,
+      inputValidator: (value) => {
+        if (!value || !value.trim()) {
+          return currentLang === 'km' ? 'សូមបញ្ចូលមូលហេតុរបស់អ្នកជាមុនសិន!' : 'Please enter your reason!';
+        }
+      }
+    });
+
+    if (!reasonResult.isConfirmed) {
+      isSubmitting = false;
+      return;
+    }
+    staffReason = (reasonResult.value || '').trim();
+  }
 
   try {
     const res = await fetch('/api/attendance/check', {
@@ -878,7 +985,8 @@ async function onOfficeQrCodeScanned(decodedText) {
         type: currentScanAction,
         qr_token: decodedText.trim(),
         latitude: userCoords.lat,
-        longitude: userCoords.lng
+        longitude: userCoords.lng,
+        note: staffReason
       })
     });
 
@@ -920,6 +1028,8 @@ async function onOfficeQrCodeScanned(decodedText) {
 
     const sundayBadge = data.isSunday ? `<div class="text-[11px] text-amber-700 font-bold bg-amber-50 p-1.5 rounded-lg border border-amber-200 mt-1">🏖️ ${currentLang === 'km' ? 'ស្កេនថ្ងៃអាទិត្យ (OT / សម្រាក)' : 'Sunday Scan (Day Off / OT)'}</div>` : '';
 
+    const reasonDisplay = data.note ? `<div class="text-xs text-amber-800 bg-amber-50/80 p-2 rounded-xl border border-amber-200/60 mt-1">📝 <b>${currentLang === 'km' ? 'មូលហេតុ' : 'Reason'}:</b> ${data.note}</div>` : '';
+
     Swal.fire({
       icon: 'success',
       title: currentLang === 'km' ? data.message : 'Attendance Recorded!',
@@ -928,6 +1038,8 @@ async function onOfficeQrCodeScanned(decodedText) {
           <div>👤 <b>${currentLang === 'km' ? 'សមាជិក' : 'Member'}:</b> ${data.member.name} (<code>${data.member.code}</code>)</div>
           <div>💼 <b>${currentLang === 'km' ? 'ផ្នែក' : 'Role'}:</b> ${data.member.role || 'General'}</div>
           <div>⏰ <b>${currentLang === 'km' ? 'វត្តមាន' : 'Slot'}:</b> <b>${slotLabel}</b></div>
+          <div>${data.statusText || ''}</div>
+          ${reasonDisplay}
           <div>📍 <b>${currentLang === 'km' ? 'ទីតាំង' : 'Location'}:</b> ${locNote}</div>
           <div>📊 <b>${currentLang === 'km' ? 'សរុបថ្ងៃនេះ' : 'Today Total'}:</b> ${data.todayScansCount}/4 ដង</div>
           ${sundayBadge}
@@ -1025,7 +1137,12 @@ async function loadMyAttendanceActivity() {
 
       if (record) {
         // Completed step: Gradient accent / success appearance
-        const timeStr = new Date(record.timestamp).toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' });
+        const timeStr = new Date(record.timestamp).toLocaleTimeString('en-US', { 
+          timeZone: 'Asia/Phnom_Penh', 
+          hour: '2-digit', 
+          minute: '2-digit', 
+          hour12: true 
+        });
         if (timeEl) timeEl.textContent = timeStr;
         const rangeText = record.is_within_range 
           ? (currentLang === 'km' ? '✅ ការិយាល័យ' : '✅ Office') 
@@ -1037,7 +1154,7 @@ async function loadMyAttendanceActivity() {
         if (card) {
           card.className = 'p-3.5 rounded-xl bg-gradient-to-br from-brand-blue/10 via-brand-cyan/5 to-white/90 border border-brand-blue/30 shadow-xs flex flex-col justify-between transition-all';
         }
-      } else if (summary.nextSuggestedSlot === slotKey) {
+      } else if (summary.nextSuggestedSlot === slotKey && todayScansTotalCount < 4) {
         // Current step: Soft pulse / active highlight
         if (timeEl) timeEl.textContent = '--:--';
         if (statusEl) {
@@ -1081,13 +1198,14 @@ async function loadMyAttendanceActivity() {
     }
 
     // Auto-select next suggested slot if available
-    if (summary.nextSuggestedSlot && summary.nextSuggestedSlot !== 'completed') {
+    todayScansTotalCount = summary.totalScansToday || 0;
+    if (summary.nextSuggestedSlot && summary.nextSuggestedSlot !== 'completed' && todayScansTotalCount < 4) {
       setAttendanceSlot(summary.nextSuggestedSlot);
-    } else if (summary.nextSuggestedSlot === 'completed') {
+    } else {
       const iconEl = document.getElementById('heroSuggestedIcon');
       const textEl = document.getElementById('heroSuggestedText');
-      if (iconEl) iconEl.textContent = '✓';
-      if (textEl) textEl.textContent = currentLang === 'km' ? 'គ្រប់ 4/4 ដងរួចរាល់' : 'All 4 Scans Done';
+      if (iconEl) iconEl.textContent = '✅';
+      if (textEl) textEl.textContent = currentLang === 'km' ? 'គ្រប់ 4/4 ដងរួចរាល់សម្រាប់ថ្ងៃនេះ' : 'All 4 Scans Completed Today';
     }
 
     // 2. Fetch Recent 5 activity logs for the member
@@ -1114,9 +1232,11 @@ async function loadMyAttendanceActivity() {
         const meta = slotLabels[l.type] || { text: l.type, enText: l.type, icon: 'check-circle' };
         const labelStr = currentLang === 'km' ? meta.text : meta.enText;
         const timeStr = new Date(l.timestamp).toLocaleString(loc, { 
-          day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
+          timeZone: 'Asia/Phnom_Penh',
+          day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true
         });
         const rangeText = l.is_within_range ? (currentLang === 'km' ? 'ការិយាល័យ' : 'Office') : `(${l.distance_meters !== null ? l.distance_meters + 'm' : 'ក្រៅ'})`;
+        const noteHtml = l.note ? `<p class="text-[11px] text-amber-700 font-medium mt-0.5">📝 ${l.note}</p>` : '';
 
         return `
           <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-app-border hover:bg-slate-100/70 transition text-xs">
@@ -1127,6 +1247,7 @@ async function loadMyAttendanceActivity() {
               <div>
                 <span class="font-semibold text-txt-primary notranslate" translate="no">${labelStr}</span>
                 <p class="text-[11px] text-txt-muted font-mono mt-0.5">${timeStr}</p>
+                ${noteHtml}
               </div>
             </div>
             <span class="text-xs font-medium ${l.is_within_range ? 'text-teal' : 'text-accent-warning'}">
