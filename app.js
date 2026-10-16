@@ -652,8 +652,10 @@ function showLoginView() {
   if (adminV) adminV.classList.add('hidden');
   const btnStaff = document.getElementById('btnSwitchToStaff');
   const btnAdmin = document.getElementById('btnSwitchToAdmin');
+  const btnLogout = document.getElementById('btnStaffLogoutTop');
   if (btnStaff) btnStaff.classList.add('hidden');
   if (btnAdmin) btnAdmin.classList.remove('hidden');
+  if (btnLogout) btnLogout.classList.add('hidden');
 
   const bNav = document.getElementById('acledaBottomNav');
   if (bNav) bNav.classList.add('hidden');
@@ -668,8 +670,10 @@ function showStaffView() {
   if (adminV) adminV.classList.add('hidden');
   const btnStaff = document.getElementById('btnSwitchToStaff');
   const btnAdmin = document.getElementById('btnSwitchToAdmin');
+  const btnLogout = document.getElementById('btnStaffLogoutTop');
   if (btnStaff) btnStaff.classList.add('hidden');
   if (btnAdmin) btnAdmin.classList.remove('hidden');
+  if (btnLogout) btnLogout.classList.remove('hidden');
 
   const bNav = document.getElementById('acledaBottomNav');
   if (bNav) bNav.classList.remove('hidden');
@@ -782,21 +786,41 @@ async function handleEmployeeLogin(e) {
   }
 }
 
-async function logoutStaffProfile() {
-  const cf = await Swal.fire({
-    title: currentLang === 'km' ? 'ប្តូរសមាជិក?' : 'Switch Profile?',
-    text: currentLang === 'km' ? 'តើអ្នកចង់ជ្រើសរើសឈ្មោះសមាជិកផ្សេងមែនទេ?' : 'Would you like to select another staff profile?',
+async function logoutStaffAccount() {
+  const result = await Swal.fire({
+    title: currentLang === 'km' ? 'ចាកចេញពីគណនី?' : 'Log Out?',
+    text: currentLang === 'km' ? 'តើអ្នកចង់ចាកចេញពីគណនីនេះមែនទេ? អ្នកនឹងត្រឡប់ទៅផ្ទាំង Login វិញ។' : 'Are you sure you want to log out from this account?',
     icon: 'question',
     showCancelButton: true,
-    confirmButtonText: currentLang === 'km' ? 'ប្តូរឈ្មោះ' : 'Switch Name',
+    confirmButtonText: currentLang === 'km' ? 'ចាកចេញ (Log Out)' : 'Log Out',
     cancelButtonText: currentLang === 'km' ? 'បោះបង់' : 'Cancel',
-    confirmButtonColor: '#0ea5e9'
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#64748b'
   });
 
-  if (cf.isConfirmed) {
-    promptChangeStaffProfile();
-  }
+  if (!result.isConfirmed) return;
+
+  // Clear saved staff session
+  localStorage.removeItem('my_attendance_member_code');
+  localStorage.removeItem('my_attendance_member_data');
+  document.cookie = 'vst_staff=; path=/; max-age=0; SameSite=Lax';
+  currentStaff = null;
+
+  // Close profile modal if open
+  closeStaffProfileModal();
+
+  // Return to Login View
+  showLoginView();
+
+  Swal.fire({
+    icon: 'success',
+    title: currentLang === 'km' ? 'បានចាកចេញជោគជ័យ' : 'Logged Out',
+    timer: 1500,
+    showConfirmButton: false
+  });
 }
+
+const logoutStaffProfile = logoutStaffAccount;
 
 function setStaffProfile(member) {
   if (!member) return;
@@ -1827,6 +1851,8 @@ function showAdminView() {
   document.getElementById('adminView').classList.remove('hidden');
   document.getElementById('btnSwitchToAdmin').classList.add('hidden');
   document.getElementById('btnSwitchToStaff').classList.remove('hidden');
+  const btnLogout = document.getElementById('btnStaffLogoutTop');
+  if (btnLogout) btnLogout.classList.add('hidden');
 
   // Hide bottom nav in Admin View
   const bNav = document.getElementById('acledaBottomNav');

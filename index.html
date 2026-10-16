@@ -770,6 +770,12 @@
             <span id="liveClock" class="font-mono font-bold text-white">00:00:00</span>
           </div>
 
+          <!-- Staff Logout Button (Top Header) -->
+          <button id="btnStaffLogoutTop" onclick="logoutStaffAccount()" class="hidden px-2.5 sm:px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 shadow-sm" title="ចាកចេញ (Log Out)">
+            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+            <span class="hidden sm:inline">ចាកចេញ</span>
+          </button>
+
           <!-- Admin / Staff Action Buttons -->
           <button id="btnSwitchToAdmin" onclick="promptAdminPin()" class="px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600/90 to-cyan-600/90 hover:from-blue-600 hover:to-cyan-500 border border-cyan-400/40 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-cyan-500/20 active:scale-95">
             <i data-lucide="shield" class="w-3.5 h-3.5 text-cyan-200"></i>
@@ -924,6 +930,10 @@
           <span id="staffDisplayCode" onclick="openStaffProfileModal()" class="font-mono text-[11px] font-bold bg-white/10 text-cyan-200 border border-cyan-400/20 px-2.5 py-1 rounded-xl cursor-pointer hover:bg-cyan-500/20 transition">
             MEM-003
           </span>
+          <!-- Staff Quick Log Out Button -->
+          <button type="button" onclick="logoutStaffAccount()" class="w-8 h-8 rounded-full bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 hover:text-white flex items-center justify-center transition border border-rose-500/30 active:scale-95 shadow-sm" title="ចាកចេញ (Log Out)">
+            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+          </button>
           <span id="staffDisplayRole" class="hidden text-xs text-txt-secondary">IT Officer</span>
         </div>
       </div>
@@ -2102,10 +2112,10 @@
       </div>
 
       <!-- Footer -->
-      <div class="flex items-center justify-between pt-4 mt-2 border-t border-white/15">
-        <button type="button" onclick="promptChangeStaffProfile()" class="text-xs text-slate-400 hover:text-cyan-300 font-medium flex items-center gap-1 transition">
-          <i data-lucide="users" class="w-3.5 h-3.5"></i>
-          <span>ប្តូរគណនីផ្សេង</span>
+      <div class="flex items-center justify-between pt-4 mt-2 border-t border-white/15 flex-wrap gap-2">
+        <button type="button" onclick="logoutStaffAccount()" class="px-3.5 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-xs text-rose-300 hover:text-white font-bold transition flex items-center gap-1.5 border border-rose-500/30 active:scale-95 shadow-sm">
+          <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+          <span>ចាកចេញ (Log Out)</span>
         </button>
         <div class="flex items-center gap-2">
           <button type="button" onclick="closeStaffProfileModal()" class="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-slate-300 font-bold transition">
@@ -2236,6 +2246,6 @@
     </div>
   </div>
 
-  <script src="/app.js?v=12.0"></script>
+  <script src="/app.js?v=13.0"></script>
 </body>
 </html>
