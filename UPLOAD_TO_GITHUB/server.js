@@ -3,112 +3,175 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const { DatabaseSync } = require('node:sqlite');
+const { createClient } = require('@libsql/client');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Initialize SQLite database
-// In serverless environments (like Vercel / AWS Lambda), the deployment root is read-only.
-// We copy attendance.db to /tmp where write operations (INSERT/UPDATE) are permitted.
-let dbPath = path.join(__dirname, 'attendance.db');
-if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT) {
-  const tmpDbPath = path.join('/tmp', 'attendance.db');
-  try {
-    if (!fs.existsSync(tmpDbPath) && fs.existsSync(dbPath)) {
-      fs.copyFileSync(dbPath, tmpDbPath);
+// Initialize Database (Cloud Turso or local SQLite fallback)
+let client;
+const tursoUrl = process.env.TURSO_DATABASE_URL;
+const tursoToken = process.env.TURSO_AUTH_TOKEN;
+
+if (tursoUrl) {
+  client = createClient({
+    url: tursoUrl,
+    authToken: tursoToken
+  });
+  console.log('🌐 Connected to Turso Cloud Database:', tursoUrl);
+} else {
+  let dbFile = path.join(__dirname, 'attendance.db');
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.LAMBDA_TASK_ROOT) {
+    const tmpDbPath = path.join('/tmp', 'attendance.db');
+    try {
+      if (!fs.existsSync(tmpDbPath) && fs.existsSync(dbFile)) {
+        fs.copyFileSync(dbFile, tmpDbPath);
+      }
+      dbFile = tmpDbPath;
+    } catch (err) {
+      console.error('Failed to copy database to /tmp:', err);
     }
-    dbPath = tmpDbPath;
-  } catch (err) {
-    console.error('Failed to copy database to /tmp:', err);
+  }
+  client = createClient({
+    url: `file:${dbFile}`
+  });
+  console.log('📁 Connected to Local SQLite Database file:', dbFile);
+}
+
+// Unified Async DB Interface
+const db = {
+  async all(sql, args = []) {
+    const res = await client.execute({ sql, args });
+    return res.rows;
+  },
+  async get(sql, args = []) {
+    const res = await client.execute({ sql, args });
+    return res.rows[0] || null;
+  },
+  async run(sql, args = []) {
+    const res = await client.execute({ sql, args });
+    return {
+      lastInsertRowid: res.lastInsertRowid !== undefined ? Number(res.lastInsertRowid) : 0,
+      changes: res.rowsAffected
+    };
+  },
+  async execute(sql, args = []) {
+    return client.execute({ sql, args });
+  }
+};
+
+function getClientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.headers['x-real-ip'] || req.socket.remoteAddress || '';
+}
+
+// Database Initialization & Migration
+async function initDb() {
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS members (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      code TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      role TEXT,
+      phone TEXT,
+      password TEXT DEFAULT '1234',
+      gender TEXT,
+      dob TEXT,
+      national_id TEXT,
+      email TEXT,
+      address TEXT,
+      join_date TEXT,
+      emergency_contact TEXT,
+      salary_type TEXT DEFAULT 'monthly',
+      notes TEXT,
+      avatar TEXT,
+      status TEXT DEFAULT 'active',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS attendance (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      member_id INTEGER,
+      member_name TEXT,
+      member_code TEXT,
+      member_role TEXT,
+      type TEXT NOT NULL,
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+      latitude REAL,
+      longitude REAL,
+      distance_meters REAL,
+      is_within_range INTEGER DEFAULT 1,
+      note TEXT
+    )
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    )
+  `);
+
+  try {
+    await db.execute("ALTER TABLE members ADD COLUMN avatar TEXT");
+  } catch (e) {
+    // Column already exists
+  }
+
+  // Seed default settings if not exists
+  const initSettings = [
+    ['office_lat', '11.536445'],
+    ['office_lng', '104.886851'],
+    ['allowed_radius', '200'], // meters
+    ['telegram_token', '8879591305:AAFICQRiKd-ryiJ-e66CZpEPBi4PxoNuc-s'],
+    ['telegram_chat_id', '-5037746251'],
+    ['telegram_enabled', 'true'],
+    ['office_qr_token', 'OFFICE-ATTENDANCE-HQ-2026'],
+    ['company_name', 'VANN SITHA TRADING CO.,LTD'],
+    ['admin_pin', '1234'],
+    ['wifi_check_enabled', 'true'],
+    ['company_wifi_ips', '45.119.135.171, 36.37.169.199']
+  ];
+
+  for (const [k, v] of initSettings) {
+    const row = await db.get('SELECT value FROM settings WHERE key = ?', [k]);
+    if (!row) {
+      await db.run('INSERT INTO settings (key, value) VALUES (?, ?)', [k, v]);
+    }
+  }
+
+  // Ensure default company Wi-Fi IPs are active if not already set
+  const curWifiIps = await db.get('SELECT value FROM settings WHERE key = ?', ['company_wifi_ips']);
+  if (!curWifiIps || !curWifiIps.value) {
+    await db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['company_wifi_ips', '45.119.135.171, 36.37.169.199']);
+  }
+
+  // Seed default members if empty
+  const countRow = await db.get('SELECT COUNT(*) as count FROM members');
+  if (!countRow || countRow.count === 0) {
+    const seed = [
+      ['MEM-001', 'សុក វិបុល (Sok Vibol)', 'Project Manager', '012 345 678'],
+      ['MEM-002', 'ជា ស្រីនាង (Chea Sreynang)', 'UI/UX Designer', '098 765 432'],
+      ['MEM-003', 'Srean Vattana', 'IT Officer', '012 345 678'],
+      ['MEM-004', 'វណ្ណ ស៊ីថា (Vann Sitha)', 'CEO / General Manager', '012 000 111']
+    ];
+    for (const [code, name, role, phone] of seed) {
+      await db.run('INSERT INTO members (code, name, role, phone) VALUES (?, ?, ?, ?)', [code, name, role, phone]);
+    }
   }
 }
 
-const db = new DatabaseSync(dbPath);
-try {
-  db.exec('PRAGMA busy_timeout = 5000;');
-} catch (e) {}
-
-// Create tables
-db.exec(`
-  CREATE TABLE IF NOT EXISTS members (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    code TEXT UNIQUE NOT NULL,
-    name TEXT NOT NULL,
-    role TEXT,
-    phone TEXT,
-    password TEXT DEFAULT '1234',
-    gender TEXT,
-    dob TEXT,
-    national_id TEXT,
-    email TEXT,
-    address TEXT,
-    join_date TEXT,
-    emergency_contact TEXT,
-    salary_type TEXT DEFAULT 'monthly',
-    notes TEXT,
-    status TEXT DEFAULT 'active',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-
-  CREATE TABLE IF NOT EXISTS attendance (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    member_id INTEGER,
-    member_name TEXT,
-    member_code TEXT,
-    member_role TEXT,
-    type TEXT NOT NULL, -- 'check_in' or 'check_out'
-    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-    latitude REAL,
-    longitude REAL,
-    distance_meters REAL,
-    is_within_range INTEGER DEFAULT 1,
-    note TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS settings (
-    key TEXT PRIMARY KEY,
-    value TEXT
-  );
-`);
-
-// Seed default settings if not exists
-const initSettings = [
-  ['office_lat', '11.5564'],
-  ['office_lng', '104.9282'],
-  ['allowed_radius', '150'], // meters
-  ['telegram_token', ''],
-  ['telegram_chat_id', ''],
-  ['telegram_enabled', 'true'],
-  ['office_qr_token', 'OFFICE-ATTENDANCE-HQ-2026'],
-  ['company_name', 'ស្ថាប័ន / ក្រុមហ៊ុនយើង'],
-  ['admin_pin', '1234']
-];
-
-const checkSettingStmt = db.prepare('SELECT value FROM settings WHERE key = ?');
-const insertSettingStmt = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)');
-
-for (const [k, v] of initSettings) {
-  const row = checkSettingStmt.get(k);
-  if (!row) {
-    insertSettingStmt.run(k, v);
+let dbInitPromise = null;
+function ensureDb() {
+  if (!dbInitPromise) {
+    dbInitPromise = initDb();
   }
-}
-
-// Ensure avatar column exists in members table
-try {
-  db.exec("ALTER TABLE members ADD COLUMN avatar TEXT");
-} catch (e) {
-  // column already exists
-}
-
-// Seed sample members if empty
-const countMembers = db.prepare('SELECT COUNT(*) as count FROM members').get();
-if (countMembers.count === 0) {
-  const seedMember = db.prepare('INSERT INTO members (code, name, role, phone) VALUES (?, ?, ?, ?)');
-  seedMember.run('MEM-001', 'សុក វិបុល (Sok Vibol)', 'Project Manager', '012 345 678');
-  seedMember.run('MEM-002', 'ជា ស្រីនាង (Chea Sreynang)', 'UI/UX Designer', '098 765 432');
-  seedMember.run('MEM-003', 'ហេង ដារ៉ា (Heng Dara)', 'Developer', '015 112 233');
+  return dbInitPromise;
 }
 
 // Middleware
@@ -116,6 +179,17 @@ app.use(cors());
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Ensure DB is initialized before processing any route
+app.use(async (req, res, next) => {
+  try {
+    await ensureDb();
+    next();
+  } catch (err) {
+    console.error('Database connection/init error:', err);
+    res.status(500).json({ error: 'Database initialization error: ' + err.message });
+  }
+});
 
 // Helper: Haversine distance in meters
 function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -211,16 +285,16 @@ function formatDurationKm(totalMins) {
 }
 
 // Helper: Get setting
-function getSetting(key) {
-  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+async function getSetting(key) {
+  const row = await db.get('SELECT value FROM settings WHERE key = ?', [key]);
   return row ? row.value : null;
 }
 
 // Helper: Send Telegram notification
 async function sendTelegramMessage(text) {
-  const token = getSetting('telegram_token');
-  const chatId = getSetting('telegram_chat_id');
-  const enabled = getSetting('telegram_enabled');
+  const token = await getSetting('telegram_token');
+  const chatId = await getSetting('telegram_chat_id');
+  const enabled = await getSetting('telegram_enabled');
 
   if (enabled !== 'true' || !token || !chatId) {
     return { success: false, reason: 'Telegram is not configured or disabled' };
@@ -248,22 +322,70 @@ async function sendTelegramMessage(text) {
 // ================= API ROUTES =================
 
 // Public Info (for staff mobile app)
-app.get('/api/public-info', (req, res) => {
-  const members = db.prepare("SELECT code, name, role, avatar FROM members WHERE status = 'active' ORDER BY name ASC").all();
-  res.json({
-    companyName: getSetting('company_name') || 'ស្ថាប័ន / ក្រុមហ៊ុនយើង',
-    officeLat: parseFloat(getSetting('office_lat')),
-    officeLng: parseFloat(getSetting('office_lng')),
-    allowedRadius: parseFloat(getSetting('allowed_radius')) || 150,
-    officeQrToken: getSetting('office_qr_token') || 'OFFICE-ATTENDANCE-HQ-2026',
-    members: members
-  });
+app.get('/api/public-info', async (req, res) => {
+  try {
+    const members = await db.all("SELECT code, name, role, avatar FROM members WHERE status = 'active' ORDER BY name ASC");
+    const companyName = await getSetting('company_name');
+    const officeLat = await getSetting('office_lat');
+    const officeLng = await getSetting('office_lng');
+    const allowedRadius = await getSetting('allowed_radius');
+    const officeQrToken = await getSetting('office_qr_token');
+    const wifiCheckEnabled = (await getSetting('wifi_check_enabled')) !== 'false';
+    const companyWifiIps = (await getSetting('company_wifi_ips')) || '45.119.135.171, 36.37.169.199';
+
+    res.json({
+      companyName: companyName || 'VANN SITHA TRADING CO.,LTD',
+      officeLat: parseFloat(officeLat),
+      officeLng: parseFloat(officeLng),
+      allowedRadius: parseFloat(allowedRadius) || 200,
+      officeQrToken: officeQrToken || 'OFFICE-ATTENDANCE-HQ-2026',
+      wifiCheckEnabled,
+      companyWifiIps,
+      members: members
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Real-time Network Status (Check client IP against Company Wi-Fis)
+app.get('/api/network-status', async (req, res) => {
+  try {
+    const clientIp = getClientIp(req);
+    const wifiCheckEnabled = (await getSetting('wifi_check_enabled')) !== 'false';
+    const allowedIpsStr = (await getSetting('company_wifi_ips')) || '45.119.135.171, 36.37.169.199';
+    const allowedIps = allowedIpsStr.split(',').map(s => s.trim()).filter(Boolean);
+
+    const isLocal = clientIp === '127.0.0.1' || clientIp === '::1' || clientIp.startsWith('192.168.') || clientIp.startsWith('10.');
+    const isAllowed = !wifiCheckEnabled || allowedIps.includes(clientIp) || isLocal;
+
+    let matchedName = null;
+    if (clientIp === '45.119.135.171') {
+      matchedName = 'Wi-Fi ទី ១ (45.119.135.171)';
+    } else if (clientIp === '36.37.169.199') {
+      matchedName = 'Wi-Fi ទី ២ (36.37.169.199)';
+    } else if (allowedIps.includes(clientIp)) {
+      matchedName = `Wi-Fi ក្រុមហ៊ុន (${clientIp})`;
+    } else if (isLocal) {
+      matchedName = 'Local Development / Office LAN';
+    }
+
+    res.json({
+      clientIp,
+      isCompanyWifi: isAllowed,
+      matchedName,
+      wifiCheckEnabled,
+      allowedIps
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Admin verify PIN
-app.post('/api/admin/verify-pin', (req, res) => {
+app.post('/api/admin/verify-pin', async (req, res) => {
   const { pin } = req.body;
-  const currentPin = getSetting('admin_pin') || '1234';
+  const currentPin = (await getSetting('admin_pin')) || '1234';
   if (pin === currentPin) {
     res.json({ success: true });
   } else {
@@ -272,45 +394,59 @@ app.post('/api/admin/verify-pin', (req, res) => {
 });
 
 // 1. Dashboard summary (Admin)
-app.get('/api/dashboard', (req, res) => {
-  const totalMembers = db.prepare("SELECT COUNT(*) as count FROM members WHERE status = 'active'").get().count;
-  
-  const todayCheckIns = db.prepare(`
-    SELECT COUNT(DISTINCT member_id) as count 
-    FROM attendance 
-    WHERE type = 'check_in' AND date(timestamp, 'localtime') = date('now', 'localtime')
-  `).get().count;
+app.get('/api/dashboard', async (req, res) => {
+  try {
+    const totalMembersRow = await db.get("SELECT COUNT(*) as count FROM members WHERE status = 'active'");
+    const totalMembers = totalMembersRow ? totalMembersRow.count : 0;
+    
+    const todayCheckInsRow = await db.get(`
+      SELECT COUNT(DISTINCT member_id) as count 
+      FROM attendance 
+      WHERE (type = 'morning_in' OR type = 'check_in') AND date(timestamp, '+7 hours') = date('now', '+7 hours')
+    `);
+    const todayCheckIns = todayCheckInsRow ? todayCheckInsRow.count : 0;
 
-  const todayCheckOuts = db.prepare(`
-    SELECT COUNT(DISTINCT member_id) as count 
-    FROM attendance 
-    WHERE type = 'check_out' AND date(timestamp, 'localtime') = date('now', 'localtime')
-  `).get().count;
+    const todayCheckOutsRow = await db.get(`
+      SELECT COUNT(DISTINCT member_id) as count 
+      FROM attendance 
+      WHERE (type = 'evening_out' OR type = 'check_out') AND date(timestamp, '+7 hours') = date('now', '+7 hours')
+    `);
+    const todayCheckOuts = todayCheckOutsRow ? todayCheckOutsRow.count : 0;
 
-  const recent = db.prepare(`
-    SELECT * FROM attendance 
-    ORDER BY timestamp DESC 
-    LIMIT 10
-  `).all();
+    const recent = await db.all(`
+      SELECT * FROM attendance 
+      ORDER BY timestamp DESC 
+      LIMIT 10
+    `);
 
-  res.json({
-    totalMembers,
-    todayCheckIns,
-    todayCheckOuts,
-    absentCount: Math.max(0, totalMembers - todayCheckIns),
-    recentLogs: recent,
-    officeQrToken: getSetting('office_qr_token') || 'OFFICE-ATTENDANCE-HQ-2026',
-    companyName: getSetting('company_name') || 'ស្ថាប័ន / ក្រុមហ៊ុនយើង'
-  });
+    const officeQrToken = await getSetting('office_qr_token');
+    const companyName = await getSetting('company_name');
+
+    res.json({
+      totalMembers,
+      todayCheckIns,
+      todayCheckOuts,
+      absentCount: Math.max(0, totalMembers - todayCheckIns),
+      recentLogs: recent,
+      officeQrToken: officeQrToken || 'OFFICE-ATTENDANCE-HQ-2026',
+      companyName: companyName || 'VANN SITHA TRADING CO.,LTD'
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // 2. Members Management (Admin)
-app.get('/api/members', (req, res) => {
-  const members = db.prepare('SELECT * FROM members ORDER BY id DESC').all();
-  res.json(members);
+app.get('/api/members', async (req, res) => {
+  try {
+    const members = await db.all('SELECT * FROM members ORDER BY id DESC');
+    res.json(members);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.post('/api/members', (req, res) => {
+app.post('/api/members', async (req, res) => {
   const { 
     code, name, role, phone, password, 
     gender, dob, national_id, email, address, join_date, emergency_contact, salary_type, notes, avatar 
@@ -323,13 +459,12 @@ app.post('/api/members', (req, res) => {
   const memberPassword = (password && password.trim()) ? password.trim() : '1234';
 
   try {
-    const stmt = db.prepare(`
+    const info = await db.run(`
       INSERT INTO members (
         code, name, role, phone, password,
         gender, dob, national_id, email, address, join_date, emergency_contact, salary_type, notes, avatar
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    const info = stmt.run(
+    `, [
       code.trim().toUpperCase(), 
       name.trim(), 
       role ? role.trim() : '', 
@@ -345,18 +480,17 @@ app.post('/api/members', (req, res) => {
       salary_type || 'monthly',
       notes ? notes.trim() : '',
       avatar || ''
-    );
+    ]);
     res.json({ success: true, id: info.lastInsertRowid });
   } catch (err) {
-    if (err.message.includes('UNIQUE')) {
+    if (err.message && err.message.includes('UNIQUE')) {
       return res.status(400).json({ error: 'លេខកូដសមាជិក (Member Code) នេះមានរួចហើយ!' });
     }
     res.status(500).json({ error: err.message });
   }
 });
 
-// Update Member (Admin)
-app.put('/api/members/:id', (req, res) => {
+app.put('/api/members/:id', async (req, res) => {
   const { 
     code, name, role, phone, password, 
     gender, dob, national_id, email, address, join_date, emergency_contact, salary_type, notes, avatar 
@@ -367,7 +501,7 @@ app.put('/api/members/:id', (req, res) => {
   }
 
   try {
-    const currentMember = db.prepare('SELECT * FROM members WHERE id = ?').get(req.params.id);
+    const currentMember = await db.get('SELECT * FROM members WHERE id = ?', [req.params.id]);
     if (!currentMember) {
       return res.status(404).json({ error: 'Member not found' });
     }
@@ -376,14 +510,12 @@ app.put('/api/members/:id', (req, res) => {
     const memberCode = (code && code.trim()) ? code.trim().toUpperCase() : currentMember.code;
     const memberAvatar = (avatar !== undefined) ? avatar : (currentMember.avatar || '');
 
-    const stmt = db.prepare(`
+    await db.run(`
       UPDATE members SET
         code = ?, name = ?, role = ?, phone = ?, password = ?,
         gender = ?, dob = ?, national_id = ?, email = ?, address = ?, join_date = ?, emergency_contact = ?, salary_type = ?, notes = ?, avatar = ?
       WHERE id = ?
-    `);
-
-    stmt.run(
+    `, [
       memberCode,
       name.trim(),
       role ? role.trim() : '',
@@ -400,30 +532,34 @@ app.put('/api/members/:id', (req, res) => {
       notes ? notes.trim() : '',
       memberAvatar,
       req.params.id
-    );
+    ]);
 
     res.json({ success: true });
   } catch (err) {
-    if (err.message.includes('UNIQUE')) {
+    if (err.message && err.message.includes('UNIQUE')) {
       return res.status(400).json({ error: 'លេខកូដសមាជិក (Member Code) នេះមានរួចហើយ!' });
     }
     res.status(500).json({ error: err.message });
   }
 });
 
-app.delete('/api/members/:id', (req, res) => {
-  db.prepare('DELETE FROM members WHERE id = ?').run(req.params.id);
-  res.json({ success: true });
+app.delete('/api/members/:id', async (req, res) => {
+  try {
+    await db.run('DELETE FROM members WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Employee Login (By Member Code / Selection + Password set by Admin)
-app.post('/api/members/login', (req, res) => {
+app.post('/api/members/login', async (req, res) => {
   const { code, password } = req.body;
   if (!code || !code.trim()) {
     return res.status(400).json({ error: 'សូមជ្រើសរើសឈ្មោះបុគ្គលិក ឬបញ្ចូលលេខកូដ ID' });
   }
 
-  const member = db.prepare('SELECT * FROM members WHERE code = ? COLLATE NOCASE OR phone = ? COLLATE NOCASE').get(code.trim(), code.trim());
+  const member = await db.get('SELECT * FROM members WHERE code = ? COLLATE NOCASE OR phone = ? COLLATE NOCASE', [code.trim(), code.trim()]);
   if (!member) {
     return res.status(404).json({ error: `រកមិនឃើញគណនីដែលមានកូដ "${code}" ទេ! សូមទាក់ទង Admin ដើម្បីចុះឈ្មោះ។` });
   }
@@ -446,22 +582,42 @@ app.post('/api/members/login', (req, res) => {
   res.json({ success: true, member: safeMember });
 });
 
-// 3. Employee Self-Check-in (Staff scans Office QR code from their mobile phone)
 app.post('/api/attendance/check', async (req, res) => {
   try {
-    const { code, type, qr_token, latitude, longitude, note } = req.body;
+    const { code, type, qr_token, latitude, longitude, note, check_method } = req.body;
     
     if (!code) {
       return res.status(400).json({ error: 'សូមបញ្ជាក់លេខកូដសមាជិក (Member Code)' });
     }
 
-    // Verify Office QR token if provided
-    const expectedToken = getSetting('office_qr_token') || 'OFFICE-ATTENDANCE-HQ-2026';
-    if (qr_token && qr_token.trim() !== expectedToken.trim()) {
-      return res.status(400).json({ error: 'QR Code មិនត្រឹមត្រូវទេ! សូមស្កេន QR Code ការិយាល័យផ្លូវការ។' });
+    // Client IP & Company Wi-Fi verification
+    const clientIp = getClientIp(req);
+    const wifiCheckEnabled = (await getSetting('wifi_check_enabled')) !== 'false';
+    const allowedIpsStr = (await getSetting('company_wifi_ips')) || '45.119.135.171, 36.37.169.199';
+    const allowedIps = allowedIpsStr.split(',').map(s => s.trim()).filter(Boolean);
+    const isLocal = clientIp === '127.0.0.1' || clientIp === '::1' || clientIp.startsWith('192.168.') || clientIp.startsWith('10.');
+    const isCompanyWifi = !wifiCheckEnabled || allowedIps.includes(clientIp) || isLocal;
+
+    const isButtonCheck = check_method === 'wifi_button' || !qr_token;
+
+    // If using One-Click Button or Wi-Fi is strictly enabled:
+    if (isButtonCheck) {
+      if (wifiCheckEnabled && !isCompanyWifi) {
+        return res.status(403).json({
+          error: `⚠️ មិនទាន់ភ្ជាប់ Wi-Fi ក្រុមហ៊ុនទេ! (IP របស់អ្នក: ${clientIp || 'មិនស្គាល់'})\nសូមភ្ជាប់ Wi-Fi ទី១ ឬទី២ របស់ក្រុមហ៊ុនដើម្បីចុចកត់ត្រាវត្តមាន។`,
+          isWifiBlocked: true,
+          clientIp
+        });
+      }
+    } else {
+      // Verify Office QR token if provided
+      const expectedToken = (await getSetting('office_qr_token')) || 'OFFICE-ATTENDANCE-HQ-2026';
+      if (qr_token && qr_token.trim() !== expectedToken.trim()) {
+        return res.status(400).json({ error: 'QR Code មិនត្រឹមត្រូវទេ! សូមស្កេន QR Code ការិយាល័យផ្លូវការ។' });
+      }
     }
 
-    const member = db.prepare('SELECT * FROM members WHERE code = ? COLLATE NOCASE').get(code.trim());
+    const member = await db.get('SELECT * FROM members WHERE code = ? COLLATE NOCASE', [code.trim()]);
     if (!member) {
       return res.status(404).json({ error: `រកមិនឃើញសមាជិកដែលមានកូដ "${code}" ទេ!` });
     }
@@ -469,11 +625,11 @@ app.post('/api/attendance/check', async (req, res) => {
     // Normalize action type (4 scans per day: morning_in, lunch_out, afternoon_in, evening_out)
     // Strict max 4 scans check per day (Cambodia time)
     const todayKhDate = getCambodiaDateString();
-    const todayExisting = db.prepare(`
+    const todayExisting = await db.all(`
       SELECT * FROM attendance 
       WHERE member_id = ? AND date(timestamp, '+7 hours') = ?
       ORDER BY timestamp ASC
-    `).all(member.id, todayKhDate);
+    `, [member.id, todayKhDate]);
 
     if (todayExisting.length >= 4) {
       return res.status(400).json({
@@ -496,16 +652,16 @@ app.post('/api/attendance/check', async (req, res) => {
     }
 
     // Strict Geofencing Check
-    const officeLat = parseFloat(getSetting('office_lat'));
-    const officeLng = parseFloat(getSetting('office_lng'));
-    const allowedRadius = parseFloat(getSetting('allowed_radius')) || 150;
+    const officeLat = parseFloat(await getSetting('office_lat'));
+    const officeLng = parseFloat(await getSetting('office_lng'));
+    const allowedRadius = parseFloat(await getSetting('allowed_radius')) || 200;
 
     let distance = null;
     let isWithinRange = 1;
 
     if (latitude !== undefined && longitude !== undefined && latitude !== null && longitude !== null && !isNaN(officeLat) && !isNaN(officeLng)) {
       distance = calculateDistance(latitude, longitude, officeLat, officeLng);
-      if (distance !== null && distance > allowedRadius) {
+      if (!isCompanyWifi && distance !== null && distance > allowedRadius) {
         isWithinRange = 0;
         return res.status(400).json({
           error: `អ្នកនៅក្រៅបរិវេណការិយាល័យ (${distance} ម៉ែត្រ)! ប្រព័ន្ធអនុញ្ញាតត្រឹមតែ ${allowedRadius} ម៉ែត្រប៉ុណ្ណោះ។ សូមចូលទៅក្នុងបរិវេណការិយាល័យដើម្បីស្កេនវត្តមាន។`,
@@ -513,8 +669,8 @@ app.post('/api/attendance/check', async (req, res) => {
           allowedRadius: allowedRadius
         });
       }
-    } else if (!isNaN(officeLat) && !isNaN(officeLng) && officeLat !== 0 && officeLng !== 0) {
-      // If office location is configured but user did not provide GPS
+    } else if (!isCompanyWifi && !isNaN(officeLat) && !isNaN(officeLng) && officeLat !== 0 && officeLng !== 0) {
+      // If user did not provide GPS and is not on company Wi-Fi
       return res.status(400).json({
         error: 'សូមបើក Location (GPS Permission) លើទូរស័ព្ទរបស់អ្នក ដើម្បីផ្ទៀងផ្ទាត់ចម្ងាយការិយាល័យមុនពេលស្កេន!'
       });
@@ -595,14 +751,12 @@ app.post('/api/attendance/check', async (req, res) => {
     }
 
     // Record attendance
-    const insertStmt = db.prepare(`
+    const recordResult = await db.run(`
       INSERT INTO attendance (
         member_id, member_name, member_code, member_role,
         type, latitude, longitude, distance_meters, is_within_range, note
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    const recordResult = insertStmt.run(
+    `, [
       member.id,
       member.name,
       member.code,
@@ -613,7 +767,7 @@ app.post('/api/attendance/check', async (req, res) => {
       distance,
       isWithinRange,
       trimmedNote
-    );
+    ]);
 
     const todayScansCount = todayExisting.length + 1;
     const now = new Date();
@@ -631,8 +785,11 @@ app.post('/api/attendance/check', async (req, res) => {
     const meta = slotMeta[actionType] || { labelKm: actionType, labelEn: actionType, num: `${todayScansCount}/4`, badge: '📌' };
     const typeLabel = `${meta.badge} ${meta.labelKm} [${meta.num}]`;
 
-    const companyName = getSetting('company_name') || 'VANN SITHA TRADING CO.,LTD';
+    const companyName = (await getSetting('company_name')) || 'VANN SITHA TRADING CO.,LTD';
     const reasonLine = trimmedNote ? `\n📝 <b>មូលហេតុ:</b> ${trimmedNote}` : '';
+    const methodDesc = isButtonCheck 
+      ? `📶 ចុចប៊ូតុង Wi-Fi ក្រុមហ៊ុន (${clientIp})`
+      : `📷 ស្កេនកាមេរ៉ា QR Code`;
 
     // Build Telegram Notification Message with Emojis
     const telegramMsg = `
@@ -640,16 +797,18 @@ app.post('/api/attendance/check', async (req, res) => {
 ━━━━━━━━━━━━━━
 👤 <b>បុគ្គលិក:</b> ${member.name}
 💼 <b>តួនាទី:</b> ${member.role || 'ទូទៅ'}
-⏰ <b>វេនស្កេន:</b> ${meta.badge} ${meta.labelKm}
-🕒 <b>ម៉ោងស្កេន:</b> ${timeStr}
+⏰ <b>វេនវត្តមាន:</b> ${meta.badge} ${meta.labelKm}
+🕒 <b>ម៉ោងកត់ត្រា:</b> ${timeStr}
+📱 <b>វិធី:</b> ${methodDesc}
 ${statusText}${reasonLine}
 📅 <b>កាលបរិច្ឆេទ:</b> ${dateStr}
 ━━━━━━━━━━━━━━
-📊 <b>ស្កេនបាន ${todayScansCount}/4 ដងសម្រាប់ថ្ងៃនេះ</b>
+📊 <b>កត់ត្រាបាន ${todayScansCount}/4 ដងសម្រាប់ថ្ងៃនេះ</b>
     `.trim();
 
-    // Send asynchronous Telegram alert
-    sendTelegramMessage(telegramMsg).catch(err => console.error(err));
+    sendTelegramMessage(telegramMsg).catch(err => {
+      console.error('Background Telegram send error:', err);
+    });
 
     res.json({
       success: true,
@@ -678,23 +837,23 @@ ${statusText}${reasonLine}
 });
 
 // 4. Employee Today 4-Slot Summary (Smart detector)
-app.get('/api/attendance/today-summary', (req, res) => {
+app.get('/api/attendance/today-summary', async (req, res) => {
   const { code } = req.query;
   if (!code) {
     return res.status(400).json({ error: 'Code is required' });
   }
 
-  const member = db.prepare('SELECT * FROM members WHERE code = ? COLLATE NOCASE').get(code.trim());
+  const member = await db.get('SELECT * FROM members WHERE code = ? COLLATE NOCASE', [code.trim()]);
   if (!member) {
     return res.status(404).json({ error: 'Member not found' });
   }
 
   const todayKhDate = getCambodiaDateString();
-  const todayLogs = db.prepare(`
+  const todayLogs = await db.all(`
     SELECT * FROM attendance 
     WHERE member_id = ? AND date(timestamp, '+7 hours') = ?
     ORDER BY timestamp ASC
-  `).all(member.id, todayKhDate);
+  `, [member.id, todayKhDate]);
 
   // Group by slots
   const slots = {
@@ -747,13 +906,13 @@ app.get('/api/attendance/today-summary', (req, res) => {
 });
 
 // 4. Attendance History (Admin)
-app.get('/api/attendance', (req, res) => {
+app.get('/api/attendance', async (req, res) => {
   const { date, member_id, code, limit = 50 } = req.query;
   let query = 'SELECT * FROM attendance WHERE 1=1';
   const params = [];
 
   if (date) {
-    query += " AND date(timestamp, 'localtime') = ?";
+    query += " AND date(timestamp, '+7 hours') = ?";
     params.push(date);
   }
   if (member_id) {
@@ -768,41 +927,45 @@ app.get('/api/attendance', (req, res) => {
   query += ' ORDER BY timestamp DESC LIMIT ?';
   params.push(parseInt(limit));
 
-  const records = db.prepare(query).all(...params);
+  const records = await db.all(query, params);
   res.json(records);
 });
 
 // 5. Settings (Admin)
-app.get('/api/settings', (req, res) => {
-  const rows = db.prepare('SELECT * FROM settings').all();
+app.get('/api/settings', async (req, res) => {
+  const rows = await db.all('SELECT * FROM settings');
   const settingsObj = {};
   for (const r of rows) {
     settingsObj[r.key] = r.value;
   }
-  if (settingsObj.telegram_token) {
-    const t = settingsObj.telegram_token;
-    settingsObj.telegram_token_masked = t.length > 8 ? t.slice(0, 4) + '...' + t.slice(-4) : '******';
-  }
   res.json(settingsObj);
 });
 
-app.post('/api/settings', (req, res) => {
+app.post('/api/settings', async (req, res) => {
   const { 
     office_lat, office_lng, allowed_radius, 
-    telegram_token, telegram_chat_id, telegram_enabled,
-    office_qr_token, company_name, admin_pin 
+    telegram_token, telegram_chat_id, telegram_enabled, 
+    office_qr_token, company_name, admin_pin,
+    wifi_check_enabled, company_wifi_ips
   } = req.body;
-  const updateStmt = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
 
-  if (office_lat !== undefined) updateStmt.run('office_lat', String(office_lat));
-  if (office_lng !== undefined) updateStmt.run('office_lng', String(office_lng));
-  if (allowed_radius !== undefined) updateStmt.run('allowed_radius', String(allowed_radius));
-  if (telegram_token !== undefined && telegram_token !== '') updateStmt.run('telegram_token', String(telegram_token));
-  if (telegram_chat_id !== undefined) updateStmt.run('telegram_chat_id', String(telegram_chat_id));
-  if (telegram_enabled !== undefined) updateStmt.run('telegram_enabled', String(telegram_enabled));
-  if (office_qr_token !== undefined) updateStmt.run('office_qr_token', String(office_qr_token));
-  if (company_name !== undefined) updateStmt.run('company_name', String(company_name));
-  if (admin_pin !== undefined) updateStmt.run('admin_pin', String(admin_pin));
+  const saveSetting = async (k, v) => {
+    if (v !== undefined) {
+      await db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [k, String(v)]);
+    }
+  };
+
+  await saveSetting('office_lat', office_lat);
+  await saveSetting('office_lng', office_lng);
+  await saveSetting('allowed_radius', allowed_radius);
+  if (telegram_token !== undefined && telegram_token !== '') await saveSetting('telegram_token', telegram_token);
+  await saveSetting('telegram_chat_id', telegram_chat_id);
+  await saveSetting('telegram_enabled', telegram_enabled);
+  await saveSetting('office_qr_token', office_qr_token);
+  await saveSetting('company_name', company_name);
+  await saveSetting('admin_pin', admin_pin);
+  await saveSetting('wifi_check_enabled', wifi_check_enabled);
+  await saveSetting('company_wifi_ips', company_wifi_ips);
 
   res.json({ success: true, message: 'បានរក្សាទុកការកំណត់ជោគជ័យ' });
 });
@@ -827,23 +990,23 @@ app.post('/api/settings/test-telegram', async (req, res) => {
 });
 
 // 7. Daily Evening Summary Report (Calculation & Formatting)
-function generateDailySummaryReport() {
-  const companyName = getSetting('company_name') || 'VANN SITHA TRADING CO., LTD';
+async function generateDailySummaryReport() {
+  const companyName = (await getSetting('company_name')) || 'VANN SITHA TRADING CO., LTD';
   const now = new Date();
   const dateStr = formatCambodiaDate(now);
   const timeStr = formatCambodiaTime(now);
   const todayKhDate = getCambodiaDateString(now);
 
   // Get all active members
-  const activeMembers = db.prepare("SELECT * FROM members WHERE status = 'active' ORDER BY name ASC").all();
+  const activeMembers = await db.all("SELECT * FROM members WHERE status = 'active' ORDER BY name ASC");
   const totalCount = activeMembers.length;
 
   // Get all attendance logs for today (Cambodia date)
-  const todayLogs = db.prepare(`
+  const todayLogs = await db.all(`
     SELECT * FROM attendance 
     WHERE date(timestamp, '+7 hours') = ?
     ORDER BY timestamp ASC
-  `).all(todayKhDate);
+  `, [todayKhDate]);
 
   // Group logs by member
   const memberLogsMap = {};
@@ -958,7 +1121,7 @@ ${absentSection}
 // 8. API to Send Daily Summary to Telegram
 app.post('/api/attendance/send-daily-summary', async (req, res) => {
   try {
-    const report = generateDailySummaryReport();
+    const report = await generateDailySummaryReport();
     const result = await sendTelegramMessage(report.summaryMsg);
     if (result.success) {
       res.json({
@@ -979,7 +1142,7 @@ app.post('/api/attendance/send-daily-summary', async (req, res) => {
 
 // 9. Automated Schedule: Daily evening report at 17:30 (Monday - Saturday)
 let lastAutoSentDate = '';
-setInterval(() => {
+setInterval(async () => {
   const isSunday = getCambodiaDayOfWeek() === 0;
   if (isSunday) return; // Skip Sunday
 
@@ -988,21 +1151,18 @@ setInterval(() => {
 
   // Trigger automatically at 17:30 or later if not yet sent today
   if (hours >= 17 && minutes >= 30 && lastAutoSentDate !== todayDateStr) {
-    const enabled = getSetting('telegram_enabled');
-    const token = getSetting('telegram_token');
-    const chatId = getSetting('telegram_chat_id');
+    const enabled = await getSetting('telegram_enabled');
+    const token = await getSetting('telegram_token');
+    const chatId = await getSetting('telegram_chat_id');
 
     if (enabled === 'true' && token && chatId) {
       lastAutoSentDate = todayDateStr;
       console.log(`[SCHEDULE] Sending automated evening attendance summary for ${todayDateStr}...`);
       try {
-        const report = generateDailySummaryReport();
-        sendTelegramMessage(report.summaryMsg)
-          .then(res => {
-            if (res.success) console.log('[SCHEDULE] Evening summary sent successfully.');
-            else console.error('[SCHEDULE] Failed to send evening summary:', res.reason || res.error);
-          })
-          .catch(e => console.error('[SCHEDULE] Error sending evening summary:', e));
+        const report = await generateDailySummaryReport();
+        const res = await sendTelegramMessage(report.summaryMsg);
+        if (res.success) console.log('[SCHEDULE] Evening summary sent successfully.');
+        else console.error('[SCHEDULE] Failed to send evening summary:', res.reason || res.error);
       } catch (e) {
         console.error('[SCHEDULE] Exception while generating summary:', e);
       }
@@ -1021,13 +1181,21 @@ app.use((err, req, res, next) => {
 
 // Start server
 if (!process.env.VERCEL) {
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`===============================================`);
-    console.log(`🚀 Attendance Web App running at http://localhost:${PORT}`);
-    console.log(`📱 Accessible on Local Network via your PC IP Address!`);
-    console.log(`===============================================`);
+  ensureDb().then(() => {
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`===============================================`);
+      console.log(`🚀 Attendance Web App running at http://localhost:${PORT}`);
+      console.log(`📱 Accessible on Local Network via your PC IP Address!`);
+      if (process.env.TURSO_DATABASE_URL) {
+        console.log(`☁️ Turso Cloud Database Active & Connected!`);
+      } else {
+        console.log(`💾 Local SQLite file database active.`);
+      }
+      console.log(`===============================================`);
+    });
+  }).catch(err => {
+    console.error('Failed to start server:', err);
   });
 }
 
 module.exports = app;
-
