@@ -346,6 +346,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 1. Restore saved login session synchronously to prevent login screen flashing
   initStaffProfile();
   initStaffGPS();
+  fetchNetworkStatus();
+  setInterval(fetchNetworkStatus, 30000);
 
   const ipDisplay = document.getElementById('localNetworkUrlDisplay');
   if (ipDisplay) ipDisplay.textContent = mobileAppUrl;
@@ -1165,6 +1167,66 @@ async function loadMyAttendanceActivity() {
 
     // Update Total Scans badge & 4-Segment Progress Bar
     const totalDone = summary.totalScansToday || 0;
+    // ACLEDA Circular Progress & Working Duration Updates
+    const circleEl = document.getElementById('acledaProgressCircle');
+    const circleTxt = document.getElementById('acledaProgressText');
+    const miniBadge = document.getElementById('todayScansMiniBadge');
+    if (circleEl) {
+      const circOffset = 201 - (Math.min(4, totalDone) / 4) * 201;
+      circleEl.style.strokeDashoffset = circOffset;
+    }
+    if (circleTxt) circleTxt.textContent = totalDone + '/4';
+    if (miniBadge) miniBadge.textContent = totalDone + '/4';
+
+    // Calculate Working Duration (Hours & Minutes)
+    let workedMinutes = 0;
+    const slots = summary.slots || {};
+    const now = new Date();
+
+    if (slots.morning_in) {
+      const tIn = new Date(slots.morning_in.timestamp);
+      if (slots.lunch_out) {
+        const tOut = new Date(slots.lunch_out.timestamp);
+        workedMinutes += Math.max(0, Math.round((tOut - tIn) / 60000));
+      } else {
+        workedMinutes += Math.max(0, Math.round((now - tIn) / 60000));
+      }
+    }
+    if (slots.afternoon_in) {
+      const tIn2 = new Date(slots.afternoon_in.timestamp);
+      if (slots.evening_out) {
+        const tOut2 = new Date(slots.evening_out.timestamp);
+        workedMinutes += Math.max(0, Math.round((tOut2 - tIn2) / 60000));
+      } else {
+        workedMinutes += Math.max(0, Math.round((now - tIn2) / 60000));
+      }
+    }
+    const durH = Math.floor(workedMinutes / 60);
+    const durM = workedMinutes % 60;
+    const durEl = document.getElementById('acledaWorkDurationText');
+    if (durEl && !durEl.dataset.blurred) {
+      durEl.textContent = `${durH} ម៉ោង ${durM} នាទី`;
+    }
+
+    // Update Hero 1-Click Action Button Text
+    const heroTitle = document.getElementById('heroBtnActionTitle');
+    const heroSub = document.getElementById('heroBtnActionSubtitle');
+    const heroIcon = document.getElementById('heroBtnActionIcon');
+    if (totalDone >= 4) {
+      if (heroTitle) heroTitle.textContent = 'គ្រប់ ៤/៤ ដងរួចរាល់';
+      if (heroSub) heroSub.textContent = 'បានបញ្ចប់វត្តមានថ្ងៃនេះ';
+    } else {
+      const nextSlot = summary.nextSuggestedSlot || 'morning_in';
+      const slotTitles = {
+        morning_in: 'ចុចចូលព្រឹក (08:00)',
+        lunch_out: 'ចុចចេញបាយ (11:00)',
+        afternoon_in: 'ចុចចូលរសៀល (13:00)',
+        evening_out: 'ចុចចេញល្ងាច (17:00)'
+      };
+      if (heroTitle) heroTitle.textContent = slotTitles[nextSlot] || 'ចុចកត់ត្រាវត្តមាន';
+      if (heroSub) heroSub.textContent = '1-Click (Wi-Fi ក្រុមហ៊ុន)';
+    }
+
     const countEl = document.getElementById('todayScansCountText');
     if (countEl) {
       countEl.textContent = totalDone;
@@ -1971,3 +2033,330 @@ async function sendDailyTelegramSummaryNow() {
   }
 }
 
+
+
+// ================= ACLEDA MOBILE INTERFACE & WI-FI VERIFICATION LOGIC =================
+let currentNetworkStatus = null;
+let isWorkHoursBlurred = false;
+
+// Real-time Wi-Fi Network Status
+async function fetchNetworkStatus(showToast = false) {
+  try {
+    const res = await fetch('/api/network-status');
+    if (!res.ok) return;
+    const data = await res.json();
+    currentNetworkStatus = data;
+
+    const badgeWrap = document.getElementById('acledaWifiBadge');
+    const tileSub = document.getElementById('tileWifiSubtext');
+    const tileIconWrap = document.getElementById('tileWifiIconWrap');
+
+    if (data.isCompanyWifi) {
+      if (badgeWrap) {
+        badgeWrap.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-xs';
+        badgeWrap.innerHTML = `<i data-lucide="wifi" class="w-3.5 h-3.5"></i> <span>${data.matchedName || 'Wi-Fi ក្រុមហ៊ុន (បានភ្ជាប់)'}</span>`;
+      }
+      if (tileSub) tileSub.textContent = 'បានភ្ជាប់ Wi-Fi';
+      if (tileIconWrap) tileIconWrap.className = 'w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-600/30 to-teal-500/20 border border-emerald-400/30 flex items-center justify-center mb-1.5 text-emerald-300';
+
+      if (showToast) {
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: `បានភ្ជាប់ ${data.matchedName || 'Wi-Fi ក្រុមហ៊ុន'} រួចរាល់!`,
+          text: `IP: ${data.clientIp}`,
+          showConfirmButton: false,
+          timer: 2500
+        });
+      }
+    } else {
+      if (badgeWrap) {
+        badgeWrap.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 shadow-xs';
+        badgeWrap.innerHTML = `<i data-lucide="wifi-off" class="w-3.5 h-3.5"></i> <span>មិនទាន់ភ្ជាប់ Wi-Fi ក្រុមហ៊ុន</span>`;
+      }
+      if (tileSub) tileSub.textContent = data.clientIp || 'ក្រៅបណ្តាញ';
+      if (tileIconWrap) tileIconWrap.className = 'w-10 h-10 rounded-2xl bg-gradient-to-tr from-rose-600/30 to-red-500/20 border border-rose-400/30 flex items-center justify-center mb-1.5 text-rose-300';
+
+      if (showToast) {
+        Swal.fire({
+          icon: 'warning',
+          title: '⚠️ មិនទាន់ភ្ជាប់ Wi-Fi ក្រុមហ៊ុន',
+          html: `
+            <div class="text-left text-xs space-y-2 text-slate-600">
+              <p>IP បច្ចុប្បន្នរបស់អ្នក: <code class="font-bold text-amber-600">${data.clientIp || 'មិនស្គាល់'}</code></p>
+              <p>ដើម្បីចុចកត់ត្រាវត្តមាន សូមភ្ជាប់ទូរស័ព្ទរបស់អ្នកទៅកាន់ <b>Wi-Fi ទី ១</b> ឬ <b>Wi-Fi ទី ២</b> របស់ក្រុមហ៊ុនជាមុនសិន។</p>
+            </div>
+          `,
+          confirmButtonText: 'យល់ព្រម',
+          confirmButtonColor: '#0ea5e9'
+        });
+      }
+    }
+
+    if (window.lucide) lucide.createIcons();
+  } catch (e) {
+    console.warn('Network status fetch error:', e);
+  }
+}
+
+// 1-Click Check-in Execution (Wi-Fi Protected)
+async function executeStaffCheckIn() {
+  if (isSubmitting) return;
+
+  if (!currentStaff) {
+    Swal.fire({
+      icon: 'info',
+      title: 'សូមកំណត់ឈ្មោះជាមុនសិន',
+      text: 'សូមជ្រើសរើសឈ្មោះរបស់អ្នកក្នុងប្រព័ន្ធ'
+    });
+    return;
+  }
+
+  if (todayScansTotalCount >= 4) {
+    Swal.fire({
+      icon: 'info',
+      title: 'គ្រប់ 4/4 ដងរួចរាល់',
+      text: 'អ្នកបានកត់ត្រាវត្តមានគ្រប់ចំនួន ៤ ដង (4/4) សម្រាប់ថ្ងៃនេះរួចរាល់ហើយ!',
+      confirmButtonColor: '#0ea5e9'
+    });
+    return;
+  }
+
+  // 1. Strict Wi-Fi Protection Check
+  if (currentNetworkStatus && currentNetworkStatus.wifiCheckEnabled && !currentNetworkStatus.isCompanyWifi) {
+    Swal.fire({
+      icon: 'warning',
+      title: '⚠️ សូមភ្ជាប់ Wi-Fi ក្រុមហ៊ុន',
+      html: `
+        <div class="text-left text-xs space-y-2 text-slate-600">
+          <p>ប្រព័ន្ធពិនិត្យឃើញថាអ្នកមិនទាន់បានភ្ជាប់ <b>Wi-Fi របស់ក្រុមហ៊ុន</b> ទេ។</p>
+          <p class="bg-slate-100 p-2 rounded-lg font-mono text-[11px]">IP របស់អ្នកបច្ចុប្បន្ន: <b class="text-rose-600">${currentNetworkStatus.clientIp || 'មិនស្គាល់'}</b></p>
+          <p class="text-slate-500">👉 សូមភ្ជាប់ទូរស័ព្ទរបស់អ្នកទៅកាន់ <b>Wi-Fi ទី១</b> ឬ <b>Wi-Fi ទី២</b> របស់ក្រុមហ៊ុន ទើបអាចចុចកត់ត្រាវត្តមានបាន!</p>
+        </div>
+      `,
+      confirmButtonText: '🔄 ឆែក Wi-Fi ម្តងទៀត',
+      showCancelButton: true,
+      cancelButtonText: 'បិទ',
+      confirmButtonColor: '#0ea5e9'
+    }).then((res) => {
+      if (res.isConfirmed) {
+        fetchNetworkStatus(true);
+      }
+    });
+    return;
+  }
+
+  isSubmitting = true;
+
+  // 2. Cambodia Time (UTC+7) Late / Early Check
+  const now = new Date();
+  const cambodiaStr = now.toLocaleString('en-US', { timeZone: 'Asia/Phnom_Penh' });
+  const cambodiaDate = new Date(cambodiaStr);
+  const hours = cambodiaDate.getHours();
+  const minutes = cambodiaDate.getMinutes();
+  const totalMins = hours * 60 + minutes;
+
+  function formatDiffUi(mins) {
+    const m = Math.abs(Math.round(mins || 0));
+    const h = Math.floor(m / 60);
+    const rem = m % 60;
+    if (h > 0) return rem > 0 ? `${h} ម៉ោង ${rem} នាទី` : `${h} ម៉ោង`;
+    return `${rem} នាទី`;
+  }
+
+  let promptReason = false;
+  let promptTitle = '';
+  let promptSubtitle = '';
+
+  if (currentScanAction === 'morning_in' && totalMins > 490) { // After 08:10
+    const lateMins = totalMins - 480;
+    promptReason = true;
+    promptTitle = `⚠️ អ្នកមកយឺត ${formatDiffUi(lateMins)}`;
+    promptSubtitle = 'ម៉ោងចូលធ្វើការគឺ 08:00 AM (អនុគ្រោះត្រឹម 08:10)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកមកយឺត:';
+  } else if (currentScanAction === 'lunch_out' && totalMins < 650) { // Before 10:50
+    const earlyMins = 660 - totalMins;
+    promptReason = true;
+    promptTitle = `🏃💨 អ្នកចេញមុនម៉ោង ${formatDiffUi(earlyMins)}`;
+    promptSubtitle = 'ម៉ោងចេញសម្រាកបាយគឺ 11:00 AM (អនុញ្ញាតចាប់ពី 10:50)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកចេញមុន:';
+  } else if (currentScanAction === 'afternoon_in' && totalMins > 790) { // After 13:10
+    const lateMins = totalMins - 780;
+    promptReason = true;
+    promptTitle = `⚠️ អ្នកមកយឺត ${formatDiffUi(lateMins)}`;
+    promptSubtitle = 'ម៉ោងចូលរសៀលគឺ 01:00 PM (អនុគ្រោះត្រឹម 01:10)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកមកយឺត:';
+  } else if (currentScanAction === 'evening_out' && totalMins < 1010) { // Before 16:50
+    const earlyMins = 1020 - totalMins;
+    promptReason = true;
+    promptTitle = `🏃💨 អ្នកចេញមុនម៉ោង ${formatDiffUi(earlyMins)}`;
+    promptSubtitle = 'ម៉ោងចេញធ្វើការគឺ 05:00 PM (អនុញ្ញាតចាប់ពី 04:50)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកចេញមុន:';
+  }
+
+  let staffReason = '';
+  if (promptReason) {
+    const reasonResult = await Swal.fire({
+      title: promptTitle,
+      text: promptSubtitle,
+      input: 'textarea',
+      inputPlaceholder: 'ឧ. ស្ទះចរាចរណ៍, ឈឺ/មិនស្រួលខ្លួន, មានធុរៈផ្ទាល់ខ្លួន...',
+      icon: 'warning',
+      confirmButtonText: 'បញ្ជាក់ និងកត់ត្រាវត្តមាន',
+      cancelButtonText: 'បោះបង់',
+      showCancelButton: true,
+      confirmButtonColor: '#f59e0b',
+      cancelButtonColor: '#64748b',
+      allowOutsideClick: false,
+      inputValidator: (val) => {
+        if (!val || !val.trim()) {
+          return 'សូមបញ្ចូលមូលហេតុរបស់អ្នកជាមុនសិន!';
+        }
+      }
+    });
+
+    if (!reasonResult.isConfirmed) {
+      isSubmitting = false;
+      return;
+    }
+    staffReason = (reasonResult.value || '').trim();
+  }
+
+  // 3. Post One-Click Check-In to Backend
+  try {
+    const res = await fetch('/api/attendance/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: currentStaff.code,
+        type: currentScanAction,
+        check_method: 'wifi_button',
+        latitude: userCoords.lat,
+        longitude: userCoords.lng,
+        note: staffReason
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      Swal.fire({
+        icon: 'error',
+        title: 'កត់ត្រាមិនជោគជ័យ',
+        text: data.error || 'មានបញ្ហាក្នុងការផ្ទៀងផ្ទាត់វត្តមាន',
+        confirmButtonColor: '#f59e0b'
+      });
+      isSubmitting = false;
+      return;
+    }
+
+    playBeep();
+
+    const slotLabels = {
+      morning_in: '🌅 1/4 ព្រឹកចូល (08:00)',
+      lunch_out: '🍱 2/4 សម្រាកបាយ (11:00)',
+      afternoon_in: '☕ 3/4 ចូលវិញ (13:00)',
+      evening_out: '🏠 4/4 ល្ងាចចេញ (17:00)'
+    };
+    const slotLabel = slotLabels[data.actionType] || data.actionType;
+    const reasonDisplay = data.note ? `<div class="text-xs text-amber-800 bg-amber-50/80 p-2 rounded-xl border border-amber-200/60 mt-1">📝 <b>មូលហេតុ:</b> ${data.note}</div>` : '';
+
+    Swal.fire({
+      icon: 'success',
+      title: data.message || 'កត់ត្រាវត្តមានជោគជ័យ!',
+      html: `
+        <div class="text-left bg-slate-50 p-4 rounded-2xl border border-slate-200 mt-2 space-y-1.5 text-xs sm:text-sm">
+          <div>👤 <b>សមាជិក:</b> ${data.member.name} (<code>${data.member.code}</code>)</div>
+          <div>💼 <b>ផ្នែក:</b> ${data.member.role || 'General'}</div>
+          <div>⏰ <b>វត្តមាន:</b> <b>${slotLabel}</b></div>
+          <div>${data.statusText || ''}</div>
+          ${reasonDisplay}
+          <div>📶 <b>វិធីកត់ត្រា:</b> <span class="text-cyan-700 font-bold">1-Click Wi-Fi ក្រុមហ៊ុន</span></div>
+          <div>📊 <b>សរុបថ្ងៃនេះ:</b> ${data.todayScansCount}/4 ដង</div>
+          <div class="text-[11px] text-sky-600 mt-2 pt-2 border-t border-slate-200 flex items-center gap-1.5">
+            <i class="fa-brands fa-telegram text-sm"></i> សារបានផ្ញើជូនដំណឹងទៅ Telegram Group រួចរាល់!
+          </div>
+        </div>
+      `,
+      confirmButtonText: 'យល់ព្រម',
+      confirmButtonColor: '#0ea5e9'
+    });
+
+    loadMyAttendanceActivity();
+    fetchNetworkStatus();
+
+  } catch (err) {
+    Swal.fire({
+      icon: 'error',
+      title: 'បញ្ហាប្រព័ន្ធ / អ៊ីនធឺណិត',
+      text: err.message || 'មិនអាចទាក់ទងម៉ាស៊ីនបម្រើបានទេ',
+      confirmButtonColor: '#f59e0b'
+    });
+  } finally {
+    isSubmitting = false;
+  }
+}
+
+// Eye Icon: Blur / Show Working Hours
+function toggleWorkHoursBlur() {
+  const durEl = document.getElementById('acledaWorkDurationText');
+  const iconEl = document.getElementById('eyeDurationIcon');
+  if (!durEl) return;
+  isWorkHoursBlurred = !isWorkHoursBlurred;
+  if (isWorkHoursBlurred) {
+    durEl.dataset.original = durEl.textContent;
+    durEl.dataset.blurred = 'true';
+    durEl.textContent = '••••••••';
+    durEl.classList.add('blur-sm');
+    if (iconEl) iconEl.setAttribute('data-lucide', 'eye-off');
+  } else {
+    durEl.dataset.blurred = '';
+    durEl.textContent = durEl.dataset.original || '0 ម៉ោង 0 នាទី';
+    durEl.classList.remove('blur-sm');
+    if (iconEl) iconEl.setAttribute('data-lucide', 'eye');
+  }
+  if (window.lucide) lucide.createIcons();
+}
+
+function scrollToTodayTimeline() {
+  const el = document.getElementById('todayTimelineSection');
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function showScheduleModal() {
+  Swal.fire({
+    title: '🕒 កាលវិភាគបំពេញការងារ',
+    html: `
+      <div class="text-left text-xs sm:text-sm space-y-2.5 p-2">
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+          <div class="font-bold text-slate-800">📅 ថ្ងៃធ្វើការ: ចន្ទ - សៅរិ៍</div>
+          <div class="text-slate-500 text-xs mt-0.5">ថ្ងៃអាទិត្យ សម្រាកការងារ</div>
+        </div>
+        <div class="space-y-1.5 text-xs text-slate-700">
+          <div>🌅 <b>ព្រឹកចូល:</b> 08:00 AM (អនុគ្រោះដល់ 08:10)</div>
+          <div>🍱 <b>សម្រាកបាយ:</b> 11:00 AM (អនុញ្ញាតចាប់ពី 10:50)</div>
+          <div>☕ <b>រសៀលចូល:</b> 01:00 PM (អនុគ្រោះដល់ 01:10)</div>
+          <div>🏠 <b>ល្ងាចចេញ:</b> 05:00 PM (អនុញ្ញាតចាប់ពី 04:50)</div>
+        </div>
+      </div>
+    `,
+    confirmButtonText: 'យល់ព្រម',
+    confirmButtonColor: '#0ea5e9'
+  });
+}
+
+function showAcledaNoticeModal() {
+  Swal.fire({
+    title: '🔔 សេចក្តីជូនដំណឹង',
+    html: `
+      <div class="text-left text-xs space-y-2 p-2 text-slate-600">
+        <p>✅ ប្រព័ន្ធវត្តមានថ្មី គាំទ្រការ <b>ចុចប៊ូតុង Check-in ផ្ទាល់</b> ដោយភ្ជាប់ Wi-Fi ក្រុមហ៊ុន។</p>
+        <p>📶 Wi-Fi ក្រុមហ៊ុនដែលអនុញ្ញាត: <b>Wi-Fi ទី១</b> និង <b>Wi-Fi ទី២</b>។</p>
+        <p>📊 ម្នាក់អាចកត់ត្រាបាន <b>៤ ដងក្នុងមួយថ្ងៃ</b> (ព្រឹកចូល, ចេញបាយ, ចូលវិញ, ល្ងាចចេញ)។</p>
+      </div>
+    `,
+    confirmButtonText: 'យល់ព្រម',
+    confirmButtonColor: '#0ea5e9'
+  });
+}
+
+function openTelegramNoticeGroup() {
+  window.open('https://t.me/c/5037746251', '_blank');
+}

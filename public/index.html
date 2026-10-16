@@ -86,9 +86,45 @@
     body {
       font-family: Inter, "Noto Sans Khmer", -apple-system, BlinkMacSystemFont, sans-serif;
       -webkit-tap-highlight-color: transparent;
-      background-color: #F8FAFF;
-      color: #0F172A;
+      background: #030d22;
+      background: radial-gradient(circle at 50% 0%, #0d2754 0%, #05142e 45%, #020a17 100%);
+      color: #F8FAFC;
+      min-height: 100vh;
       overflow-x: hidden;
+    }
+
+    /* ================= ACLEDA LUXURY MOBILE BANKING THEME ================= */
+    .acleda-card {
+      background: linear-gradient(145deg, rgba(10, 31, 68, 0.95) 0%, rgba(6, 21, 48, 0.92) 60%, rgba(3, 11, 24, 0.96) 100%);
+      border: 1px solid rgba(6, 182, 212, 0.35);
+      box-shadow: 0 15px 35px -5px rgba(2, 6, 23, 0.6), 0 0 30px rgba(6, 182, 212, 0.15);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+    .acleda-tile {
+      background: linear-gradient(135deg, rgba(15, 35, 70, 0.85) 0%, rgba(7, 21, 45, 0.90) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .acleda-tile:active {
+      transform: scale(0.96);
+      background: linear-gradient(135deg, rgba(25, 55, 110, 0.95) 0%, rgba(12, 35, 75, 0.98) 100%);
+      border-color: rgba(6, 182, 212, 0.4);
+    }
+    .acleda-btn-glow {
+      background: linear-gradient(135deg, #0284c7 0%, #2563eb 50%, #4338ca 100%);
+      box-shadow: 0 8px 25px rgba(2, 132, 199, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+    .acleda-btn-glow:active {
+      transform: scale(0.97);
+    }
+    .acleda-bottom-bar {
+      background: rgba(4, 14, 32, 0.95);
+      border-top: 1px solid rgba(56, 189, 248, 0.15);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      box-shadow: 0 -10px 30px rgba(2, 6, 23, 0.6);
     }
 
     /* Prevent any user-uploaded image from overflowing its container */
@@ -602,308 +638,385 @@
       </div>
     </main>
 
-    <!-- ================= VIEW 1: STAFF WORKSPACE (QR ATTENDANCE PAGE) ================= -->
-    <main id="staffView" class="max-w-[1440px] mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex-1 flex flex-col justify-start">
+    <!-- ================= VIEW 1: STAFF WORKSPACE (ACLEDA BANKING STYLE MOBILE INTERFACE) ================= -->
+    <main id="staffView" class="max-w-xl mx-auto w-full px-3.5 sm:px-5 py-4 pb-28 flex-1 flex flex-col justify-start">
       
-      <!-- Top Greeting & Live Info Bar -->
-      <div class="glass-card p-5 sm:p-6 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-entrance">
-        <div>
-          <h2 class="text-xl sm:text-2xl font-extrabold text-txt-primary tracking-tight flex items-center gap-2">
-            <span id="greetingTimeText" data-i18n="morningGreeting">អរុណសួស្តី</span>,
-            <span id="greetingStaffName" class="gradient-text notranslate" translate="no">សមាជិក</span>
-          </h2>
-          <p data-i18n="scanSubtitle" class="text-xs sm:text-sm text-txt-secondary mt-1">
-            សូមស្កេន QR Code ការិយាល័យ ដើម្បីកត់ត្រាវត្តមានបំពេញការងារ
-          </p>
-        </div>
-        
-        <div class="flex items-center gap-2">
-          <div class="px-3.5 py-1.5 rounded-xl bg-brand-blue/10 border border-brand-blue/20 text-xs font-semibold text-brand-blue flex items-center gap-1.5">
-            <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
-            <span>Geofence GPS Protected</span>
+      <!-- ACLEDA Top Header Bar -->
+      <div class="flex items-center justify-between pb-3.5 pt-1">
+        <!-- Brand & Logo -->
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-2xl bg-white p-1 border border-white/80 shadow-md flex items-center justify-center">
+            <img src="/logo.png" alt="VST Logo" class="w-full h-full object-contain">
           </div>
+          <div>
+            <h1 class="text-white font-extrabold text-sm sm:text-base tracking-wide flex items-center gap-1.5">
+              <span>វ៉ាន់ ស៊ីថា ត្រេឌីង</span>
+              <span class="text-xs text-amber-400">🦅</span>
+            </h1>
+            <p class="text-[10px] text-cyan-200/80 font-semibold tracking-wider uppercase font-mono">VANN SITHA TRADING</p>
+          </div>
+        </div>
+
+        <!-- Right Quick Action Icons (Notification Bell + Camera QR + Admin Lock) -->
+        <div class="flex items-center gap-1.5">
+          <button type="button" onclick="showAcledaNoticeModal()" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition border border-white/15 relative" title="Notifications">
+            <i data-lucide="bell" class="w-4 h-4 text-cyan-200"></i>
+            <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400"></span>
+          </button>
+          <button type="button" onclick="triggerStaffScan()" class="w-9 h-9 rounded-full bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 flex items-center justify-center transition border border-cyan-400/30" title="Scan QR with Camera">
+            <i data-lucide="qr-code" class="w-4 h-4"></i>
+          </button>
+          <button type="button" onclick="promptAdminPin()" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition border border-white/15" title="Admin Portal">
+            <i data-lucide="shield" class="w-4 h-4 text-amber-300"></i>
+          </button>
         </div>
       </div>
 
-      <!-- Main Layout: 2 Columns on Desktop, 1 on Mobile -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
-        <!-- Left Column: Employee Profile & The Hero QR Scan Panel (7 cols) -->
-        <div class="lg:col-span-7 space-y-6">
-          
-          <!-- Compact Employee Profile Glass Card -->
-          <div class="glass-card p-5 border border-white/80">
-            <div id="staffProfileSet" class="flex items-center justify-between gap-4">
-              <div class="flex items-center gap-3.5 min-w-0">
-                
-                <!-- Gradient Avatar with Strict Round Frame -->
-                <div class="relative flex-shrink-0" style="width: 56px; height: 56px;">
-                  <div id="staffAvatarWrapper" style="width: 56px; height: 56px; max-width: 56px; max-height: 56px; border-radius: 16px; overflow: hidden;" class="bg-gradient-to-tr from-brand-blue via-brand-cyan to-brand-purple text-white font-extrabold flex items-center justify-center text-lg shadow-glass border-2 border-white/80">
-                    <span id="staffAvatar">U</span>
-                  </div>
-                  <span class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-accent-success border-2 border-white"></span>
-                </div>
-
-                <div class="min-w-0 flex-1">
-                  <div class="flex items-center gap-2">
-                    <h3 id="staffDisplayName" class="font-bold text-sm sm:text-base text-txt-primary truncate">...</h3>
-                    <span id="staffDisplayCode" class="font-mono text-[11px] font-bold bg-white/80 text-brand-blue border border-brand-blue/20 px-2 py-0.5 rounded-md">
-                      MEM-000
-                    </span>
-                  </div>
-                  <p id="staffDisplayRole" class="text-xs text-txt-secondary font-medium mt-0.5 truncate">
-                    សមាជិកបុគ្គលិក
-                  </p>
-                </div>
-              </div>
-
-              <div class="flex items-center gap-1.5 flex-shrink-0">
-                <button onclick="promptChangeStaffProfile()" class="text-xs text-txt-secondary hover:text-brand-blue bg-white/80 hover:bg-white px-3 py-1.5 rounded-xl font-medium border border-app-border transition shadow-xs flex items-center gap-1.5">
-                  <i data-lucide="user-switch" class="w-3.5 h-3.5"></i>
-                  <span class="hidden sm:inline" data-i18n="switchUser">ប្តូរឈ្មោះ</span>
-                </button>
-                <button onclick="logoutStaffProfile()" class="text-xs text-accent-danger hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-xl font-medium border border-rose-200 transition flex items-center gap-1.5" title="Log Out">
-                  <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
-                  <span class="hidden sm:inline" data-i18n="logout">ចាកចេញ</span>
-                </button>
-              </div>
+      <!-- ACLEDA Staff Profile Header -->
+      <div id="staffProfileSet" class="flex items-center justify-between py-2.5 mb-2">
+        <div class="flex items-center gap-3">
+          <!-- Circular Avatar with glowing border & online indicator -->
+          <div class="relative flex-shrink-0" style="width: 48px; height: 48px;">
+            <div id="staffAvatarWrapper" style="width: 48px; height: 48px; border-radius: 9999px; overflow: hidden;" class="bg-gradient-to-tr from-brand-blue via-brand-cyan to-brand-purple text-white font-extrabold flex items-center justify-center text-base shadow-lg border-2 border-cyan-400/60">
+              <span id="staffAvatar">U</span>
             </div>
-
-            <!-- Profile Unset Fallback -->
-            <div id="staffProfileUnset" class="hidden text-center py-4 space-y-3">
-              <div class="w-10 h-10 rounded-xl bg-brand-blue/10 text-brand-blue mx-auto flex items-center justify-center text-lg">
-                <i data-lucide="user-check" class="w-5 h-5"></i>
-              </div>
-              <div>
-                <h4 class="font-semibold text-txt-primary text-sm" data-i18n="chooseProfileTitle">សូមជ្រើសរើសឈ្មោះរបស់អ្នក</h4>
-                <p class="text-xs text-txt-secondary mt-0.5" data-i18n="chooseProfileDesc">ជ្រើសរើសម្តងគត់ ប្រព័ន្ធនឹងចងចាំលើទូរស័ព្ទរបស់អ្នករហូត</p>
-              </div>
-              <div class="flex gap-2 max-w-sm mx-auto">
-                <select id="selectInitialStaff" class="flex-1 bg-white/80 border border-app-border rounded-xl px-3 py-2 text-xs font-medium text-txt-primary focus:outline-none focus:border-brand-blue">
-                  <option value="">-- ជ្រើសរើសឈ្មោះរបស់អ្នក --</option>
-                </select>
-                <button onclick="saveInitialStaffProfile()" class="btn-gradient-primary px-4 py-2 text-xs font-semibold">
-                  <span data-i18n="done">រួចរាល់</span>
-                </button>
-              </div>
-            </div>
+            <span class="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-slate-900"></span>
           </div>
 
-          <!-- The Hero Check-in Panel (Premium Animated Gradient & Pulse Rings) -->
-          <div class="glass-card p-6 sm:p-8 border border-white/90 flex flex-col items-center text-center relative overflow-hidden">
-            
-            <!-- Top Meta Bar: Schedule & 4-Step Progress Track -->
-            <div class="w-full mb-6">
-              <div class="flex items-center justify-between text-xs mb-2.5">
-                <div class="flex items-center gap-1.5 font-medium text-txt-secondary">
-                  <i data-lucide="calendar" class="w-3.5 h-3.5 text-brand-blue"></i>
-                  <span data-i18n="scheduleBadge" class="font-semibold text-txt-primary">ចន្ទ - សៅរិ៍</span>
-                  <span class="text-txt-muted font-mono">(08:00 - 11:00 | 13:00 - 17:00)</span>
-                </div>
-                <div id="todayProgressBadge" class="text-xs px-2.5 py-0.5 rounded-full bg-white/90 text-txt-primary font-bold border border-app-border flex items-center gap-1 shadow-xs">
-                  <span data-i18n="scanProgress" class="text-txt-secondary">ស្កេន:</span> <span id="todayScansCountText" class="text-brand-blue font-mono">0</span>/4
-                </div>
-              </div>
+          <!-- Greeting & Name -->
+          <div>
+            <div class="flex items-center gap-1.5">
+              <span class="text-xs text-cyan-200/90 font-medium" id="greetingTimeText">សួស្តី</span>,
+              <h2 id="staffDisplayName" class="font-extrabold text-white text-sm sm:text-base tracking-tight notranslate" translate="no">សមាជិក</h2>
+              <span id="greetingStaffName" class="hidden"></span>
+            </div>
+            <button type="button" onclick="promptChangeStaffProfile()" class="text-[11px] text-cyan-300 hover:text-cyan-100 font-medium flex items-center gap-0.5 mt-0.5 transition">
+              <span>ព័ត៌មានបុគ្គលិក / ប្តូរឈ្មោះ</span>
+              <i data-lucide="chevron-right" class="w-3 h-3"></i>
+            </button>
+          </div>
+        </div>
 
-              <!-- 4-Segment Modern Gradient Progress Bar -->
-              <div class="grid grid-cols-4 gap-2 w-full">
-                <div id="progBarSeg1" class="h-2 rounded-full bg-slate-200/80 transition-all duration-300"></div>
-                <div id="progBarSeg2" class="h-2 rounded-full bg-slate-200/80 transition-all duration-300"></div>
-                <div id="progBarSeg3" class="h-2 rounded-full bg-slate-200/80 transition-all duration-300"></div>
-                <div id="progBarSeg4" class="h-2 rounded-full bg-slate-200/80 transition-all duration-300"></div>
+        <div class="flex items-center gap-1.5">
+          <span id="staffDisplayCode" class="font-mono text-[11px] font-bold bg-white/10 text-cyan-200 border border-cyan-400/20 px-2 py-0.5 rounded-lg">
+            MEM-003
+          </span>
+          <span id="staffDisplayRole" class="hidden text-xs text-txt-secondary">IT Officer</span>
+        </div>
+      </div>
+
+      <!-- Profile Unset Fallback (Hidden by default) -->
+      <div id="staffProfileUnset" class="hidden text-center py-4 space-y-3 acleda-card p-4 rounded-2xl mb-4">
+        <div class="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-300 mx-auto flex items-center justify-center text-lg">
+          <i data-lucide="user-check" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h4 class="font-semibold text-white text-sm">សូមជ្រើសរើសឈ្មោះរបស់អ្នក</h4>
+          <p class="text-xs text-slate-300 mt-0.5">ជ្រើសរើសម្តងគត់ ប្រព័ន្ធនឹងចងចាំលើទូរស័ព្ទរបស់អ្នករហូត</p>
+        </div>
+        <div class="flex gap-2 max-w-sm mx-auto">
+          <select id="selectInitialStaff" class="flex-1 bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-xs font-medium text-white focus:outline-none focus:border-cyan-400">
+            <option value="">-- ជ្រើសរើសឈ្មោះរបស់អ្នក --</option>
+          </select>
+          <button onclick="saveInitialStaffProfile()" class="btn-gradient-primary px-4 py-2 text-xs font-semibold rounded-xl text-white">
+            <span>រួចរាល់</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ACLEDA Luxury Hero Card (Dark Sapphire Glass with Neon Circular Progress) -->
+      <div class="acleda-card p-5 rounded-3xl relative overflow-hidden mb-4 border border-cyan-500/30">
+        <!-- Ambient Neon Glow inside Card -->
+        <div class="absolute -top-12 -right-12 w-40 h-40 bg-cyan-500/20 rounded-full blur-2xl pointer-events-none"></div>
+        <div class="absolute -bottom-12 -left-12 w-40 h-40 bg-blue-600/20 rounded-full blur-2xl pointer-events-none"></div>
+
+        <div class="relative z-10 flex items-center justify-between gap-4">
+          <!-- Left: Glowing Circular Progress Ring (like ACLEDA "គណនី") -->
+          <div class="flex flex-col items-center flex-shrink-0 cursor-pointer" onclick="executeStaffCheckIn()" title="ចុច Check-in">
+            <div class="relative w-20 h-20 flex items-center justify-center">
+              <svg class="w-20 h-20 -rotate-90 transform" viewBox="0 0 76 76">
+                <!-- Background Ring -->
+                <circle cx="38" cy="38" r="32" stroke="rgba(255, 255, 255, 0.12)" stroke-width="6" fill="transparent" />
+                <!-- Animated Progress Ring -->
+                <circle id="acledaProgressCircle" cx="38" cy="38" r="32" stroke="url(#cyanGlowGrad)" stroke-width="6" stroke-linecap="round" fill="transparent" stroke-dasharray="201" stroke-dashoffset="201" class="transition-all duration-700 ease-out" />
+                <defs>
+                  <linearGradient id="cyanGlowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#06B6D4" />
+                    <stop offset="50%" stop-color="#0EA5E9" />
+                    <stop offset="100%" stop-color="#F59E0B" />
+                  </linearGradient>
+                </defs>
+              </svg>
+
+              <!-- Center Text inside Ring -->
+              <div class="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+                <span id="acledaProgressText" class="font-extrabold text-lg text-white font-mono leading-none">0/4</span>
+                <span class="text-[9px] text-cyan-200/80 font-medium uppercase mt-0.5">វត្តមាន</span>
               </div>
             </div>
+            <span class="text-[11px] text-cyan-200/90 font-bold mt-1.5 flex items-center gap-1">
+              <span>គណនីវត្តមាន</span>
+              <span id="todayScansCountText" class="hidden">0</span>
+            </span>
+          </div>
 
-            <!-- Sunday Day-off Notification Banner (Shows if Sunday) -->
-            <div id="sundayWarningBadge" class="hidden mb-4 w-full p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold flex items-center justify-center gap-2">
-              <i data-lucide="coffee" class="w-4 h-4 text-accent-warning"></i>
-              <span data-i18n="sundayOffBadge">ថ្ងៃអាទិត្យសម្រាកការងារ (Sunday Off / OT)</span>
-            </div>
-
-            <!-- Premium Scan Area with 2 Breathing Gradient Pulse Rings -->
-            <div class="my-6 relative flex items-center justify-center">
-              
-              <!-- Outer Breathing Ring -->
-              <div id="radarRing" class="pulse-ring-outer absolute w-52 h-52 sm:w-60 sm:h-60 rounded-full border-2 border-brand-cyan/40 bg-gradient-to-r from-brand-blue/10 to-brand-purple/10 pointer-events-none"></div>
-
-              <!-- Inner Breathing Ring -->
-              <div id="radarRingInner" class="pulse-ring-inner absolute w-44 h-44 sm:w-50 sm:h-50 rounded-full border border-brand-blue/50 pointer-events-none"></div>
-
-              <!-- Main Gradient Scan Button -->
-              <button id="heroScanButton" onclick="triggerStaffScan()" class="qr-scan-core relative z-10 w-36 h-36 sm:w-42 sm:h-42 rounded-3xl text-white flex flex-col items-center justify-center focus:outline-none cursor-pointer group">
-                <div class="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                  <i data-lucide="scan-line" class="w-6 h-6 text-white"></i>
-                </div>
-                <span class="font-extrabold text-base sm:text-lg tracking-wider uppercase drop-shadow-sm">SCAN QR</span>
-                <span id="heroScanSubtext" data-i18n="tapToScan" class="text-[11px] text-cyan-100 font-medium mt-0.5">ចុចស្កេនកាមេរ៉ា</span>
+          <!-- Right: Total Working Hours & Live Wi-Fi Connection -->
+          <div class="flex-1 min-w-0 text-right space-y-1.5">
+            <div class="flex items-center justify-end gap-1.5">
+              <span class="text-[11px] text-slate-300 font-medium">ស្ថានភាពវត្តមានថ្ងៃនេះ</span>
+              <button type="button" onclick="toggleWorkHoursBlur()" class="text-cyan-300 hover:text-white transition" title="Toggle Visibility">
+                <i data-lucide="eye" id="eyeDurationIcon" class="w-3.5 h-3.5"></i>
               </button>
             </div>
 
-            <!-- Next Scan Auto-Indicator & Subtitle -->
-            <div class="mt-2 space-y-2">
-              <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-xl bg-white/80 border border-app-border text-xs shadow-xs notranslate" translate="no">
-                <span class="text-txt-secondary font-medium" data-i18n="nextScanLbl">ស្កេនបន្ទាប់:</span>
-                <span id="heroSuggestedBadge" class="font-bold text-txt-primary flex items-center gap-1.5">
-                  <span id="heroSuggestedIcon" class="text-brand-blue">1.</span>
-                  <span id="heroSuggestedText">1/4 ព្រឹកចូល (08:00)</span>
-                </span>
-              </div>
-              <p data-i18n="heroDesc" class="text-xs text-txt-secondary">
-                ប្រព័ន្ធនឹងផ្ទៀងផ្ទាត់ GPS និងផ្ញើដំណឹងស្វ័យប្រវត្តិចូល Telegram
-              </p>
+            <!-- Big Working Hours Display (e.g. 8 ម៉ោង 34 នាទី) -->
+            <div class="font-extrabold text-xl sm:text-2xl text-amber-300 tracking-tight font-mono transition-all duration-200" id="acledaWorkDurationText">
+              0 ម៉ោង 0 នាទី
             </div>
 
-            <!-- GPS Proximity Status Bar -->
-            <div class="mt-5 w-full">
-              <div id="gpsChipContainer" class="p-3.5 rounded-xl bg-white/70 border border-app-border flex items-center justify-between transition-colors shadow-xs">
-                <div class="flex items-center gap-3 text-left">
-                  <div id="gpsChipIcon" class="w-8 h-8 rounded-xl bg-white border border-app-border text-brand-blue flex items-center justify-center text-xs shadow-xs">
-                    <i data-lucide="map-pin" class="w-4 h-4"></i>
-                  </div>
-                  <div>
-                    <div id="gpsChipTitle" data-i18n="gpsWaiting" class="text-xs font-bold text-txt-primary">កំពុងផ្ទៀងផ្ទាត់ GPS...</div>
-                    <div id="gpsChipSubtitle" data-i18n="gpsAllow" class="text-[11px] text-txt-secondary">សូមបើក Location Permission</div>
-                  </div>
-                </div>
-                <div class="flex items-center gap-1.5 flex-shrink-0">
-                  <button type="button" onclick="openOfficeOnMaps()" class="w-8 h-8 rounded-xl bg-white/90 hover:bg-white text-txt-secondary hover:text-brand-blue flex items-center justify-center transition border border-app-border shadow-xs" title="មើលទីតាំងការិយាល័យលើ Google Maps">
-                    <i data-lucide="map" class="w-4 h-4"></i>
-                  </button>
-                  <button type="button" onclick="refreshStaffGPS()" class="w-8 h-8 rounded-xl bg-white/90 hover:bg-white text-txt-secondary hover:text-brand-blue flex items-center justify-center transition border border-app-border shadow-xs" title="Refresh GPS">
-                    <i data-lucide="rotate-cw" class="w-4 h-4"></i>
-                  </button>
-                </div>
+            <!-- Live Wi-Fi Connection Badge -->
+            <div class="pt-0.5">
+              <div id="acledaWifiBadge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-white/10 text-cyan-200 border border-white/15">
+                <i data-lucide="wifi" class="w-3.5 h-3.5 animate-pulse"></i>
+                <span id="wifiStatusText">កំពុងឆែក Wi-Fi ក្រុមហ៊ុន...</span>
               </div>
             </div>
-
           </div>
-
         </div>
 
-        <!-- Right Column: Today's Timeline & Activity (5 cols) -->
-        <div class="lg:col-span-5 space-y-6">
-          
-          <!-- Today Work Status Summary Card -->
-          <div class="glass-card p-5 sm:p-6 border border-white/80 space-y-4">
-            <div class="flex items-center justify-between pb-3 border-b border-app-border">
-              <h3 class="font-bold text-sm text-txt-primary flex items-center gap-2">
-                <div class="w-6 h-6 rounded-lg bg-brand-blue/10 text-brand-blue flex items-center justify-center">
-                  <i data-lucide="calendar-check" class="w-3.5 h-3.5"></i>
-                </div>
-                <span data-i18n="todayAttendance">វត្តមានរបស់ខ្ញុំថ្ងៃនេះ</span>
-              </h3>
-              <span id="badgeTodayStatus" data-i18n="notCheckedIn" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-white text-txt-secondary border border-app-border shadow-xs">
-                មិនទាន់ Check-In
-              </span>
+        <!-- Sunday notice inside card if sunday -->
+        <div id="sundayWarningBadge" class="hidden mt-3 p-2 rounded-xl bg-amber-500/20 border border-amber-400/30 text-amber-200 text-xs font-semibold text-center">
+          🏖️ ថ្ងៃអាទិត្យសម្រាកការងារ (Sunday Off / OT)
+        </div>
+      </div>
+
+      <!-- ACLEDA Action Buttons (Side by Side / Big 1-Click Check-In) -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-5">
+        <!-- 1-Click Check-In Hero Button -->
+        <button id="heroOneClickBtn" onclick="executeStaffCheckIn()" class="acleda-btn-glow py-4 px-4 rounded-2xl text-white font-extrabold text-sm sm:text-base flex items-center justify-between gap-3 shadow-lg active:scale-95 transition-all group">
+          <div class="flex items-center gap-2.5 min-w-0 text-left">
+            <div class="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+              <i data-lucide="fingerprint" id="heroBtnActionIcon" class="w-6 h-6 text-white"></i>
             </div>
-
-            <!-- 4-Slot Progress Timeline (Mon - Sat: 4 Times Per Day) -->
-            <div class="grid grid-cols-2 gap-3 notranslate" translate="no">
-              <!-- Slot 1: Morning In (08:00) -->
-              <div id="cardSlotMorningIn" class="p-3.5 rounded-xl bg-white/60 border border-app-border flex flex-col justify-between transition-all">
-                <div>
-                  <div class="flex items-center justify-between">
-                    <span class="text-xs font-bold text-txt-primary uppercase tracking-wider">
-                      1. ព្រឹកចូល
-                    </span>
-                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-txt-secondary font-semibold">08:00</span>
-                  </div>
-                  <div id="timeSlotMorningIn" class="text-base font-extrabold text-txt-primary font-mono mt-1">--:--</div>
-                </div>
-                <span id="statusSlotMorningIn" class="text-xs text-txt-muted mt-1.5">រង់ចាំ</span>
+            <div class="min-w-0">
+              <div class="font-extrabold text-sm sm:text-base leading-tight truncate" id="heroBtnActionTitle">
+                ចុចចូលព្រឹក (Check In)
               </div>
-
-              <!-- Slot 2: Lunch Break Out (11:00) -->
-              <div id="cardSlotLunchOut" class="p-3.5 rounded-xl bg-white/60 border border-app-border flex flex-col justify-between transition-all">
-                <div>
-                  <div class="flex items-center justify-between">
-                    <span class="text-xs font-bold text-txt-primary uppercase tracking-wider">
-                      2. សម្រាកបាយ
-                    </span>
-                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-txt-secondary font-semibold">11:00</span>
-                  </div>
-                  <div id="timeSlotLunchOut" class="text-base font-extrabold text-txt-primary font-mono mt-1">--:--</div>
-                </div>
-                <span id="statusSlotLunchOut" class="text-xs text-txt-muted mt-1.5">រង់ចាំ</span>
-              </div>
-
-              <!-- Slot 3: Afternoon Return In (13:00) -->
-              <div id="cardSlotAfternoonIn" class="p-3.5 rounded-xl bg-white/60 border border-app-border flex flex-col justify-between transition-all">
-                <div>
-                  <div class="flex items-center justify-between">
-                    <span class="text-xs font-bold text-txt-primary uppercase tracking-wider">
-                      3. ចូលវិញ
-                    </span>
-                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-txt-secondary font-semibold">13:00</span>
-                  </div>
-                  <div id="timeSlotAfternoonIn" class="text-base font-extrabold text-txt-primary font-mono mt-1">--:--</div>
-                </div>
-                <span id="statusSlotAfternoonIn" class="text-xs text-txt-muted mt-1.5">រង់ចាំ</span>
-              </div>
-
-              <!-- Slot 4: Evening Out (17:00) -->
-              <div id="cardSlotEveningOut" class="p-3.5 rounded-xl bg-white/60 border border-app-border flex flex-col justify-between transition-all">
-                <div>
-                  <div class="flex items-center justify-between">
-                    <span class="text-xs font-bold text-txt-primary uppercase tracking-wider">
-                      4. ល្ងាចចេញ
-                    </span>
-                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-txt-secondary font-semibold">17:00</span>
-                  </div>
-                  <div id="timeSlotEveningOut" class="text-base font-extrabold text-txt-primary font-mono mt-1">--:--</div>
-                </div>
-                <span id="statusSlotEveningOut" class="text-xs text-txt-muted mt-1.5">រង់ចាំ</span>
-              </div>
-            </div>
-
-            <!-- Shift & Office Info -->
-            <div class="space-y-2 pt-2 text-xs text-txt-secondary">
-              <div class="flex items-center justify-between">
-                <span><i data-lucide="clock" class="w-3.5 h-3.5 inline text-brand-blue mr-1.5"></i> <span data-i18n="workHours">កាលវិភាគបំពេញការងារ</span></span>
-                <span class="font-bold text-txt-primary">ចន្ទ - សៅរិ៍ (08:00 - 11:00 | 13:00 - 17:00)</span>
-              </div>
-              <div class="flex items-center justify-between">
-                <span><i data-lucide="map-pin" class="w-3.5 h-3.5 inline text-brand-cyan mr-1.5"></i> <span data-i18n="officialOffice">ការិយាល័យផ្លូវការ</span></span>
-                <span id="officeAllowedRadiusText" class="font-bold text-txt-primary">រង្វង់ 150 ម៉ែត្រ</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- My Recent Activity Stream -->
-          <div class="glass-card p-5 sm:p-6 border border-white/80 space-y-3.5">
-            <div class="flex items-center justify-between">
-              <h3 class="font-bold text-sm text-txt-primary flex items-center gap-2">
-                <div class="w-6 h-6 rounded-lg bg-brand-cyan/10 text-brand-cyan flex items-center justify-center">
-                  <i data-lucide="history" class="w-3.5 h-3.5"></i>
-                </div>
-                <span data-i18n="myRecentActivity">ប្រវត្តិស្កេនថ្មីៗរបស់ខ្ញុំ</span>
-              </h3>
-              <span data-i18n="last5times" class="text-xs text-txt-muted font-medium">5 ដងចុងក្រោយ</span>
-            </div>
-
-            <div id="myRecentScansList" class="space-y-2">
-              <div data-i18n="loadingData" class="py-6 text-center text-xs text-txt-muted">កំពុងទាញយកទិន្នន័យ...</div>
-            </div>
-          </div>
-
-          <!-- Quick Instructions Info -->
-          <div class="glass-card p-4 border border-white/80 text-xs text-txt-secondary flex items-start gap-3">
-            <div class="w-7 h-7 rounded-lg bg-brand-purple/10 text-brand-purple flex items-center justify-center flex-shrink-0 mt-0.5">
-              <i data-lucide="sparkles" class="w-4 h-4"></i>
-            </div>
-            <div class="space-y-1">
-              <h5 data-i18n="guideTitle" class="font-bold text-txt-primary">របៀបស្កេនងាយស្រួល</h5>
-              <p data-i18n="guideDesc" class="text-txt-secondary leading-relaxed text-[12px]">
-                ចុចប៊ូតុងស្កេន រួចចង្អុលកាមេរ៉ាទៅកាន់ QR Code ការិយាល័យដែលបិទលើជញ្ជាំង។ សារជូនដំណឹងនឹងលោតចូល Telegram របស់ថ្នាក់ដឹកនាំភ្លាមៗ។
+              <p class="text-[10px] text-cyan-100/90 font-medium" id="heroBtnActionSubtitle">
+                1-Click (Wi-Fi ក្រុមហ៊ុន)
               </p>
             </div>
           </div>
+          <i data-lucide="chevron-right" class="w-5 h-5 text-white/80 flex-shrink-0"></i>
+        </button>
 
+        <!-- Secondary Button: Today's Timeline / Logs -->
+        <button type="button" onclick="scrollToTodayTimeline()" class="py-3.5 px-4 rounded-2xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs sm:text-sm flex items-center justify-between gap-3 border border-white/15 transition active:scale-95">
+          <div class="flex items-center gap-2.5 text-left">
+            <div class="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-400/30 flex items-center justify-center flex-shrink-0 text-cyan-300">
+              <i data-lucide="clipboard-list" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <div class="font-extrabold text-white text-xs sm:text-sm">កំណត់ត្រាថ្ងៃនេះ</div>
+              <p class="text-[10px] text-slate-300">មើលម៉ោងទាំង ៤ ពេល</p>
+            </div>
+          </div>
+          <span id="todayScansMiniBadge" class="text-xs font-mono font-bold px-2 py-0.5 rounded-md bg-white/10 text-cyan-300">0/4</span>
+        </button>
+      </div>
+
+      <!-- ACLEDA 3x2 Quick Services Grid (Dark Glass Tiles) -->
+      <div class="grid grid-cols-3 gap-2 sm:gap-2.5 mb-6">
+        <!-- Tile 1: Work Hours -->
+        <div class="acleda-tile p-3 rounded-2xl text-center flex flex-col items-center justify-center cursor-pointer" onclick="showScheduleModal()">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600/30 to-cyan-500/20 border border-cyan-400/30 flex items-center justify-center mb-1.5 text-cyan-300">
+            <i data-lucide="clock" class="w-5 h-5"></i>
+          </div>
+          <span class="text-xs font-bold text-white leading-tight">ម៉ោងការងារ</span>
+          <span class="text-[10px] text-slate-300 mt-0.5 font-mono">08:00 - 17:00</span>
         </div>
 
+        <!-- Tile 2: Wi-Fi Check Status -->
+        <div class="acleda-tile p-3 rounded-2xl text-center flex flex-col items-center justify-center cursor-pointer" onclick="fetchNetworkStatus(true)">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-600/30 to-teal-500/20 border border-emerald-400/30 flex items-center justify-center mb-1.5 text-emerald-300" id="tileWifiIconWrap">
+            <i data-lucide="wifi" class="w-5 h-5"></i>
+          </div>
+          <span class="text-xs font-bold text-white leading-tight">Wi-Fi ក្រុមហ៊ុន</span>
+          <span class="text-[10px] text-emerald-300 mt-0.5 truncate max-w-full font-mono" id="tileWifiSubtext">ឆែកមើល IP</span>
+        </div>
+
+        <!-- Tile 3: GPS Range -->
+        <div class="acleda-tile p-3 rounded-2xl text-center flex flex-col items-center justify-center cursor-pointer" onclick="refreshStaffGPS()">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-600/30 to-indigo-500/20 border border-purple-400/30 flex items-center justify-center mb-1.5 text-purple-300">
+            <i data-lucide="map-pin" class="w-5 h-5"></i>
+          </div>
+          <span class="text-xs font-bold text-white leading-tight">ទីតាំង GPS</span>
+          <span class="text-[10px] text-purple-300 mt-0.5 truncate max-w-full font-mono" id="tileGpsSubtext">200 ម៉ែត្រ</span>
+        </div>
+
+        <!-- Tile 4: Monthly Report -->
+        <div class="acleda-tile p-3 rounded-2xl text-center flex flex-col items-center justify-center cursor-pointer" onclick="promptAdminPin()">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-600/30 to-orange-500/20 border border-amber-400/30 flex items-center justify-center mb-1.5 text-amber-300">
+            <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+          </div>
+          <span class="text-xs font-bold text-white leading-tight">របាយការណ៍</span>
+          <span class="text-[10px] text-amber-200 mt-0.5 font-mono">មើលប្រចាំខែ</span>
+        </div>
+
+        <!-- Tile 5: QR Camera Fallback -->
+        <div class="acleda-tile p-3 rounded-2xl text-center flex flex-col items-center justify-center cursor-pointer" onclick="triggerStaffScan()">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-sky-600/30 to-blue-500/20 border border-sky-400/30 flex items-center justify-center mb-1.5 text-sky-300">
+            <i data-lucide="camera" class="w-5 h-5"></i>
+          </div>
+          <span class="text-xs font-bold text-white leading-tight">ស្កេន QR</span>
+          <span class="text-[10px] text-sky-200 mt-0.5 font-mono">បើកកាមេរ៉ា</span>
+        </div>
+
+        <!-- Tile 6: Admin Management -->
+        <div class="acleda-tile p-3 rounded-2xl text-center flex flex-col items-center justify-center cursor-pointer" onclick="promptAdminPin()">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-rose-600/30 to-pink-500/20 border border-rose-400/30 flex items-center justify-center mb-1.5 text-rose-300">
+            <i data-lucide="settings" class="w-5 h-5"></i>
+          </div>
+          <span class="text-xs font-bold text-white leading-tight">ការគ្រប់គ្រង</span>
+          <span class="text-[10px] text-rose-200 mt-0.5 font-mono">Admin PIN</span>
+        </div>
+      </div>
+
+      <!-- Hidden compatibility items for existing scripts -->
+      <div class="hidden">
+        <button id="heroScanButton" onclick="triggerStaffScan()"></button>
+        <span id="heroScanSubtext"></span>
+        <span id="heroSuggestedIcon"></span>
+        <span id="heroSuggestedText"></span>
+        <div id="progBarSeg1"></div>
+        <div id="progBarSeg2"></div>
+        <div id="progBarSeg3"></div>
+        <div id="progBarSeg4"></div>
+        <div id="radarRing"></div>
+        <div id="radarRingInner"></div>
+        <div id="gpsChipContainer"></div>
+        <div id="gpsChipIcon"></div>
+        <div id="gpsChipTitle"></div>
+        <div id="gpsChipSubtitle"></div>
+        <span id="officeAllowedRadiusText"></span>
+      </div>
+
+      <!-- Today's 4-Slot Timeline (Mon - Sat) -->
+      <div id="todayTimelineSection" class="acleda-card p-4 sm:p-5 rounded-3xl mb-6 border border-white/10 space-y-3.5">
+        <div class="flex items-center justify-between pb-2.5 border-b border-white/10">
+          <div class="flex items-center gap-2">
+            <div class="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-300 flex items-center justify-center">
+              <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+            </div>
+            <h3 class="text-sm font-bold text-white">វត្តមានរបស់ខ្ញុំថ្ងៃនេះ</h3>
+          </div>
+          <span id="badgeTodayStatus" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-white/10 text-cyan-200 border border-white/15">
+            មិនទាន់កត់ត្រា
+          </span>
+        </div>
+
+        <!-- 4-Slot Cards (2x2 Grid) -->
+        <div class="grid grid-cols-2 gap-2.5 notranslate" translate="no">
+          <!-- Slot 1: Morning In (08:00) -->
+          <div id="cardSlotMorningIn" class="p-3 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between transition-all">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold text-cyan-200">1. ព្រឹកចូល</span>
+                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-slate-300">08:00</span>
+              </div>
+              <div id="timeSlotMorningIn" class="text-base font-extrabold text-white font-mono mt-1">--:--</div>
+            </div>
+            <span id="statusSlotMorningIn" class="text-[11px] text-slate-400 mt-1">រង់ចាំ</span>
+          </div>
+
+          <!-- Slot 2: Lunch Break Out (11:00) -->
+          <div id="cardSlotLunchOut" class="p-3 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between transition-all">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold text-cyan-200">2. សម្រាកបាយ</span>
+                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-slate-300">11:00</span>
+              </div>
+              <div id="timeSlotLunchOut" class="text-base font-extrabold text-white font-mono mt-1">--:--</div>
+            </div>
+            <span id="statusSlotLunchOut" class="text-[11px] text-slate-400 mt-1">រង់ចាំ</span>
+          </div>
+
+          <!-- Slot 3: Afternoon Return In (13:00) -->
+          <div id="cardSlotAfternoonIn" class="p-3 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between transition-all">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold text-cyan-200">3. ចូលវិញ</span>
+                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-slate-300">13:00</span>
+              </div>
+              <div id="timeSlotAfternoonIn" class="text-base font-extrabold text-white font-mono mt-1">--:--</div>
+            </div>
+            <span id="statusSlotAfternoonIn" class="text-[11px] text-slate-400 mt-1">រង់ចាំ</span>
+          </div>
+
+          <!-- Slot 4: Evening Out (17:00) -->
+          <div id="cardSlotEveningOut" class="p-3 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between transition-all">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold text-cyan-200">4. ល្ងាចចេញ</span>
+                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-slate-300">17:00</span>
+              </div>
+              <div id="timeSlotEveningOut" class="text-base font-extrabold text-white font-mono mt-1">--:--</div>
+            </div>
+            <span id="statusSlotEveningOut" class="text-[11px] text-slate-400 mt-1">រង់ចាំ</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent 5 logs list -->
+      <div class="acleda-card p-4 sm:p-5 rounded-3xl mb-6 border border-white/10 space-y-3">
+        <div class="flex items-center justify-between pb-2 border-b border-white/10">
+          <div class="flex items-center gap-2">
+            <i data-lucide="history" class="w-4 h-4 text-cyan-300"></i>
+            <h4 class="text-xs sm:text-sm font-bold text-white">ប្រវត្តិកត់ត្រាថ្មីៗ</h4>
+          </div>
+          <span class="text-[10px] text-slate-400">៥ ដងចុងក្រោយ</span>
+        </div>
+        <div id="myRecentScansList" class="space-y-2">
+          <div class="py-4 text-center text-xs text-slate-400">កំពុងទាញយកទិន្នន័យ...</div>
+        </div>
       </div>
 
     </main>
+
+    <!-- ACLEDA Style Fixed Bottom Navigation Bar -->
+    <nav id="acledaBottomNav" class="fixed bottom-0 left-0 right-0 z-40 acleda-bottom-bar py-2 px-4 sm:px-8 flex justify-around items-center text-center">
+      <!-- Tab 1: Home -->
+      <button type="button" onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="flex flex-col items-center text-cyan-400 group">
+        <div class="w-8 h-8 rounded-xl bg-cyan-500/20 flex items-center justify-center text-cyan-300 group-hover:scale-110 transition-transform">
+          <i data-lucide="home" class="w-4 h-4"></i>
+        </div>
+        <span class="text-[10px] font-bold mt-1 text-cyan-300">ទំព័រដើម</span>
+      </button>
+
+      <!-- Tab 2: Records -->
+      <button type="button" onclick="scrollToTodayTimeline()" class="flex flex-col items-center text-slate-400 hover:text-cyan-300 group">
+        <div class="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-slate-300 group-hover:scale-110 transition-transform">
+          <i data-lucide="clipboard-check" class="w-4 h-4"></i>
+        </div>
+        <span class="text-[10px] font-semibold mt-1">កំណត់ត្រា</span>
+      </button>
+
+      <!-- Tab 3: Telegram -->
+      <button type="button" onclick="openTelegramNoticeGroup()" class="flex flex-col items-center text-slate-400 hover:text-cyan-300 group">
+        <div class="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-sky-400 group-hover:scale-110 transition-transform">
+          <i data-lucide="send" class="w-4 h-4"></i>
+        </div>
+        <span class="text-[10px] font-semibold mt-1">តេឡេក្រាម</span>
+      </button>
+
+      <!-- Tab 4: Profile -->
+      <button type="button" onclick="promptChangeStaffProfile()" class="flex flex-col items-center text-slate-400 hover:text-cyan-300 group">
+        <div class="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-slate-300 group-hover:scale-110 transition-transform">
+          <i data-lucide="user" class="w-4 h-4"></i>
+        </div>
+        <span class="text-[10px] font-semibold mt-1">គណនី</span>
+      </button>
+    </nav>
 
     <!-- ================= VIEW 2: ADMIN PORTAL (SECURE DASHBOARD & MANAGEMENT) ================= -->
     <div id="adminView" class="hidden flex-1 max-w-[1440px] mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
@@ -1479,6 +1592,6 @@
 
   </div>
 
-  <script src="/app.js?v=3.0"></script>
+  <script src="/app.js?v=4.0"></script>
 </body>
 </html>
