@@ -289,11 +289,11 @@ function setLanguage(lang) {
     btnEn.innerHTML = '<span class="text-xs">🇬🇧</span><span>EN</span>';
 
     if (lang === 'km') {
-      btnKm.className = 'px-2.5 py-1.5 rounded-md transition-all flex items-center gap-1.5 bg-white text-txt-primary shadow-xs font-bold notranslate';
-      btnEn.className = 'px-2.5 py-1.5 rounded-md transition-all flex items-center gap-1.5 text-txt-secondary hover:text-txt-primary font-medium notranslate';
+      btnKm.className = 'px-2 py-1 rounded-lg transition-all flex items-center gap-1 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-cyan-500/25 font-bold notranslate';
+      btnEn.className = 'px-2 py-1 rounded-lg transition-all flex items-center gap-1 text-slate-300 hover:text-white font-medium notranslate';
     } else {
-      btnEn.className = 'px-2.5 py-1.5 rounded-md transition-all flex items-center gap-1.5 bg-white text-txt-primary shadow-xs font-bold notranslate';
-      btnKm.className = 'px-2.5 py-1.5 rounded-md transition-all flex items-center gap-1.5 text-txt-secondary hover:text-txt-primary font-medium notranslate';
+      btnEn.className = 'px-2 py-1 rounded-lg transition-all flex items-center gap-1 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-cyan-500/25 font-bold notranslate';
+      btnKm.className = 'px-2 py-1 rounded-lg transition-all flex items-center gap-1 text-slate-300 hover:text-white font-medium notranslate';
     }
   }
 
@@ -1656,36 +1656,38 @@ function renderAdminMembers(members) {
       : `<div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 via-cyan-500 to-indigo-600 text-white font-extrabold flex items-center justify-center text-sm shadow-md border border-cyan-400/30 flex-shrink-0">${m.name.charAt(0)}</div>`;
 
     return `
-      <div class="p-4 sm:p-5 rounded-2xl bg-slate-900/85 backdrop-blur-xl border border-slate-700/70 flex flex-col justify-between hover:border-cyan-500/50 hover:shadow-lg hover:shadow-cyan-500/10 transition-all duration-200">
-        <div class="flex items-start justify-between gap-3">
+      <div class="glass-crystal p-5 rounded-3xl border border-white/20 hover:border-cyan-400/60 shadow-[0_15px_35px_rgba(0,0,0,0.4)] flex flex-col justify-between transition-all duration-300 relative overflow-hidden group hover:scale-[1.01]">
+        <div class="absolute -top-12 -right-12 w-28 h-28 bg-cyan-400/10 rounded-full blur-xl pointer-events-none group-hover:bg-cyan-400/20 transition-all duration-300"></div>
+        
+        <div class="flex items-start justify-between gap-3 relative z-10">
           <div class="flex items-start gap-3.5">
             ${avatarHtml}
             <div>
-              <h5 class="font-bold text-white text-sm leading-snug">${m.name}</h5>
+              <h5 class="font-extrabold text-white text-sm leading-snug tracking-tight">${m.name}</h5>
               <div class="flex flex-wrap items-center gap-1.5 mt-1">
-                <span class="text-[10px] font-mono font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-md">${m.code}</span>
-                <span class="text-[11px] font-medium text-slate-300">${m.role || 'សមាជិក'}</span>
+                <span class="text-[10px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 px-2 py-0.5 rounded-lg">${m.code}</span>
+                <span class="text-[11px] font-semibold text-slate-300">${m.role || 'សមាជិក'}</span>
               </div>
               ${emailStr}
             </div>
           </div>
 
           <div class="flex items-center gap-1">
-            <button onclick="editMember(${m.id})" class="text-slate-400 hover:text-cyan-300 p-1.5 transition rounded-xl hover:bg-slate-800" title="Edit / កែប្រែ">
+            <button onclick="editMember(${m.id})" class="text-slate-300 hover:text-cyan-300 p-2 transition rounded-xl bg-white/5 hover:bg-cyan-500/20 border border-white/10" title="Edit / កែប្រែ">
               <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
             </button>
-            <button onclick="deleteMember(${m.id}, '${m.name}')" class="text-slate-400 hover:text-rose-400 p-1.5 transition rounded-xl hover:bg-rose-950/40" title="Delete / លុប">
+            <button onclick="deleteMember(${m.id}, '${m.name}')" class="text-slate-300 hover:text-rose-400 p-2 transition rounded-xl bg-white/5 hover:bg-rose-500/20 border border-white/10" title="Delete / លុប">
               <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
             </button>
           </div>
         </div>
 
         <!-- Account Credentials Chip (Password set by Admin) -->
-        <div class="mt-3 pt-2.5 border-t border-slate-800 flex items-center justify-between text-[11px]">
+        <div class="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-[11px] relative z-10">
           <div class="flex items-center gap-1.5 text-slate-300 font-medium">
             <i data-lucide="key" class="w-3 h-3 text-cyan-400"></i>
             <span>Password:</span>
-            <code class="font-mono font-bold text-cyan-300 bg-black/60 px-1.5 py-0.5 rounded-md border border-slate-700">${pwdDisplay}</code>
+            <code class="font-mono font-bold text-cyan-300 bg-black/50 px-2 py-0.5 rounded-md border border-cyan-400/30">${pwdDisplay}</code>
           </div>
           <span class="text-[11px] text-slate-400 font-medium">
             ${m.phone || (m.join_date ? 'ចូល: ' + m.join_date : 'Active')}
