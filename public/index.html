@@ -817,28 +817,14 @@
           <!-- Sign In Form -->
           <form id="employeeLoginForm" onsubmit="handleEmployeeLogin(event)" class="space-y-4">
             
-            <!-- Select Staff Name -->
+            <!-- Phone Number or Member ID -->
             <div>
-              <label class="block text-xs font-semibold text-txt-primary mb-1.5" data-i18n="lblSelectOrInput">
-                ជ្រើសរើសឈ្មោះបុគ្គលិក
+              <label class="block text-xs font-semibold text-txt-primary mb-1.5" data-i18n="lblPhoneOrCode">
+                លេខទូរស័ព្ទ (Phone Number) ឬ លេខកូដសម្គាល់ ID *
               </label>
               <div class="relative">
-                <select id="loginSelectStaff" onchange="onLoginSelectStaffChange()" class="w-full text-xs font-medium bg-white/80 border border-app-border rounded-xl px-3.5 py-3 text-txt-primary focus:outline-none focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 transition">
-                  <option value="">-- ជ្រើសរើសឈ្មោះរបស់អ្នក --</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="relative flex items-center justify-center my-1.5">
-              <span class="bg-white/80 backdrop-blur-xs px-3 text-[11px] text-txt-muted font-semibold uppercase relative z-10" data-i18n="orByCode">ឬ វាយលេខកូដសម្គាល់ ID</span>
-              <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-app-border"></div></div>
-            </div>
-
-            <!-- Or Type ID -->
-            <div>
-              <div class="relative">
-                <i data-lucide="badge-info" class="w-4 h-4 text-txt-muted absolute left-3.5 top-3.5"></i>
-                <input type="text" id="loginInputCode" placeholder="ឧ. MEM-001 ឬ MEM-002" class="w-full text-xs font-mono font-semibold bg-white/80 border border-app-border rounded-xl pl-10 pr-3.5 py-3 uppercase text-txt-primary focus:outline-none focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 transition">
+                <i data-lucide="phone" class="w-4 h-4 text-txt-muted absolute left-3.5 top-3.5"></i>
+                <input type="text" id="loginInputCode" required placeholder="បញ្ចូលលេខទូរស័ព្ទ (ឧ. 012345678) ឬកូដ ID" class="w-full text-xs font-semibold bg-white/80 border border-app-border rounded-xl pl-10 pr-3.5 py-3 text-txt-primary focus:outline-none focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 transition">
               </div>
             </div>
 
@@ -851,13 +837,13 @@
               </div>
               <div class="relative">
                 <i data-lucide="lock" class="w-4 h-4 text-txt-muted absolute left-3.5 top-3.5"></i>
-                <input type="password" id="loginInputPassword" required placeholder="បញ្ចូល Password ដែល Admin បានដាក់ជូន (Default: 1234)" class="w-full text-xs bg-white/80 border border-app-border rounded-xl pl-10 pr-10 py-3 text-txt-primary focus:outline-none focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 transition">
+                <input type="password" id="loginInputPassword" required placeholder="បញ្ចូល Password របស់អ្នក (Default: 1234)" class="w-full text-xs bg-white/80 border border-app-border rounded-xl pl-10 pr-10 py-3 text-txt-primary focus:outline-none focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 transition">
                 <button type="button" onclick="togglePasswordVisibility('loginInputPassword', 'togglePwdIcon')" class="absolute right-3.5 top-3 text-txt-muted hover:text-txt-primary transition">
                   <i data-lucide="eye" id="togglePwdIcon" class="w-4 h-4"></i>
                 </button>
               </div>
               <p class="text-[11px] text-txt-secondary mt-1.5" data-i18n="pwdNotice">
-                * Password គឺកំណត់ដោយ Admin ពេលចុះឈ្មោះក្នុងបញ្ជីសមាជិក (Default: <code class="font-mono text-brand-blue font-bold">1234</code>)
+                * បញ្ចូល Password ដែលបានកំណត់ពេលចុះឈ្មោះ (Default: <code class="font-mono text-brand-blue font-bold">1234</code>)
               </p>
             </div>
 
@@ -2246,6 +2232,6 @@
     </div>
   </div>
 
-  <script src="/app.js?v=13.0"></script>
+  <script src="/app.js?v=14.0"></script>
 </body>
 </html>

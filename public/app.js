@@ -122,6 +122,7 @@ const translations = {
     loginPortalSubtitle: "ចូលបំពេញការងារ (Sign In)",
     tabSignIn: "ចូលប្រើ (Sign In)",
     tabRegister: "ចុះឈ្មោះ",
+    lblPhoneOrCode: "លេខទូរស័ព្ទ (Phone Number) ឬ លេខកូដសម្គាល់ ID *",
     lblSelectOrInput: "ជ្រើសរើសឈ្មោះបុគ្គលិក",
     orByCode: "ឬ វាយលេខកូដសម្គាល់ ID",
     lblPassword: "លេខកូដសម្ងាត់ (Password) *",
@@ -255,6 +256,7 @@ const translations = {
     loginPortalSubtitle: "Employee Sign-In",
     tabSignIn: "Sign In",
     tabRegister: "Registration",
+    lblPhoneOrCode: "Phone Number or Member ID *",
     lblSelectOrInput: "Select Your Name",
     orByCode: "Or Enter Member ID",
     lblPassword: "Password *",
@@ -722,8 +724,8 @@ async function handleEmployeeLogin(e) {
   if (!codeOrPhone) {
     Swal.fire({
       icon: 'info',
-      title: currentLang === 'km' ? 'សូមជ្រើសរើសឈ្មោះ ឬវាយលេខកូដ ID' : 'Please select name or enter ID',
-      text: currentLang === 'km' ? 'ជ្រើសរើសឈ្មោះរបស់អ្នកក្នុងបញ្ជី ឬវាយលេខកូដសម្គាល់ ID' : 'Select from list or type Member ID'
+      title: currentLang === 'km' ? 'សូមបញ្ចូលលេខទូរស័ព្ទ ឬកូដ ID' : 'Phone Number or ID Required',
+      text: currentLang === 'km' ? 'សូមបញ្ចូលលេខទូរស័ព្ទរបស់អ្នក ឬលេខកូដសម្គាល់ ID ដើម្បី Login' : 'Please enter your phone number or Member ID'
     });
     return;
   }
@@ -732,7 +734,7 @@ async function handleEmployeeLogin(e) {
     Swal.fire({
       icon: 'warning',
       title: currentLang === 'km' ? 'សូមបញ្ចូល Password' : 'Password Required',
-      text: currentLang === 'km' ? 'សូមបញ្ចូលលេខកូដសម្ងាត់ Password ដែល Admin បានកំណត់ជូន!' : 'Please enter the password provided by Admin'
+      text: currentLang === 'km' ? 'សូមបញ្ចូលលេខកូដសម្ងាត់ Password របស់អ្នក!' : 'Please enter your password'
     });
     return;
   }
