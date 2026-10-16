@@ -1337,46 +1337,61 @@ async function loadMyAttendanceActivity() {
       const timeEl = document.getElementById(timeId);
       const statusEl = document.getElementById(statusId);
       const record = summary.slots && summary.slots[slotKey];
+      if (!card) return;
+
+      const titleEl = card.querySelector('span:first-child');
+      const pillEl = card.querySelector('div > div > span:last-child');
 
       if (record) {
-        // Completed step: Gradient accent / success appearance
+        // Completed step: Translucent emerald glass success appearance (NO WHITE GLARE)
         const timeStr = new Date(record.timestamp).toLocaleTimeString('en-US', { 
           timeZone: 'Asia/Phnom_Penh', 
           hour: '2-digit', 
           minute: '2-digit', 
           hour12: true 
         });
-        if (timeEl) timeEl.textContent = timeStr;
+        if (timeEl) {
+          timeEl.textContent = timeStr;
+          timeEl.className = 'text-base font-extrabold text-white font-mono mt-1';
+        }
         const rangeText = record.is_within_range 
           ? (currentLang === 'km' ? '✅ ការិយាល័យ' : '✅ Office') 
           : `⚠️ (${record.distance_meters !== null ? record.distance_meters + 'm' : 'ក្រៅ'})`;
         if (statusEl) {
           statusEl.textContent = rangeText;
-          statusEl.className = record.is_within_range ? 'text-xs text-brand-blue font-bold mt-1.5' : 'text-xs text-accent-warning font-bold mt-1.5';
+          statusEl.className = record.is_within_range 
+            ? 'text-xs text-emerald-300 font-bold mt-1.5 flex items-center gap-1' 
+            : 'text-xs text-amber-300 font-bold mt-1.5 flex items-center gap-1';
         }
-        if (card) {
-          card.className = 'p-3.5 rounded-xl bg-gradient-to-br from-brand-blue/10 via-brand-cyan/5 to-white/90 border border-brand-blue/30 shadow-xs flex flex-col justify-between transition-all';
-        }
+        card.className = 'p-3.5 rounded-2xl bg-emerald-500/15 border-2 border-emerald-400/50 shadow-[0_0_20px_rgba(16,185,129,0.2)] flex flex-col justify-between transition-all';
+        if (titleEl) titleEl.className = 'text-[11px] font-bold text-emerald-300';
+        if (pillEl) pillEl.className = 'text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-200 border border-emerald-400/30';
       } else if (summary.nextSuggestedSlot === slotKey && todayScansTotalCount < 4) {
-        // Current step: Soft pulse / active highlight
-        if (timeEl) timeEl.textContent = '--:--';
+        // Current step (ដល់ពេលស្កេន): Vibrant Cyan-Blue Glass with Glowing Border (NO WHITE GLARE, HIGH CONTRAST)
+        if (timeEl) {
+          timeEl.textContent = '--:--';
+          timeEl.className = 'text-base font-extrabold text-white font-mono mt-1';
+        }
         if (statusEl) {
-          statusEl.textContent = currentLang === 'km' ? 'ស្កេនបន្ទាប់' : 'Next Step';
-          statusEl.className = 'text-xs text-brand-blue font-bold mt-1.5 flex items-center gap-1';
+          statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span><span>${currentLang === 'km' ? 'ស្កេនបន្ទាប់' : 'Next Step'}</span>`;
+          statusEl.className = 'text-xs text-cyan-300 font-extrabold mt-1.5 flex items-center gap-1.5 animate-pulse';
         }
-        if (card) {
-          card.className = 'p-3.5 rounded-xl bg-white/95 border-2 border-brand-blue/50 shadow-glass flex flex-col justify-between transition-all scale-[1.02] ring-2 ring-brand-blue/15';
-        }
+        card.className = 'p-3.5 rounded-2xl bg-gradient-to-br from-cyan-500/25 via-blue-600/20 to-indigo-600/15 border-2 border-cyan-400 shadow-[0_0_25px_rgba(6,182,212,0.45)] flex flex-col justify-between transition-all scale-[1.02] ring-2 ring-cyan-400/30';
+        if (titleEl) titleEl.className = 'text-[11px] font-bold text-cyan-200';
+        if (pillEl) pillEl.className = 'text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/30 text-cyan-200 border border-cyan-400/40';
       } else {
-        // Future step: Neutral glass
-        if (timeEl) timeEl.textContent = '--:--';
+        // Future step: Neutral subtle dark crystal glass
+        if (timeEl) {
+          timeEl.textContent = '--:--';
+          timeEl.className = 'text-base font-extrabold text-slate-400 font-mono mt-1';
+        }
         if (statusEl) {
           statusEl.textContent = t.waiting || 'រង់ចាំ';
-          statusEl.className = 'text-xs text-txt-muted mt-1.5';
+          statusEl.className = 'text-xs text-slate-400 mt-1.5';
         }
-        if (card) {
-          card.className = 'p-3.5 rounded-xl bg-white/60 border border-app-border flex flex-col justify-between transition-all';
-        }
+        card.className = 'p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between transition-all';
+        if (titleEl) titleEl.className = 'text-[11px] font-bold text-slate-300';
+        if (pillEl) pillEl.className = 'text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-slate-400';
       }
     }
 
@@ -1390,13 +1405,13 @@ async function loadMyAttendanceActivity() {
     if (badgeEl) {
       if (!summary.totalScansToday || summary.totalScansToday === 0) {
         badgeEl.textContent = t.notCheckedIn;
-        badgeEl.className = 'px-3 py-1 rounded-full text-xs font-bold bg-white/80 text-txt-secondary border border-app-border shadow-xs';
+        badgeEl.className = 'px-3 py-1 rounded-full text-xs font-bold bg-white/10 text-slate-300 border border-white/15 shadow-xs';
       } else if (summary.totalScansToday < 4) {
         badgeEl.textContent = `${currentLang === 'km' ? 'កំពុងបំពេញការងារ' : 'On Duty'} (${summary.totalScansToday}/4)`;
-        badgeEl.className = 'px-3 py-1 rounded-full text-xs font-bold bg-brand-blue/10 text-brand-blue border border-brand-blue/20 shadow-xs';
+        badgeEl.className = 'px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 shadow-xs';
       } else {
         badgeEl.textContent = currentLang === 'km' ? 'គ្រប់ 4/4 ដងរួចរាល់' : 'All 4 Scans Done';
-        badgeEl.className = 'px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-accent-success border border-emerald-500/25 shadow-xs';
+        badgeEl.className = 'px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 shadow-xs';
       }
     }
 
@@ -1439,21 +1454,21 @@ async function loadMyAttendanceActivity() {
           day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true
         });
         const rangeText = l.is_within_range ? (currentLang === 'km' ? 'ការិយាល័យ' : 'Office') : `(${l.distance_meters !== null ? l.distance_meters + 'm' : 'ក្រៅ'})`;
-        const noteHtml = l.note ? `<p class="text-[11px] text-amber-700 font-medium mt-0.5">📝 ${l.note}</p>` : '';
+        const noteHtml = l.note ? `<p class="text-[11px] text-amber-300 font-medium mt-0.5">📝 ${l.note}</p>` : '';
 
         return `
-          <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-app-border hover:bg-slate-100/70 transition text-xs">
+          <div class="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition text-xs">
             <div class="flex items-center gap-3">
-              <div class="w-7 h-7 rounded-lg bg-white border border-app-border flex items-center justify-center text-teal">
-                <i data-lucide="${meta.icon}" class="w-3.5 h-3.5"></i>
+              <div class="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-400/30 flex items-center justify-center text-cyan-300 flex-shrink-0">
+                <i data-lucide="${meta.icon}" class="w-4 h-4"></i>
               </div>
               <div>
-                <span class="font-semibold text-txt-primary notranslate" translate="no">${labelStr}</span>
-                <p class="text-[11px] text-txt-muted font-mono mt-0.5">${timeStr}</p>
+                <span class="font-bold text-white notranslate" translate="no">${labelStr}</span>
+                <p class="text-[11px] text-slate-400 font-mono mt-0.5">${timeStr}</p>
                 ${noteHtml}
               </div>
             </div>
-            <span class="text-xs font-medium ${l.is_within_range ? 'text-teal' : 'text-accent-warning'}">
+            <span class="text-xs font-semibold ${l.is_within_range ? 'text-emerald-400' : 'text-amber-400'}">
               ${rangeText}
             </span>
           </div>
