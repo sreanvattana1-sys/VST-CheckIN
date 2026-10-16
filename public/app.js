@@ -1681,13 +1681,13 @@ async function loadMyAttendanceActivity() {
     if (badgeEl) {
       if (!summary.totalScansToday || summary.totalScansToday === 0) {
         badgeEl.textContent = t.notCheckedIn;
-        badgeEl.className = 'px-3 py-1 rounded-full text-xs font-bold bg-white/10 text-slate-300 border border-white/15 shadow-xs';
+        badgeEl.className = 'px-3 py-0.5 rounded-full text-[11px] font-semibold bg-slate-800/80 text-slate-400 border border-slate-700/60 shadow-xs';
       } else if (summary.totalScansToday < 4) {
         badgeEl.textContent = `${currentLang === 'km' ? 'កំពុងបំពេញការងារ' : 'On Duty'} (${summary.totalScansToday}/4)`;
-        badgeEl.className = 'px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 shadow-xs';
+        badgeEl.className = 'px-3 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-xs';
       } else {
         badgeEl.textContent = currentLang === 'km' ? 'គ្រប់ 4/4 ដងរួចរាល់' : 'All 4 Scans Done';
-        badgeEl.className = 'px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 shadow-xs';
+        badgeEl.className = 'px-3 py-0.5 rounded-full text-[11px] font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/20 shadow-xs';
       }
     }
 
@@ -1864,19 +1864,19 @@ async function loadAdminDashboard() {
     const loc = currentLang === 'km' ? 'km-KH' : 'en-US';
 
     const slotBadgeMap = {
-      morning_in: `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">1/4 ព្រឹកចូល</span>`,
-      lunch_out: `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">2/4 សម្រាកបាយ</span>`,
-      afternoon_in: `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">3/4 ចូលវិញ</span>`,
-      evening_out: `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-800 text-slate-300 border border-slate-700">4/4 ល្ងាចចេញ</span>`,
-      check_in: `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Check-In</span>`,
-      check_out: `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">Check-Out</span>`
+      morning_in: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>1/4 ព្រឹកចូល</span>`,
+      lunch_out: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>2/4 សម្រាកបាយ</span>`,
+      afternoon_in: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20"><span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>3/4 ចូលវិញ</span>`,
+      evening_out: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20"><span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span>4/4 ល្ងាចចេញ</span>`,
+      check_in: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>Check-In</span>`,
+      check_out: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20"><span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>Check-Out</span>`
     };
 
     tbody.innerHTML = data.recentLogs.map(l => {
-      const actionBadge = slotBadgeMap[l.type] || `<span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-slate-800 text-slate-300 border border-slate-700">${l.type}</span>`;
+      const actionBadge = slotBadgeMap[l.type] || `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-800 text-slate-300 border border-slate-700">${l.type}</span>`;
       const rangeBadge = l.is_within_range 
-        ? `<span class="inline-flex items-center gap-1.5 text-emerald-400 font-bold text-xs"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>ក្នុងរង្វង់ (${l.distance_meters !== null ? l.distance_meters + 'm' : 'OK'})</span>`
-        : `<span class="inline-flex items-center gap-1.5 text-rose-400 font-bold text-xs"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>ក្រៅរង្វង់ (${l.distance_meters}m)</span>`;
+        ? `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>ក្នុងរង្វង់ (${l.distance_meters !== null ? l.distance_meters + 'm' : 'OK'})</span>`
+        : `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>ក្រៅរង្វង់ (${l.distance_meters}m)</span>`;
       const timeStr = new Date(l.timestamp).toLocaleTimeString(loc);
 
       return `
@@ -1939,48 +1939,49 @@ function renderAdminMembers(members) {
   }
 
   container.innerHTML = members.map(m => {
-    const emailStr = m.email ? `<p class="text-[11px] text-txt-secondary mt-0.5 truncate flex items-center gap-1"><i data-lucide="mail" class="w-3 h-3 text-txt-muted flex-shrink-0"></i>${m.email}</p>` : '';
+    const emailStr = m.email ? `<p class="text-[11px] text-slate-400 mt-0.5 truncate flex items-center gap-1"><i data-lucide="mail" class="w-3 h-3 text-slate-500 flex-shrink-0"></i>${m.email}</p>` : '';
     const pwdDisplay = m.password ? m.password : '1234';
 
     const avatarHtml = (m.avatar && m.avatar.trim())
-      ? `<div class="w-12 h-12 rounded-2xl overflow-hidden shadow-md border-2 border-cyan-400/30 flex-shrink-0"><img src="${m.avatar}" alt="${m.name}" class="w-full h-full object-cover"></div>`
-      : `<div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 via-cyan-500 to-indigo-600 text-white font-extrabold flex items-center justify-center text-sm shadow-md border border-cyan-400/30 flex-shrink-0">${m.name.charAt(0)}</div>`;
+      ? `<div class="w-11 h-11 rounded-xl overflow-hidden border border-white/10 flex-shrink-0 shadow-sm"><img src="${m.avatar}" alt="${m.name}" class="w-full h-full object-cover"></div>`
+      : `<div class="w-11 h-11 rounded-xl bg-slate-800 text-white font-bold flex items-center justify-center text-sm border border-white/10 flex-shrink-0">${m.name.charAt(0)}</div>`;
 
     return `
-      <div class="glass-crystal p-5 rounded-3xl border border-white/20 hover:border-cyan-400/60 shadow-[0_15px_35px_rgba(0,0,0,0.4)] flex flex-col justify-between transition-all duration-300 relative overflow-hidden group hover:scale-[1.01]">
-        <div class="absolute -top-12 -right-12 w-28 h-28 bg-cyan-400/10 rounded-full blur-xl pointer-events-none group-hover:bg-cyan-400/20 transition-all duration-300"></div>
-        
-        <div class="flex items-start justify-between gap-3 relative z-10">
-          <div class="flex items-start gap-3.5">
+      <div class="p-4 sm:p-5 rounded-2xl bg-slate-900/60 backdrop-blur-md border border-white/10 hover:border-white/20 shadow-sm flex flex-col justify-between transition-all duration-200 group">
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex items-start gap-3">
             ${avatarHtml}
-            <div>
-              <h5 class="font-extrabold text-white text-sm leading-snug tracking-tight">${m.name}</h5>
+            <div class="min-w-0">
+              <h5 class="font-bold text-white text-sm leading-snug tracking-tight truncate">${m.name}</h5>
               <div class="flex flex-wrap items-center gap-1.5 mt-1">
-                <span class="text-[10px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 px-2 py-0.5 rounded-lg">${m.code}</span>
-                <span class="text-[11px] font-semibold text-slate-300">${m.role || 'សមាជិក'}</span>
+                <span class="text-[10px] font-mono font-medium bg-white/5 text-slate-300 border border-white/10 px-2 py-0.5 rounded-md">${m.code}</span>
+                <span class="text-[11px] font-medium text-slate-400">${m.role || 'សមាជិក'}</span>
               </div>
               ${emailStr}
             </div>
           </div>
 
           <div class="flex items-center gap-1">
-            <button onclick="editMember(${m.id})" class="text-slate-300 hover:text-cyan-300 p-2 transition rounded-xl bg-white/5 hover:bg-cyan-500/20 border border-white/10" title="Edit / កែប្រែ">
-              <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+            <button onclick="editMember(${m.id})" class="text-slate-400 hover:text-white p-1.5 transition rounded-lg hover:bg-white/10" title="Edit / កែប្រែ">
+              <i data-lucide="edit-3" class="w-4 h-4"></i>
             </button>
-            <button onclick="deleteMember(${m.id}, '${m.name}')" class="text-slate-300 hover:text-rose-400 p-2 transition rounded-xl bg-white/5 hover:bg-rose-500/20 border border-white/10" title="Delete / លុប">
-              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            <button onclick="deleteMember(${m.id}, '${m.name.replace(/'/g, "\\'")}')" class="text-slate-400 hover:text-rose-400 p-1.5 transition rounded-lg hover:bg-rose-500/10" title="Delete / លុប">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
             </button>
           </div>
         </div>
 
-        <!-- Account Credentials Chip (Password set by Admin) -->
-        <div class="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-[11px] relative z-10">
-          <div class="flex items-center gap-1.5 text-slate-300 font-medium">
-            <i data-lucide="key" class="w-3 h-3 text-cyan-400"></i>
-            <span>Password:</span>
-            <code class="font-mono font-bold text-cyan-300 bg-black/50 px-2 py-0.5 rounded-md border border-cyan-400/30">${pwdDisplay}</code>
+        <!-- Account Credentials Chip (Masked PIN by Default with Show/Hide Eye Toggle) -->
+        <div class="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs">
+          <div class="flex items-center gap-1.5 text-slate-400">
+            <i data-lucide="key" class="w-3.5 h-3.5 text-slate-500"></i>
+            <span class="text-[11px]">PIN:</span>
+            <code id="memberPwdText-${m.id}" data-pwd="${pwdDisplay}" class="font-mono font-bold text-white bg-slate-950 px-2 py-0.5 rounded border border-white/10 tracking-widest select-all">••••</code>
+            <button type="button" onclick="toggleMemberPassword(${m.id})" class="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition" title="Show / Hide PIN">
+              <i id="memberPwdIcon-${m.id}" data-lucide="eye" class="w-3.5 h-3.5"></i>
+            </button>
           </div>
-          <span class="text-[11px] text-slate-400 font-medium">
+          <span class="text-[11px] text-slate-500 font-medium">
             ${m.phone || (m.join_date ? 'ចូល: ' + m.join_date : 'Active')}
           </span>
         </div>
@@ -1988,6 +1989,24 @@ function renderAdminMembers(members) {
     `;
   }).join('');
 
+  if (window.lucide) lucide.createIcons();
+}
+
+function toggleMemberPassword(id) {
+  const el = document.getElementById('memberPwdText-' + id);
+  const icon = document.getElementById('memberPwdIcon-' + id);
+  if (!el) return;
+  const realPwd = el.getAttribute('data-pwd');
+  const isMasked = el.textContent === '••••';
+  if (isMasked) {
+    el.textContent = realPwd;
+    el.classList.remove('tracking-widest');
+    if (icon) icon.setAttribute('data-lucide', 'eye-off');
+  } else {
+    el.textContent = '••••';
+    el.classList.add('tracking-widest');
+    if (icon) icon.setAttribute('data-lucide', 'eye');
+  }
   if (window.lucide) lucide.createIcons();
 }
 
@@ -2194,26 +2213,26 @@ async function loadAttendanceHistory() {
     const loc = currentLang === 'km' ? 'km-KH' : 'en-US';
 
     const slotBadgeMap = {
-      morning_in: `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">1/4 ព្រឹកចូល</span>`,
-      lunch_out: `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">2/4 សម្រាកបាយ</span>`,
-      afternoon_in: `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">3/4 ចូលវិញ</span>`,
-      evening_out: `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-800 text-slate-300 border border-slate-700">4/4 ល្ងាចចេញ</span>`,
-      check_in: `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Check-In</span>`,
-      check_out: `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">Check-Out</span>`
+      morning_in: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>1/4 ព្រឹកចូល</span>`,
+      lunch_out: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>2/4 សម្រាកបាយ</span>`,
+      afternoon_in: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20"><span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>3/4 ចូលវិញ</span>`,
+      evening_out: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20"><span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span>4/4 ល្ងាចចេញ</span>`,
+      check_in: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>Check-In</span>`,
+      check_out: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20"><span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>Check-Out</span>`
     };
 
     tbody.innerHTML = logs.map((l, i) => `
-      <tr class="hover:bg-cyan-500/[0.08] transition-colors border-b border-slate-800">
-        <td class="py-2.5 px-4 font-mono text-slate-400 text-xs">${i + 1}</td>
+      <tr class="hover:bg-white/[0.03] transition-colors border-b border-slate-800/80">
+        <td class="py-2.5 px-4 font-mono text-slate-500 text-xs">${i + 1}</td>
         <td class="py-2.5 px-4 font-bold text-white">${l.member_name}</td>
-        <td class="py-2.5 px-4 font-mono text-xs text-cyan-300">${l.member_code}</td>
-        <td class="py-2.5 px-4 text-xs text-slate-300 font-medium">${l.member_role || '-'}</td>
-        <td class="py-2.5 px-4">${slotBadgeMap[l.type] || `<span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-slate-800 text-slate-300 border border-slate-700">${l.type}</span>`}</td>
-        <td class="py-2.5 px-4 font-mono text-xs text-slate-300">${new Date(l.timestamp).toLocaleString(loc)}</td>
-        <td class="py-2.5 px-4 font-mono text-xs text-slate-300">${l.distance_meters !== null ? l.distance_meters + 'm' : '-'}</td>
+        <td class="py-2.5 px-4 font-mono text-xs text-slate-300">${l.member_code}</td>
+        <td class="py-2.5 px-4 text-xs text-slate-400 font-medium">${l.member_role || '-'}</td>
+        <td class="py-2.5 px-4">${slotBadgeMap[l.type] || `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-800 text-slate-300 border border-slate-700">${l.type}</span>`}</td>
+        <td class="py-2.5 px-4 font-mono text-xs text-slate-400">${new Date(l.timestamp).toLocaleString(loc)}</td>
+        <td class="py-2.5 px-4 font-mono text-xs text-slate-400">${l.distance_meters !== null ? l.distance_meters + 'm' : '-'}</td>
         <td class="py-2.5 px-4">${l.is_within_range 
-          ? `<span class="inline-flex items-center gap-1.5 text-emerald-400 font-bold text-xs"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>ក្នុងរង្វង់</span>` 
-          : `<span class="inline-flex items-center gap-1.5 text-rose-400 font-bold text-xs"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>ក្រៅរង្វង់</span>`}</td>
+          ? `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>ក្នុងរង្វង់</span>` 
+          : `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>ក្រៅរង្វង់</span>`}</td>
       </tr>
     `).join('');
 
