@@ -10,10 +10,10 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="/logo.png">
 
-  <!-- Google Fonts: Inter (English) & Noto Sans Khmer (Khmer) -->
+  <!-- Google Fonts: Inter & 5 Premium Khmer Fonts (Kantumruy Pro, Noto Sans Khmer, Battambang, Siemreap, Koulen) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Khmer:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Battambang:wght@400;700;900&family=Inter:wght@300;400;500;600;700;800&family=Kantumruy+Pro:ital,wght@0,300..700;1,300..700&family=Koulen&family=Noto+Sans+Khmer:wght@300;400;500;600;700;800&family=Siemreap&display=swap" rel="stylesheet">
   
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -681,11 +681,21 @@
       }
     }
 
-    @media print {
-      body * { visibility: hidden; }
-      #printArea, #printArea * { visibility: visible; }
-      #printArea { position: absolute; left: 0; top: 0; width: 100%; }
-      .aurora-container { display: none; }
+    /* ================= KHMER DYNAMIC TYPOGRAPHY ================= */
+    body.font-kantumruy, body.font-kantumruy * {
+      font-family: 'Kantumruy Pro', 'Inter', -apple-system, sans-serif !important;
+    }
+    body.font-noto, body.font-noto * {
+      font-family: 'Noto Sans Khmer', 'Inter', -apple-system, sans-serif !important;
+    }
+    body.font-battambang, body.font-battambang * {
+      font-family: 'Battambang', 'Inter', -apple-system, sans-serif !important;
+    }
+    body.font-siemreap, body.font-siemreap * {
+      font-family: 'Siemreap', 'Inter', -apple-system, sans-serif !important;
+    }
+    body.font-koulen, body.font-koulen * {
+      font-family: 'Koulen', 'Inter', -apple-system, sans-serif !important;
     }
   </style>
 </head>
@@ -751,6 +761,13 @@
             <span class="w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-cyan-400 via-purple-500 to-pink-500 animate-pulse"></span>
             <span class="hidden md:inline font-bold text-slate-200">Theme</span>
             <i data-lucide="palette" class="w-3.5 h-3.5 text-cyan-400"></i>
+          </button>
+
+          <!-- Font Switcher Button -->
+          <button onclick="openFontSelectorModal()" class="p-1.5 sm:px-2.5 sm:py-1 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-semibold flex items-center gap-1.5 transition text-cyan-300 shadow-xs active:scale-95" title="ប្តូរពុម្ពអក្សរខ្មែរ (Khmer Fonts)">
+            <span class="text-xs font-bold text-cyan-300">Aa</span>
+            <span class="hidden md:inline font-bold text-slate-200">Font</span>
+            <i data-lucide="type" class="w-3.5 h-3.5 text-cyan-400"></i>
           </button>
 
           <!-- Live Clock Pill (Desktop Only) -->
@@ -1899,6 +1916,98 @@
     </div>
   </div>
 
+  <!-- ================= KHMER FONT SELECTOR MODAL ================= -->
+  <div id="fontSelectorModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-xl z-50 hidden flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="glass-crystal max-w-lg w-full p-6 sm:p-7 rounded-3xl shadow-[0_25px_60px_rgba(0,0,0,0.8)] border border-white/25 my-auto flex flex-col text-white animate-entrance">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between pb-4 border-b border-white/15 mb-5">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-400 via-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/30">
+            <span class="font-extrabold text-base">Aa</span>
+          </div>
+          <div>
+            <h3 class="text-base font-extrabold text-white flex items-center gap-2">
+              <span>ជ្រើសរើសពុម្ពអក្សរខ្មែរ (Khmer Fonts)</span>
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-400/20 text-cyan-300 border border-cyan-400/40">Typography</span>
+            </h3>
+            <p class="text-xs text-slate-300">ផ្លាស់ប្តូរម៉ូតអក្សរខ្មែរស្អាតៗ និងទំនើបតាមចំណង់ចំណូលចិត្ត</p>
+          </div>
+        </div>
+        <button onclick="closeFontSelectorModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- 5 Khmer Font Options with Realtime Previews -->
+      <div class="space-y-3 mb-6 max-h-[60vh] overflow-y-auto pr-1 custom-scroll">
+        
+        <!-- Font 1: Kantumruy Pro (Modern App) -->
+        <div onclick="selectKhmerFont('kantumruy')" id="fontCard-kantumruy" class="font-option-card cursor-pointer p-3.5 rounded-2xl border-2 transition-all duration-300 relative bg-white/5 border-cyan-400/60 hover:bg-white/10">
+          <div class="flex items-center justify-between mb-1">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-white">🌟 Kantumruy Pro (Modern App)</span>
+              <span class="px-2 py-0.5 rounded-md text-[9px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">ណែនាំ</span>
+            </div>
+            <span class="font-check-icon text-cyan-400"><i data-lucide="check-circle-2" class="w-4 h-4"></i></span>
+          </div>
+          <p class="text-sm font-semibold text-cyan-200 mt-1" style="font-family: 'Kantumruy Pro', sans-serif;">ប្រព័ន្ធវត្តមានឆ្លាតវៃ VST Check-In 2026</p>
+          <p class="text-[11px] text-slate-400 mt-0.5">ស្ទីលបែប App ទំនើប ស្រាលស្អាត ងាយស្រួលមើលលើទូរសព្ទ</p>
+        </div>
+
+        <!-- Font 2: Noto Sans Khmer (Standard Clean) -->
+        <div onclick="selectKhmerFont('noto')" id="fontCard-noto" class="font-option-card cursor-pointer p-3.5 rounded-2xl border-2 transition-all duration-300 relative bg-white/5 border-white/10 hover:border-cyan-400/40 hover:bg-white/10">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-xs font-bold text-white">💎 Noto Sans Khmer (Clean Standard)</span>
+            <span class="font-check-icon text-transparent"><i data-lucide="check-circle-2" class="w-4 h-4"></i></span>
+          </div>
+          <p class="text-sm font-semibold text-slate-200 mt-1" style="font-family: 'Noto Sans Khmer', sans-serif;">ប្រព័ន្ធវត្តមានឆ្លាតវៃ VST Check-In 2026</p>
+          <p class="text-[11px] text-slate-400 mt-0.5">ស្ទីលស្តង់ដារ ច្បាស់ ត្រជាក់ភ្នែក និងមានតុល្យភាព</p>
+        </div>
+
+        <!-- Font 3: Battambang (Classic Khmer) -->
+        <div onclick="selectKhmerFont('battambang')" id="fontCard-battambang" class="font-option-card cursor-pointer p-3.5 rounded-2xl border-2 transition-all duration-300 relative bg-white/5 border-white/10 hover:border-cyan-400/40 hover:bg-white/10">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-xs font-bold text-white">📜 Battambang (Classic Readable)</span>
+            <span class="font-check-icon text-transparent"><i data-lucide="check-circle-2" class="w-4 h-4"></i></span>
+          </div>
+          <p class="text-sm font-semibold text-slate-200 mt-1" style="font-family: 'Battambang', sans-serif;">ប្រព័ន្ធវត្តមានឆ្លាតវៃ VST Check-In 2026</p>
+          <p class="text-[11px] text-slate-400 mt-0.5">ស្ទីលបែបសារព័ត៌មាន បុរាណ និងងាយស្រួលអាន</p>
+        </div>
+
+        <!-- Font 4: Siemreap (Soft Rounded) -->
+        <div onclick="selectKhmerFont('siemreap')" id="fontCard-siemreap" class="font-option-card cursor-pointer p-3.5 rounded-2xl border-2 transition-all duration-300 relative bg-white/5 border-white/10 hover:border-cyan-400/40 hover:bg-white/10">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-xs font-bold text-white">🌸 Siemreap (Friendly Rounded)</span>
+            <span class="font-check-icon text-transparent"><i data-lucide="check-circle-2" class="w-4 h-4"></i></span>
+          </div>
+          <p class="text-sm font-semibold text-slate-200 mt-1" style="font-family: 'Siemreap', sans-serif;">ប្រព័ន្ធវត្តមានឆ្លាតវៃ VST Check-In 2026</p>
+          <p class="text-[11px] text-slate-400 mt-0.5">ស្ទីលមូលស្រទន់ ស្និទ្ធស្នាល និងគួរឱ្យស្រឡាញ់</p>
+        </div>
+
+        <!-- Font 5: Koulen (Bold Display) -->
+        <div onclick="selectKhmerFont('koulen')" id="fontCard-koulen" class="font-option-card cursor-pointer p-3.5 rounded-2xl border-2 transition-all duration-300 relative bg-white/5 border-white/10 hover:border-cyan-400/40 hover:bg-white/10">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-xs font-bold text-white">🏛️ Koulen (Bold Display)</span>
+            <span class="font-check-icon text-transparent"><i data-lucide="check-circle-2" class="w-4 h-4"></i></span>
+          </div>
+          <p class="text-base font-normal text-slate-200 mt-1 tracking-wide" style="font-family: 'Koulen', sans-serif;">ប្រព័ន្ធវត្តមានឆ្លាតវៃ VST Check-In 2026</p>
+          <p class="text-[11px] text-slate-400 mt-0.5">ស្ទីលអក្សរដិត បែបចំណងជើង រឹងមាំ និងទាក់ទាញ</p>
+        </div>
+
+      </div>
+
+      <!-- Action Button -->
+      <div class="flex justify-end">
+        <button onclick="closeFontSelectorModal()" class="btn-gradient-primary px-6 py-2.5 rounded-xl text-xs font-bold text-white shadow-lg shadow-cyan-500/25 flex items-center gap-2">
+          <i data-lucide="check" class="w-4 h-4"></i>
+          <span>យល់ព្រម (Done)</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
   <!-- ================= STAFF PROFILE & PHOTO MODAL ================= -->
   <div id="staffProfileModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-xl z-50 hidden flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
     <div class="glass-crystal max-w-md w-full p-6 sm:p-7 rounded-3xl shadow-[0_25px_60px_rgba(0,0,0,0.8)] border border-white/25 my-auto flex flex-col text-white animate-entrance">
@@ -1986,6 +2095,6 @@
     </div>
   </div>
 
-  <script src="/app.js?v=9.0"></script>
+  <script src="/app.js?v=10.0"></script>
 </body>
 </html>

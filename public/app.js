@@ -411,9 +411,69 @@ function selectTheme(themeId) {
   localStorage.setItem('vst_theme', themeId);
 }
 
+// ================= KHMER FONT MANAGEMENT =================
+const KHMER_FONTS = ['kantumruy', 'noto', 'battambang', 'siemreap', 'koulen'];
+let currentKhmerFont = localStorage.getItem('vst_font_choice') || 'kantumruy';
+
+function applyKhmerFont(fontKey) {
+  if (!KHMER_FONTS.includes(fontKey)) fontKey = 'kantumruy';
+  currentKhmerFont = fontKey;
+
+  // Remove previous font classes from body
+  KHMER_FONTS.forEach(f => {
+    document.body.classList.remove('font-' + f);
+  });
+
+  // Add the chosen font class
+  document.body.classList.add('font-' + fontKey);
+
+  // Update card borders and checkmarks in modal
+  KHMER_FONTS.forEach(f => {
+    const card = document.getElementById('fontCard-' + f);
+    if (!card) return;
+    const checkIcon = card.querySelector('.font-check-icon');
+    if (f === fontKey) {
+      card.classList.remove('border-white/10');
+      card.classList.add('border-cyan-400/60', 'bg-white/10');
+      if (checkIcon) {
+        checkIcon.classList.remove('text-transparent');
+        checkIcon.classList.add('text-cyan-400');
+      }
+    } else {
+      card.classList.remove('border-cyan-400/60', 'bg-white/10');
+      card.classList.add('border-white/10');
+      if (checkIcon) {
+        checkIcon.classList.remove('text-cyan-400');
+        checkIcon.classList.add('text-transparent');
+      }
+    }
+  });
+
+  localStorage.setItem('vst_font_choice', fontKey);
+}
+
+function selectKhmerFont(fontKey) {
+  applyKhmerFont(fontKey);
+}
+
+function openFontSelectorModal() {
+  applyKhmerFont(currentKhmerFont);
+  const modal = document.getElementById('fontSelectorModal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
+function closeFontSelectorModal() {
+  const modal = document.getElementById('fontSelectorModal');
+  if (modal) modal.classList.add('hidden');
+}
+
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', async () => {
   applyTheme(currentTheme);
+  applyKhmerFont(currentKhmerFont);
   setLanguage(currentLang);
   initLiveClock();
 
@@ -713,6 +773,14 @@ async function logoutStaffProfile() {
 
 function setStaffProfile(member) {
   if (!member) return;
+  // Restore locally cached custom avatar if available on this device
+  try {
+    const cachedAvatar = localStorage.getItem('vst_staff_avatar_' + member.code);
+    if (cachedAvatar && cachedAvatar.startsWith('data:image/')) {
+      member.avatar = cachedAvatar;
+    }
+  } catch (e) {}
+
   currentStaff = member;
   saveStaffToStorage(member);
 
@@ -887,6 +955,31 @@ async function saveStaffSelfAvatar() {
     if (window.lucide) lucide.createIcons();
   }
 
+  // 1. Immediately cache in localStorage for instant offline & local availability
+  try {
+    localStorage.setItem('vst_staff_avatar_' + currentStaff.code, pendingSelfAvatarData);
+  } catch (storageErr) {
+    console.warn('LocalStorage avatar cache error:', storageErr);
+  }
+
+  currentStaff.avatar = pendingSelfAvatarData;
+  saveStaffToStorage(currentStaff);
+
+  const wrapper = document.getElementById('staffAvatarWrapper');
+  if (wrapper) {
+    wrapper.innerHTML = `<img src="${currentStaff.avatar}" alt="${currentStaff.name}" class="w-full h-full object-cover rounded-2xl block">`;
+  }
+
+  if (publicInfo && publicInfo.members) {
+    const idx = publicInfo.members.findIndex(m => m.code === currentStaff.code);
+    if (idx !== -1) {
+      publicInfo.members[idx].avatar = currentStaff.avatar;
+    }
+  }
+
+  let serverSynced = false;
+  let serverMessage = '';
+
   try {
     const res = await fetch('/api/staff/update-avatar', {
       method: 'POST',
@@ -896,47 +989,61 @@ async function saveStaffSelfAvatar() {
         avatar: pendingSelfAvatarData
       })
     });
-    const data = await res.json();
-    if (!res.ok || !data.success) {
-      throw new Error(data.error || 'Failed to update avatar');
-    }
 
-    currentStaff.avatar = pendingSelfAvatarData;
-    saveStaffToStorage(currentStaff);
-
-    const wrapper = document.getElementById('staffAvatarWrapper');
-    if (wrapper) {
-      wrapper.innerHTML = `<img src="${currentStaff.avatar}" alt="${currentStaff.name}" class="w-full h-full object-cover rounded-2xl block">`;
-    }
-
-    if (publicInfo && publicInfo.members) {
-      const idx = publicInfo.members.findIndex(m => m.code === currentStaff.code);
-      if (idx !== -1) {
-        publicInfo.members[idx].avatar = currentStaff.avatar;
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      const data = await res.json();
+      if (res.ok && data.success) {
+        serverSynced = true;
+      } else {
+        serverMessage = data.error || 'Server error';
       }
+    } else {
+      // Server returned HTML (e.g. 404 because server.js is not yet uploaded to GitHub)
+      serverMessage = 'server_needs_update';
     }
+  } catch (netErr) {
+    console.warn('Network sync failed:', netErr);
+    serverMessage = netErr.message;
+  }
 
-    closeStaffProfileModal();
+  closeStaffProfileModal();
 
+  if (serverSynced) {
     Swal.fire({
       icon: 'success',
       title: currentLang === 'km' ? 'បានរក្សាទុករូបថតរួចរាល់!' : 'Profile Photo Updated!',
-      text: currentLang === 'km' ? 'រូបថតផ្ទាល់ខ្លួនរបស់អ្នកត្រូវបានធ្វើបច្ចុប្បន្នភាពជោគជ័យ។' : 'Your personal avatar has been successfully saved.',
-      timer: 2200,
+      text: currentLang === 'km' ? 'រូបថតផ្ទាល់ខ្លួនរបស់អ្នកត្រូវបានធ្វើបច្ចុប្បន្នភាព និង Sync ចូល Database ដោយជោគជ័យ។' : 'Your personal avatar has been successfully saved to the server.',
+      timer: 2300,
       showConfirmButton: false
     });
-  } catch (err) {
+  } else {
+    // Show friendly success confirmation that it's active on their device, with reminder to push server.js
     Swal.fire({
-      icon: 'error',
-      title: currentLang === 'km' ? 'បរាជ័យក្នុងការរក្សាទុក' : 'Save Failed',
-      text: err.message
+      icon: 'success',
+      title: currentLang === 'km' ? 'បានរក្សាទុកលើទូរសព្ទរបស់អ្នករួចរាល់! 📱' : 'Saved on this Device! 📱',
+      html: `
+        <p class="text-xs text-slate-600 mb-2 font-medium">
+          ${currentLang === 'km' 
+            ? 'រូបថតថ្មីរបស់អ្នកត្រូវបានចងចាំ និងបង្ហាញនៅលើទូរសព្ទនេះរួចរាល់ហើយ!' 
+            : 'Your new avatar is saved and active on this device!'}
+        </p>
+        <div class="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-800 text-left">
+          <b>${currentLang === 'km' ? '📌 ការរំលឹកសម្រាប់ Admin:' : '📌 Admin Reminder:'}</b><br>
+          ${currentLang === 'km' 
+            ? 'ដើម្បីឱ្យរូបថតនេះ Sync ចូលទៅក្នុង Database Server ផងដែរ សូមប្រាកដថាអ្នកបាន Upload ឯកសារ <b>server.js</b> ទៅកាន់ GitHub!' 
+            : 'To sync this avatar with the cloud database, please make sure <b>server.js</b> is uploaded to GitHub!'}
+        </div>
+      `,
+      confirmButtonText: currentLang === 'km' ? 'យល់ព្រម' : 'OK',
+      confirmButtonColor: '#06b6d4'
     });
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = `<i data-lucide="check" class="w-4 h-4"></i><span>${currentLang === 'km' ? 'រក្សាទុករូបថត' : 'Save Photo'}</span>`;
-      if (window.lucide) lucide.createIcons();
-    }
+  }
+
+  if (btn) {
+    btn.disabled = false;
+    btn.innerHTML = `<i data-lucide="check" class="w-4 h-4"></i><span>${currentLang === 'km' ? 'រក្សាទុករូបថត' : 'Save Photo'}</span>`;
+    if (window.lucide) lucide.createIcons();
   }
 }
 
