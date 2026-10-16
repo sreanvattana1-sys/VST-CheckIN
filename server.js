@@ -123,6 +123,12 @@ async function initDb() {
     // Column already exists
   }
 
+  try {
+    await db.execute("ALTER TABLE members ADD COLUMN device_id TEXT");
+  } catch (e) {
+    // Column already exists
+  }
+
   // Seed default settings if not exists
   const initSettings = [
     ['office_lat', '11.536445'],
@@ -324,7 +330,7 @@ async function sendTelegramMessage(text) {
 // Public Info (for staff mobile app)
 app.get('/api/public-info', async (req, res) => {
   try {
-    const members = await db.all("SELECT code, name, role, avatar FROM members WHERE status = 'active' ORDER BY name ASC");
+    const members = await db.all("SELECT id, code, name, role, avatar FROM members WHERE status = 'active' ORDER BY name ASC");
     const companyName = await getSetting('company_name');
     const officeLat = await getSetting('office_lat');
     const officeLng = await getSetting('office_lng');
@@ -439,7 +445,7 @@ app.get('/api/dashboard', async (req, res) => {
 // 2. Members Management (Admin)
 app.get('/api/members', async (req, res) => {
   try {
-    const members = await db.all('SELECT * FROM members ORDER BY id DESC');
+    const members = await db.all("SELECT * FROM members WHERE status != 'pending' OR status IS NULL ORDER BY id DESC");
     res.json(members);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -543,6 +549,25 @@ app.put('/api/members/:id', async (req, res) => {
   }
 });
 
+// Staff Self-Service: Update profile photo (Name is NOT editable)
+app.post('/api/staff/update-avatar', async (req, res) => {
+  try {
+    const { code, avatar } = req.body;
+    if (!code || !code.trim()) {
+      return res.status(400).json({ error: 'Staff code is required' });
+    }
+    const member = await db.get('SELECT id, name FROM members WHERE code = ? COLLATE NOCASE', [code.trim()]);
+    if (!member) {
+      return res.status(404).json({ error: 'រកមិនឃើញសមាជិកបុគ្គលិកនេះទេ' });
+    }
+    await db.run('UPDATE members SET avatar = ? WHERE id = ?', [avatar || '', member.id]);
+    res.json({ success: true, avatar: avatar || '' });
+  } catch (err) {
+    console.error('Error updating staff avatar:', err);
+    res.status(500).json({ error: 'បរាជ័យក្នុងការរក្សាទុករូបថត' });
+  }
+});
+
 app.delete('/api/members/:id', async (req, res) => {
   try {
     await db.run('DELETE FROM members WHERE id = ?', [req.params.id]);
@@ -552,28 +577,215 @@ app.delete('/api/members/:id', async (req, res) => {
   }
 });
 
+// ================= STAFF SELF-REGISTRATION & DEVICE BINDING =================
+
+// 1. Staff Self-Registration (starts in 'pending' status for Admin approval)
+app.post('/api/members/self-register', async (req, res) => {
+  try {
+    const { name, phone, role, password, avatar, device_id } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'សូមបញ្ចូលឈ្មោះពេញរបស់បុគ្គលិក (Full Name)' });
+    }
+    if (!phone || !phone.trim()) {
+      return res.status(400).json({ error: 'សូមបញ្ចូលលេខទូរស័ព្ទបុគ្គលិក (Phone Number)' });
+    }
+
+    // Check duplicate phone or name
+    const cleanPhone = phone.trim().replace(/\s+/g, '');
+    const existing = await db.get(
+      "SELECT id, code, name, status FROM members WHERE replace(phone, ' ', '') = ? OR name = ? COLLATE NOCASE",
+      [cleanPhone, name.trim()]
+    );
+    if (existing) {
+      if (existing.status === 'pending') {
+        return res.status(400).json({
+          error: `គណនីឈ្មោះ "${existing.name}" បានដាក់ពាក្យរួចហើយ និងកំពុងរង់ចាំ Admin អនុម័ត (Pending Approval)។`
+        });
+      } else {
+        return res.status(400).json({
+          error: `គណនីឈ្មោះ "${existing.name}" (${existing.code}) មានក្នុងប្រព័ន្ធរួចហើយ! សូមចូល Login ឬទាក់ទង Admin។`
+        });
+      }
+    }
+
+    // Generate next sequential code: MEM-00x
+    const allCodes = await db.all("SELECT code FROM members WHERE code LIKE 'MEM-%'");
+    let maxNum = 0;
+    for (const row of allCodes) {
+      const match = row.code.match(/MEM-(\d+)/i);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    }
+    const nextCode = `MEM-${String(maxNum + 1).padStart(3, '0')}`;
+    const memberPwd = (password && password.trim()) ? password.trim() : '1234';
+
+    const insertResult = await db.run(`
+      INSERT INTO members (code, name, role, phone, password, avatar, device_id, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
+    `, [
+      nextCode,
+      name.trim(),
+      role ? role.trim() : 'បុគ្គលិក',
+      phone.trim(),
+      memberPwd,
+      avatar || '',
+      device_id || null
+    ]);
+
+    // Send Instant Alert to Telegram
+    const companyName = await getSetting('company_name') || 'VANN SITHA TRADING';
+    const tgMsg = `
+🔔 <b>ការស្នើសុំចុះឈ្មោះបុគ្គលិកថ្មី (Staff Self-Registration)</b>
+🏢 <b>${companyName}</b>
+━━━━━━━━━━━━━━━━━
+👤 <b>ឈ្មោះបុគ្គលិក:</b> ${name.trim()}
+💼 <b>ផ្នែក / តួនាទី:</b> ${role ? role.trim() : 'បុគ្គលិក'}
+📱 <b>លេខទូរស័ព្ទ:</b> ${phone.trim()}
+🆔 <b>កូដសម្គាល់បណ្តោះអាសន្ន:</b> ${nextCode}
+📱 <b>Device Locked:</b> ${device_id ? 'ភ្ជាប់ជាមួយទូរស័ព្ទនេះ (1 Device Only) ✅' : 'មិនទាន់ភ្ជាប់'}
+⏳ <b>ស្ថានភាព:</b> រង់ចាំ Admin អនុម័ត (Pending)
+━━━━━━━━━━━━━━━━━
+👉 <i>សូមចូល Admin Dashboard ដើម្បីត្រួតពិនិត្យ និងចុច «អនុម័ត (Approve)»</i>
+    `.trim();
+
+    sendTelegramMessage(tgMsg).catch(err => console.error('Telegram alert failed:', err));
+
+    res.json({
+      success: true,
+      member: {
+        id: insertResult.lastInsertRowid,
+        code: nextCode,
+        name: name.trim(),
+        role: role ? role.trim() : 'បុគ្គលិក',
+        status: 'pending'
+      },
+      message: 'ការចុះឈ្មោះបានជោគជ័យ! ព័ត៌មានរបស់អ្នកត្រូវបានបញ្ជូនទៅ Admin ដើម្បីអនុម័ត។'
+    });
+  } catch (err) {
+    console.error('Error in /api/members/self-register:', err);
+    res.status(500).json({ error: 'បរាជ័យក្នុងការចុះឈ្មោះ: ' + err.message });
+  }
+});
+
+// 2. Admin: Get all pending registration requests
+app.get('/api/members/pending', async (req, res) => {
+  try {
+    const list = await db.all("SELECT id, code, name, role, phone, avatar, device_id, created_at FROM members WHERE status = 'pending' ORDER BY id DESC");
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 3. Admin: Approve pending member
+app.post('/api/members/:id/approve', async (req, res) => {
+  try {
+    const member = await db.get("SELECT * FROM members WHERE id = ? AND status = 'pending'", [req.params.id]);
+    if (!member) {
+      return res.status(404).json({ error: 'រកមិនឃើញការស្នើសុំសមាជិកនេះទេ' });
+    }
+
+    await db.run("UPDATE members SET status = 'active' WHERE id = ?", [req.params.id]);
+
+    // Send Telegram broadcast
+    const companyName = await getSetting('company_name') || 'VANN SITHA TRADING';
+    const tgMsg = `
+✅ <b>អនុម័តបុគ្គលិកថ្មីជោគជ័យ (Staff Approved)</b>
+🏢 <b>${companyName}</b>
+━━━━━━━━━━━━━━━━━
+👤 <b>ឈ្មោះបុគ្គលិក:</b> ${member.name}
+🆔 <b>កូដសម្គាល់ផ្លូវការ:</b> ${member.code}
+💼 <b>ផ្នែក / តួនាទី:</b> ${member.role || 'បុគ្គលិក'}
+📱 <b>Device:</b> 1 Device Locked ✅
+🎉 <i>បុគ្គលិកបានក្លាយជាសមាជិកផ្លូវការ និងអាចចូលកត់ត្រាវត្តមានបានចាប់ពីពេលនេះតទៅ!</i>
+    `.trim();
+    sendTelegramMessage(tgMsg).catch(err => console.error('Telegram approval alert failed:', err));
+
+    res.json({ success: true, message: `បានអនុម័តសមាជិក ${member.name} (${member.code}) ដោយជោគជ័យ!` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 4. Admin: Reject pending member
+app.post('/api/members/:id/reject', async (req, res) => {
+  try {
+    const member = await db.get("SELECT * FROM members WHERE id = ? AND status = 'pending'", [req.params.id]);
+    if (!member) {
+      return res.status(404).json({ error: 'រកមិនឃើញការស្នើសុំសមាជិកនេះទេ' });
+    }
+
+    await db.run("DELETE FROM members WHERE id = ? AND status = 'pending'", [req.params.id]);
+    res.json({ success: true, message: `បានបដិសេធការស្នើសុំរបស់ ${member.name}!` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 5. Admin: Reset member device lock (allow employee to bind a new device)
+app.post('/api/members/:id/reset-device', async (req, res) => {
+  try {
+    const member = await db.get("SELECT id, name, code FROM members WHERE id = ?", [req.params.id]);
+    if (!member) {
+      return res.status(404).json({ error: 'រកមិនឃើញសមាជិកនេះទេ' });
+    }
+
+    await db.run("UPDATE members SET device_id = NULL WHERE id = ?", [req.params.id]);
+    res.json({ success: true, message: `បានដោះសោទូរស័ព្ទ (Device Reset) សម្រាប់ ${member.name} រួចរាល់! បុគ្គលិកអាចប្រើទូរស័ព្ទថ្មីបាន។` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Employee Login (By Member Code / Selection + Password set by Admin)
 app.post('/api/members/login', async (req, res) => {
-  const { code, password } = req.body;
+  const { code, password, device_id } = req.body;
   if (!code || !code.trim()) {
     return res.status(400).json({ error: 'សូមជ្រើសរើសឈ្មោះបុគ្គលិក ឬបញ្ចូលលេខកូដ ID' });
   }
 
   const member = await db.get('SELECT * FROM members WHERE code = ? COLLATE NOCASE OR phone = ? COLLATE NOCASE', [code.trim(), code.trim()]);
   if (!member) {
-    return res.status(404).json({ error: `រកមិនឃើញគណនីដែលមានកូដ "${code}" ទេ! សូមទាក់ទង Admin ដើម្បីចុះឈ្មោះ។` });
+    return res.status(404).json({ error: `រកមិនឃើញគណនីដែលមានកូដ "${code}" ទេ! សូមទាក់ទង Admin ឬចុះឈ្មោះថ្មី។` });
   }
 
-  // Password verification: Admin sets this when adding/registering member
+  // Check Approval Status
+  if (member.status === 'pending') {
+    return res.status(403).json({
+      error: `⏳ គណនីរបស់អ្នក (${member.name}) កំពុងរង់ចាំ Admin អនុម័ត (Pending Approval)។ សូមរង់ចាំ Admin ពិនិត្យ និងចុចអនុម័តសិន!`
+    });
+  }
+  if (member.status === 'rejected' || member.status === 'inactive') {
+    return res.status(403).json({
+      error: '⛔ គណនីនេះត្រូវបានផ្អាក ឬបដិសេធ។ សូមទាក់ទង Admin!'
+    });
+  }
+
+  // Password verification
   const inputPwd = (password || '').trim();
   const actualPwd = (member.password || '1234').trim();
 
   if (!inputPwd) {
-    return res.status(400).json({ error: 'សូមបញ្ចូលលេខកូដសម្ងាត់ Password ដែល Admin បានកំណត់ជូន!' });
+    return res.status(400).json({ error: 'សូមបញ្ចូលលេខកូដសម្ងាត់ Password!' });
   }
 
   if (inputPwd !== actualPwd) {
     return res.status(401).json({ error: 'លេខកូដសម្ងាត់ Password មិនត្រឹមត្រូវទេ! សូមទាក់ទង Admin បើអ្នកភ្លេច។' });
+  }
+
+  // Check 1 Staff = 1 Device restriction
+  if (device_id) {
+    if (!member.device_id) {
+      await db.run('UPDATE members SET device_id = ? WHERE id = ?', [device_id, member.id]);
+      member.device_id = device_id;
+    } else if (member.device_id !== device_id) {
+      return res.status(403).json({
+        error: `⚠️ គណនីនេះត្រូវបានភ្ជាប់ជាមួយទូរស័ព្ទផ្សេងរួចហើយ! (បុគ្គលិកម្នាក់អាចប្រើបានតែទូរស័ព្ទមួយប៉ុណ្ណោះ)\n\nប្រសិនបើអ្នកបានប្តូរទូរស័ព្ទថ្មី សូមទាក់ទង Admin ដើម្បីដោះសោ Device។`,
+        isDeviceLocked: true
+      });
+    }
   }
 
   // Return safe member object (without exposing password)
@@ -620,6 +832,32 @@ app.post('/api/attendance/check', async (req, res) => {
     const member = await db.get('SELECT * FROM members WHERE code = ? COLLATE NOCASE', [code.trim()]);
     if (!member) {
       return res.status(404).json({ error: `រកមិនឃើញសមាជិកដែលមានកូដ "${code}" ទេ!` });
+    }
+
+    // Check Approval Status
+    if (member.status === 'pending') {
+      return res.status(403).json({
+        error: `⏳ គណនីរបស់អ្នក (${member.name}) កំពុងរង់ចាំការអនុម័តពី Admin (Pending Approval)។ សូមរង់ចាំ Admin ពិនិត្យ និងចុចអនុម័តសិន!`
+      });
+    }
+    if (member.status === 'rejected' || member.status === 'inactive') {
+      return res.status(403).json({
+        error: '⛔ គណនីរបស់អ្នកត្រូវបានផ្អាក ឬបដិសេធ។ សូមទាក់ទង Admin!'
+      });
+    }
+
+    // Check 1 Staff = 1 Device restriction
+    const { device_id } = req.body;
+    if (device_id) {
+      if (!member.device_id) {
+        await db.run('UPDATE members SET device_id = ? WHERE id = ?', [device_id, member.id]);
+        member.device_id = device_id;
+      } else if (member.device_id !== device_id) {
+        return res.status(403).json({
+          error: `⚠️ គណនីនេះត្រូវបានភ្ជាប់ជាមួយទូរស័ព្ទផ្សេងរួចហើយ! (បុគ្គលិកម្នាក់អាចប្រើបានតែទូរស័ព្ទមួយប៉ុណ្ណោះ)\n\nប្រសិនបើអ្នកបានប្តូរទូរស័ព្ទថ្មី សូមទាក់ទង Admin ដើម្បីដោះសោ Device។`,
+          isDeviceLocked: true
+        });
+      }
     }
 
     // Normalize action type (4 scans per day: morning_in, lunch_out, afternoon_in, evening_out)

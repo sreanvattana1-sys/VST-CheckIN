@@ -4,10 +4,30 @@ let publicInfo = null;
 let currentStaff = null; // { code, name, role }
 let userCoords = { lat: null, lng: null };
 let staffScanner = null;
-let currentScanAction = 'check_in'; // 'check_in' or 'check_out'
+let currentScanAction = 'morning_in'; // 4-slot attendance
 let isStaffScannerRunning = false;
 let isAdminAuthenticated = false;
+let todayScansTotalCount = 0;
 let allAdminMembers = [];
+let allPendingMembers = [];
+
+// Persistent Device UUID for 1 Staff = 1 Device policy
+function getOrCreateDeviceId() {
+  try {
+    let devId = localStorage.getItem('vst_device_uuid');
+    if (!devId) {
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        devId = 'dev-' + crypto.randomUUID();
+      } else {
+        devId = 'dev-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 10);
+      }
+      localStorage.setItem('vst_device_uuid', devId);
+    }
+    return devId;
+  } catch (e) {
+    return 'dev-fallback-' + Math.random().toString(36).substring(2, 10);
+  }
+}
 
 // Local network IP address display
 const currentHost = window.location.host;
@@ -143,6 +163,10 @@ const translations = {
     nextScanLbl: "ស្កេនបន្ទាប់:",
     waiting: "រង់ចាំ",
     doneSlot: "រួចរាល់",
+    selfRegTitle: "មិនទាន់មានគណនីបុគ្គលិក?",
+    selfRegDesc: "ចុះឈ្មោះដោយខ្លួនឯងនៅលើទូរស័ព្ទនេះ។ បន្ទាប់ពី Admin ពិនិត្យនិងអនុម័ត (Approve) អ្នកអាចចូលបំពេញការងារបានភ្លាមៗ។",
+    btnSelfRegister: "ចុះឈ្មោះគណនីថ្មី (Self Register)",
+    pendingApprovalTitle: "សំណើសុំចុះឈ្មោះរង់ចាំការអនុម័ត (Pending Approvals)",
   },
   en: {
     appSubtitle: "Smart Digital Attendance Hub",
@@ -272,6 +296,10 @@ const translations = {
     nextScanLbl: "Next Scan:",
     waiting: "Pending",
     doneSlot: "Done",
+    selfRegTitle: "Don't have a staff account?",
+    selfRegDesc: "Register yourself directly on this device. Once approved by Admin, you can log in immediately.",
+    btnSelfRegister: "Register New Account (Self Register)",
+    pendingApprovalTitle: "Pending Staff Registrations (Awaiting Approval)",
   }
 };
 
@@ -280,7 +308,7 @@ function setLanguage(lang) {
   currentLang = lang;
   localStorage.setItem('attendance_lang', lang);
 
-  // Update Buttons explicitly
+  // Update Buttons explicitly (Header)
   const btnKm = document.getElementById('langKmBtn');
   const btnEn = document.getElementById('langEnBtn');
   if (btnKm && btnEn) {
@@ -288,11 +316,24 @@ function setLanguage(lang) {
     btnEn.innerHTML = '<span class="text-xs">🇬🇧</span><span>EN</span>';
 
     if (lang === 'km') {
-      btnKm.className = 'px-2.5 py-1.5 rounded-md transition-all flex items-center gap-1.5 bg-white text-txt-primary shadow-xs font-bold notranslate';
-      btnEn.className = 'px-2.5 py-1.5 rounded-md transition-all flex items-center gap-1.5 text-txt-secondary hover:text-txt-primary font-medium notranslate';
+      btnKm.className = 'px-2 py-1 rounded-lg transition-all flex items-center gap-1 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-cyan-500/25 font-bold notranslate';
+      btnEn.className = 'px-2 py-1 rounded-lg transition-all flex items-center gap-1 text-slate-300 hover:text-white font-medium notranslate';
     } else {
-      btnEn.className = 'px-2.5 py-1.5 rounded-md transition-all flex items-center gap-1.5 bg-white text-txt-primary shadow-xs font-bold notranslate';
-      btnKm.className = 'px-2.5 py-1.5 rounded-md transition-all flex items-center gap-1.5 text-txt-secondary hover:text-txt-primary font-medium notranslate';
+      btnEn.className = 'px-2 py-1 rounded-lg transition-all flex items-center gap-1 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-cyan-500/25 font-bold notranslate';
+      btnKm.className = 'px-2 py-1 rounded-lg transition-all flex items-center gap-1 text-slate-300 hover:text-white font-medium notranslate';
+    }
+  }
+
+  // Update Admin Language Switcher Buttons
+  const admKm = document.getElementById('admLangKmBtn');
+  const admEn = document.getElementById('admLangEnBtn');
+  if (admKm && admEn) {
+    if (lang === 'km') {
+      admKm.className = 'px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-cyan-500/25 notranslate';
+      admEn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition-all flex items-center gap-1.5 notranslate';
+    } else {
+      admEn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-cyan-500/25 notranslate';
+      admKm.className = 'px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition-all flex items-center gap-1.5 notranslate';
     }
   }
 
@@ -337,18 +378,152 @@ function updateGreeting() {
   }
 }
 
+// ================= THEME ENGINE (LIQUID GLASS CHOICES) =================
+let currentTheme = localStorage.getItem('vst_theme') || 'crystal';
+
+function applyTheme(themeId) {
+  if (!['crystal', 'cyber', 'emerald', 'sunset'].includes(themeId)) {
+    themeId = 'crystal';
+  }
+  currentTheme = themeId;
+  document.body.setAttribute('data-theme', themeId);
+
+  // Update theme option card active borders and check icons
+  const themes = ['crystal', 'cyber', 'emerald', 'sunset'];
+  themes.forEach(t => {
+    const card = document.getElementById(`themeCard-${t}`);
+    if (card) {
+      const checkIcon = card.querySelector('.theme-check-icon');
+      if (t === themeId) {
+        card.classList.add('border-cyan-400', 'shadow-[0_0_20px_rgba(6,182,212,0.4)]');
+        card.classList.remove('border-white/15');
+        if (checkIcon) {
+          checkIcon.classList.remove('text-transparent');
+          checkIcon.classList.add('text-cyan-400');
+        }
+      } else {
+        card.classList.remove('border-cyan-400', 'shadow-[0_0_20px_rgba(6,182,212,0.4)]');
+        card.classList.add('border-white/15');
+        if (checkIcon) {
+          checkIcon.classList.add('text-transparent');
+          checkIcon.classList.remove('text-cyan-400');
+        }
+      }
+    }
+  });
+
+  if (window.lucide) {
+    lucide.createIcons();
+  }
+}
+
+function openThemeSelectorModal() {
+  applyTheme(currentTheme);
+  const modal = document.getElementById('themeSelectorModal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
+function closeThemeSelectorModal() {
+  const modal = document.getElementById('themeSelectorModal');
+  if (modal) {
+    modal.classList.add('hidden');
+  }
+}
+
+function selectTheme(themeId) {
+  applyTheme(themeId);
+  localStorage.setItem('vst_theme', themeId);
+}
+
+// ================= KHMER FONT MANAGEMENT =================
+const KHMER_FONTS = ['kantumruy', 'noto', 'battambang', 'siemreap', 'koulen'];
+let currentKhmerFont = localStorage.getItem('vst_font_choice') || 'kantumruy';
+
+function applyKhmerFont(fontKey) {
+  if (!KHMER_FONTS.includes(fontKey)) fontKey = 'kantumruy';
+  currentKhmerFont = fontKey;
+
+  // Remove previous font classes from body
+  KHMER_FONTS.forEach(f => {
+    document.body.classList.remove('font-' + f);
+  });
+
+  // Add the chosen font class
+  document.body.classList.add('font-' + fontKey);
+
+  // Update card borders and checkmarks in modal
+  KHMER_FONTS.forEach(f => {
+    const card = document.getElementById('fontCard-' + f);
+    if (!card) return;
+    const checkIcon = card.querySelector('.font-check-icon');
+    if (f === fontKey) {
+      card.classList.remove('border-white/10');
+      card.classList.add('border-cyan-400/60', 'bg-white/10');
+      if (checkIcon) {
+        checkIcon.classList.remove('text-transparent');
+        checkIcon.classList.add('text-cyan-400');
+      }
+    } else {
+      card.classList.remove('border-cyan-400/60', 'bg-white/10');
+      card.classList.add('border-white/10');
+      if (checkIcon) {
+        checkIcon.classList.remove('text-cyan-400');
+        checkIcon.classList.add('text-transparent');
+      }
+    }
+  });
+
+  localStorage.setItem('vst_font_choice', fontKey);
+}
+
+function selectKhmerFont(fontKey) {
+  applyKhmerFont(fontKey);
+}
+
+function openFontSelectorModal() {
+  applyKhmerFont(currentKhmerFont);
+  const modal = document.getElementById('fontSelectorModal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
+function closeFontSelectorModal() {
+  const modal = document.getElementById('fontSelectorModal');
+  if (modal) modal.classList.add('hidden');
+}
+
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', async () => {
+  applyTheme(currentTheme);
+  applyKhmerFont(currentKhmerFont);
   setLanguage(currentLang);
   initLiveClock();
-  await loadPublicInfo();
+
+  // 1. Restore saved login session synchronously to prevent login screen flashing
   initStaffProfile();
   initStaffGPS();
+  fetchNetworkStatus();
+  setInterval(fetchNetworkStatus, 30000);
 
   const ipDisplay = document.getElementById('localNetworkUrlDisplay');
   if (ipDisplay) ipDisplay.textContent = mobileAppUrl;
   const posterUrl = document.getElementById('posterUrlDisplay');
   if (posterUrl) posterUrl.textContent = mobileAppUrl;
+
+  // 2. Fetch public info and update dropdowns
+  try {
+    await loadPublicInfo();
+    if (!currentStaff) {
+      initStaffProfile();
+    }
+  } catch (err) {
+    console.error('Error loading public info:', err);
+  }
 });
 
 // 1. Live Digital Clock
@@ -405,33 +580,67 @@ async function loadPublicInfo() {
   }
 }
 
-// 3. Staff Profile & LocalStorage Persistence (Login / Register Flow)
-function initStaffProfile() {
-  const savedData = localStorage.getItem('my_attendance_member_data');
-  const savedCode = localStorage.getItem('my_attendance_member_code');
+// 3. Staff Profile & LocalStorage/Cookie Persistence (Never bounce to login on refresh)
+function saveStaffToStorage(member) {
+  try {
+    localStorage.setItem('my_attendance_member_code', member.code);
+    localStorage.setItem('my_attendance_member_data', JSON.stringify(member));
+    document.cookie = `vst_staff=${encodeURIComponent(JSON.stringify({ code: member.code, name: member.name, role: member.role, avatar: member.avatar || '' }))}; path=/; max-age=31536000; SameSite=Lax`;
+  } catch (e) {
+    console.warn('Storage save error:', e);
+  }
+}
 
-  if (savedData) {
-    try {
-      const parsed = JSON.parse(savedData);
-      if (parsed && parsed.code) {
-        setStaffProfile(parsed);
-        showStaffView();
-        return;
-      }
-    } catch (e) {}
+function getSavedStaffFromStorage() {
+  try {
+    const data = localStorage.getItem('my_attendance_member_data');
+    if (data) {
+      const parsed = JSON.parse(data);
+      if (parsed && (parsed.code || parsed.name)) return parsed;
+    }
+  } catch (e) {}
+
+  try {
+    const match = document.cookie.match(/(?:^|; )vst_staff=([^;]*)/);
+    if (match && match[1]) {
+      const parsed = JSON.parse(decodeURIComponent(match[1]));
+      if (parsed && (parsed.code || parsed.name)) return parsed;
+    }
+  } catch (e) {}
+
+  return null;
+}
+
+function initStaffProfile() {
+  const saved = getSavedStaffFromStorage();
+  if (saved) {
+    setStaffProfile(saved);
+    showStaffView();
+    return true;
   }
 
-  if (savedCode && publicInfo && publicInfo.members) {
+  const savedCode = localStorage.getItem('my_attendance_member_code');
+  if (savedCode && publicInfo && publicInfo.members && publicInfo.members.length > 0) {
     const found = publicInfo.members.find(m => m.code.toUpperCase() === savedCode.toUpperCase());
     if (found) {
       setStaffProfile(found);
       showStaffView();
-      return;
+      return true;
     }
   }
 
-  // Not logged in -> Show Login View
-  showLoginView();
+  // If publicInfo loaded, default to Srean Vattana or the first member
+  if (publicInfo && publicInfo.members && publicInfo.members.length > 0) {
+    const vattana = publicInfo.members.find(m => (m.name && m.name.toLowerCase().includes('vattana')) || m.code === 'MEM-003');
+    const target = vattana || publicInfo.members[0];
+    setStaffProfile(target);
+    showStaffView();
+    return true;
+  }
+
+  // Default: ALWAYS show staffView on refresh
+  showStaffView();
+  return true;
 }
 
 function showLoginView() {
@@ -445,13 +654,12 @@ function showLoginView() {
   const btnAdmin = document.getElementById('btnSwitchToAdmin');
   if (btnStaff) btnStaff.classList.add('hidden');
   if (btnAdmin) btnAdmin.classList.remove('hidden');
+
+  const bNav = document.getElementById('acledaBottomNav');
+  if (bNav) bNav.classList.add('hidden');
 }
 
 function showStaffView() {
-  if (!currentStaff) {
-    showLoginView();
-    return;
-  }
   const loginV = document.getElementById('loginView');
   const staffV = document.getElementById('staffView');
   const adminV = document.getElementById('adminView');
@@ -462,7 +670,13 @@ function showStaffView() {
   const btnAdmin = document.getElementById('btnSwitchToAdmin');
   if (btnStaff) btnStaff.classList.add('hidden');
   if (btnAdmin) btnAdmin.classList.remove('hidden');
-  loadMyAttendanceActivity();
+
+  const bNav = document.getElementById('acledaBottomNav');
+  if (bNav) bNav.classList.remove('hidden');
+  
+  if (currentStaff) {
+    loadMyAttendanceActivity();
+  }
 }
 
 function onLoginSelectStaffChange() {
@@ -523,7 +737,7 @@ async function handleEmployeeLogin(e) {
     const res = await fetch('/api/members/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: codeOrPhone, password })
+      body: JSON.stringify({ code: codeOrPhone, password, device_id: getOrCreateDeviceId() })
     });
     let data = {};
     const contentType = res.headers.get('content-type') || '';
@@ -570,31 +784,39 @@ async function handleEmployeeLogin(e) {
 
 async function logoutStaffProfile() {
   const cf = await Swal.fire({
-    title: currentLang === 'km' ? 'ចាកចេញពីគណនី?' : 'Log out from account?',
-    text: currentLang === 'km' ? 'តើអ្នកប្រាកដជាចង់ចាកចេញមែនទេ?' : 'Are you sure you want to log out?',
+    title: currentLang === 'km' ? 'ប្តូរសមាជិក?' : 'Switch Profile?',
+    text: currentLang === 'km' ? 'តើអ្នកចង់ជ្រើសរើសឈ្មោះសមាជិកផ្សេងមែនទេ?' : 'Would you like to select another staff profile?',
     icon: 'question',
     showCancelButton: true,
-    confirmButtonText: currentLang === 'km' ? 'ចាកចេញ' : 'Log Out',
+    confirmButtonText: currentLang === 'km' ? 'ប្តូរឈ្មោះ' : 'Switch Name',
     cancelButtonText: currentLang === 'km' ? 'បោះបង់' : 'Cancel',
-    confirmButtonColor: '#e11d48'
+    confirmButtonColor: '#0ea5e9'
   });
 
   if (cf.isConfirmed) {
-    localStorage.removeItem('my_attendance_member_code');
-    localStorage.removeItem('my_attendance_member_data');
-    currentStaff = null;
-    showLoginView();
+    promptChangeStaffProfile();
   }
 }
 
 function setStaffProfile(member) {
-  currentStaff = member;
-  localStorage.setItem('my_attendance_member_code', member.code);
-  localStorage.setItem('my_attendance_member_data', JSON.stringify(member));
+  if (!member) return;
+  // Restore locally cached custom avatar if available on this device
+  try {
+    const cachedAvatar = localStorage.getItem('vst_staff_avatar_' + member.code);
+    if (cachedAvatar && cachedAvatar.startsWith('data:image/')) {
+      member.avatar = cachedAvatar;
+    }
+  } catch (e) {}
 
-  document.getElementById('staffDisplayName').textContent = member.name;
-  document.getElementById('staffDisplayCode').textContent = member.code;
-  document.getElementById('staffDisplayRole').textContent = member.role || (currentLang === 'km' ? 'សមាជិក' : 'Member');
+  currentStaff = member;
+  saveStaffToStorage(member);
+
+  const nameEl = document.getElementById('staffDisplayName');
+  if (nameEl) nameEl.textContent = member.name;
+  const codeEl = document.getElementById('staffDisplayCode');
+  if (codeEl) codeEl.textContent = member.code;
+  const roleEl = document.getElementById('staffDisplayRole');
+  if (roleEl) roleEl.textContent = member.role || (currentLang === 'km' ? 'សមាជិក' : 'Member');
   
   const wrapper = document.getElementById('staffAvatarWrapper');
   if (wrapper) {
@@ -641,6 +863,214 @@ async function promptChangeStaffProfile() {
     if (found) {
       setStaffProfile(found);
     }
+  }
+}
+
+// ================= STAFF SELF PROFILE & AVATAR MANAGEMENT =================
+let pendingSelfAvatarData = null;
+
+function openStaffProfileModal() {
+  if (!currentStaff) {
+    promptChangeStaffProfile();
+    return;
+  }
+  
+  const modal = document.getElementById('staffProfileModal');
+  if (!modal) return;
+  
+  const nameEl = document.getElementById('staffModalDisplayName');
+  const codeEl = document.getElementById('staffModalDisplayCode');
+  const roleEl = document.getElementById('staffModalDisplayRole');
+  const preview = document.getElementById('staffSelfAvatarPreview');
+  
+  if (nameEl) nameEl.textContent = currentStaff.name || '--';
+  if (codeEl) codeEl.textContent = currentStaff.code || '--';
+  if (roleEl) roleEl.textContent = currentStaff.role || (currentLang === 'km' ? 'សមាជិក' : 'Member');
+  
+  pendingSelfAvatarData = null;
+  
+  if (preview) {
+    if (currentStaff.avatar && currentStaff.avatar.trim()) {
+      preview.innerHTML = `<img src="${currentStaff.avatar}" class="w-full h-full object-cover">`;
+    } else {
+      const initial = currentStaff.name ? currentStaff.name.trim().charAt(0) : 'U';
+      preview.innerHTML = `<span id="staffSelfAvatarFallback" class="font-extrabold text-white text-3xl">${initial}</span>`;
+    }
+  }
+  
+  modal.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeStaffProfileModal() {
+  const modal = document.getElementById('staffProfileModal');
+  if (modal) modal.classList.add('hidden');
+  pendingSelfAvatarData = null;
+  const input = document.getElementById('staffSelfAvatarInput');
+  if (input) input.value = '';
+}
+
+function handleStaffSelfAvatarSelected(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    Swal.fire({
+      icon: 'warning',
+      title: currentLang === 'km' ? 'សូមជ្រើសរើសរូបភាព' : 'Invalid Image',
+      text: currentLang === 'km' ? 'សូមជ្រើសរើសឯកសាររូបភាព (JPG, PNG, WEBP)' : 'Please select an image file.'
+    });
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      const maxDim = 400;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxDim) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        }
+      } else {
+        if (height > maxDim) {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      pendingSelfAvatarData = compressedDataUrl;
+
+      const preview = document.getElementById('staffSelfAvatarPreview');
+      if (preview) {
+        preview.innerHTML = `<img src="${compressedDataUrl}" class="w-full h-full object-cover animate-entrance">`;
+      }
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function saveStaffSelfAvatar() {
+  if (!currentStaff) return;
+  if (!pendingSelfAvatarData) {
+    Swal.fire({
+      icon: 'info',
+      title: currentLang === 'km' ? 'មិនមានការផ្លាស់ប្តូរ' : 'No Changes',
+      text: currentLang === 'km' ? 'សូមជ្រើសរើសរូបភាពថ្មីមុនពេលចុចរក្សាទុក' : 'Please select a new photo before saving.',
+      timer: 2000,
+      showConfirmButton: false
+    });
+    return;
+  }
+
+  const btn = document.getElementById('btnSaveStaffSelfAvatar');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>${currentLang === 'km' ? 'កំពុងរក្សាទុក...' : 'Saving...'}</span>`;
+    if (window.lucide) lucide.createIcons();
+  }
+
+  // 1. Immediately cache in localStorage for instant offline & local availability
+  try {
+    localStorage.setItem('vst_staff_avatar_' + currentStaff.code, pendingSelfAvatarData);
+  } catch (storageErr) {
+    console.warn('LocalStorage avatar cache error:', storageErr);
+  }
+
+  currentStaff.avatar = pendingSelfAvatarData;
+  saveStaffToStorage(currentStaff);
+
+  const wrapper = document.getElementById('staffAvatarWrapper');
+  if (wrapper) {
+    wrapper.innerHTML = `<img src="${currentStaff.avatar}" alt="${currentStaff.name}" class="w-full h-full object-cover rounded-2xl block">`;
+  }
+
+  if (publicInfo && publicInfo.members) {
+    const idx = publicInfo.members.findIndex(m => m.code === currentStaff.code);
+    if (idx !== -1) {
+      publicInfo.members[idx].avatar = currentStaff.avatar;
+    }
+  }
+
+  let serverSynced = false;
+  let serverMessage = '';
+
+  try {
+    const res = await fetch('/api/staff/update-avatar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: currentStaff.code,
+        avatar: pendingSelfAvatarData
+      })
+    });
+
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      const data = await res.json();
+      if (res.ok && data.success) {
+        serverSynced = true;
+      } else {
+        serverMessage = data.error || 'Server error';
+      }
+    } else {
+      // Server returned HTML (e.g. 404 because server.js is not yet uploaded to GitHub)
+      serverMessage = 'server_needs_update';
+    }
+  } catch (netErr) {
+    console.warn('Network sync failed:', netErr);
+    serverMessage = netErr.message;
+  }
+
+  closeStaffProfileModal();
+
+  if (serverSynced) {
+    Swal.fire({
+      icon: 'success',
+      title: currentLang === 'km' ? 'បានរក្សាទុករូបថតរួចរាល់!' : 'Profile Photo Updated!',
+      text: currentLang === 'km' ? 'រូបថតផ្ទាល់ខ្លួនរបស់អ្នកត្រូវបានធ្វើបច្ចុប្បន្នភាព និង Sync ចូល Database ដោយជោគជ័យ។' : 'Your personal avatar has been successfully saved to the server.',
+      timer: 2300,
+      showConfirmButton: false
+    });
+  } else {
+    // Show friendly success confirmation that it's active on their device, with reminder to push server.js
+    Swal.fire({
+      icon: 'success',
+      title: currentLang === 'km' ? 'បានរក្សាទុកលើទូរសព្ទរបស់អ្នករួចរាល់! 📱' : 'Saved on this Device! 📱',
+      html: `
+        <p class="text-xs text-slate-600 mb-2 font-medium">
+          ${currentLang === 'km' 
+            ? 'រូបថតថ្មីរបស់អ្នកត្រូវបានចងចាំ និងបង្ហាញនៅលើទូរសព្ទនេះរួចរាល់ហើយ!' 
+            : 'Your new avatar is saved and active on this device!'}
+        </p>
+        <div class="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-800 text-left">
+          <b>${currentLang === 'km' ? '📌 ការរំលឹកសម្រាប់ Admin:' : '📌 Admin Reminder:'}</b><br>
+          ${currentLang === 'km' 
+            ? 'ដើម្បីឱ្យរូបថតនេះ Sync ចូលទៅក្នុង Database Server ផងដែរ សូមប្រាកដថាអ្នកបាន Upload ឯកសារ <b>server.js</b> ទៅកាន់ GitHub!' 
+            : 'To sync this avatar with the cloud database, please make sure <b>server.js</b> is uploaded to GitHub!'}
+        </div>
+      `,
+      confirmButtonText: currentLang === 'km' ? 'យល់ព្រម' : 'OK',
+      confirmButtonColor: '#06b6d4'
+    });
+  }
+
+  if (btn) {
+    btn.disabled = false;
+    btn.innerHTML = `<i data-lucide="check" class="w-4 h-4"></i><span>${currentLang === 'km' ? 'រក្សាទុករូបថត' : 'Save Photo'}</span>`;
+    if (window.lucide) lucide.createIcons();
   }
 }
 
@@ -697,6 +1127,17 @@ function setAttendanceAction(action) {
 }
 
 function triggerStaffScan() {
+  if (todayScansTotalCount >= 4) {
+    Swal.fire({
+      icon: 'info',
+      title: currentLang === 'km' ? 'គ្រប់ 4/4 ដងរួចរាល់' : 'All Scans Completed',
+      text: currentLang === 'km' 
+        ? 'អ្នកបានស្កេនគ្រប់ចំនួន ៤ ដង (4/4) សម្រាប់ថ្ងៃនេះរួចរាល់ហើយ! មិនអាចស្កេនបន្ថែមទៀតបានទេ។' 
+        : 'You have completed all 4 scans (4/4) for today.',
+      confirmButtonColor: '#0ea5e9'
+    });
+    return;
+  }
   openStaffScannerModal(currentScanAction);
 }
 
@@ -806,6 +1247,18 @@ async function openStaffScannerModal(actionType) {
     return;
   }
 
+  if (todayScansTotalCount >= 4) {
+    Swal.fire({
+      icon: 'info',
+      title: currentLang === 'km' ? 'គ្រប់ 4/4 ដងរួចរាល់' : 'All Scans Completed',
+      text: currentLang === 'km' 
+        ? 'អ្នកបានស្កេនគ្រប់ចំនួន ៤ ដង (4/4) សម្រាប់ថ្ងៃនេះរួចរាល់ហើយ! មិនអាចស្កេនបន្ថែមទៀតបានទេ។' 
+        : 'You have completed all 4 scans (4/4) for today.',
+      confirmButtonColor: '#0ea5e9'
+    });
+    return;
+  }
+
   currentScanAction = actionType;
   const badge = document.getElementById('staffScanModalBadge');
   const slotBadges = {
@@ -864,10 +1317,110 @@ async function closeStaffScannerModal() {
 let isSubmitting = false;
 async function onOfficeQrCodeScanned(decodedText) {
   if (isSubmitting) return;
-  isSubmitting = true;
 
+  if (todayScansTotalCount >= 4) {
+    await closeStaffScannerModal();
+    Swal.fire({
+      icon: 'info',
+      title: currentLang === 'km' ? 'គ្រប់ 4/4 ដងរួចរាល់' : 'All Scans Completed',
+      text: currentLang === 'km' 
+        ? 'អ្នកបានស្កេនគ្រប់ចំនួន ៤ ដង (4/4) សម្រាប់ថ្ងៃនេះរួចរាល់ហើយ! មិនអាចស្កេនបន្ថែមទៀតបានទេ។' 
+        : 'You have completed all 4 scans (4/4) for today.',
+      confirmButtonColor: '#0ea5e9'
+    });
+    return;
+  }
+
+  isSubmitting = true;
   playBeep();
   await closeStaffScannerModal();
+
+  // Check Cambodia Time (UTC+7) for Late Check-In or Early Check-Out
+  const now = new Date();
+  const cambodiaStr = now.toLocaleString('en-US', { timeZone: 'Asia/Phnom_Penh' });
+  const cambodiaDate = new Date(cambodiaStr);
+  const hours = cambodiaDate.getHours();
+  const minutes = cambodiaDate.getMinutes();
+  const totalMins = hours * 60 + minutes;
+
+  function formatDurationUi(mins) {
+    const m = Math.abs(Math.round(mins || 0));
+    const h = Math.floor(m / 60);
+    const rem = m % 60;
+    if (currentLang === 'km') {
+      if (h > 0) return rem > 0 ? `${h} ម៉ោង ${rem} នាទី` : `${h} ម៉ោង`;
+      return `${rem} នាទី`;
+    } else {
+      if (h > 0) return rem > 0 ? `${h} hr ${rem} min` : `${h} hr`;
+      return `${rem} min`;
+    }
+  }
+
+  let promptReason = false;
+  let promptTitle = '';
+  let promptSubtitle = '';
+
+  if (currentScanAction === 'morning_in' && totalMins > 490) { // After 08:10
+    const lateMins = totalMins - 480;
+    const diffStr = formatDurationUi(lateMins);
+    promptReason = true;
+    promptTitle = currentLang === 'km' ? `⚠️ អ្នកមកយឺត ${diffStr}` : `⚠️ Late by ${diffStr}`;
+    promptSubtitle = currentLang === 'km' 
+      ? 'ម៉ោងចូលធ្វើការគឺ 08:00 AM (អនុគ្រោះត្រឹម 08:10)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកមកយឺត:' 
+      : 'Work starts at 08:00 AM. Please state your reason for being late:';
+  } else if (currentScanAction === 'lunch_out' && totalMins < 650) { // Before 10:50
+    const earlyMins = 660 - totalMins;
+    const diffStr = formatDurationUi(earlyMins);
+    promptReason = true;
+    promptTitle = currentLang === 'km' ? `🏃💨 អ្នកចេញមុនម៉ោង ${diffStr}` : `🏃💨 Early leave by ${diffStr}`;
+    promptSubtitle = currentLang === 'km' 
+      ? 'ម៉ោងចេញសម្រាកបាយគឺ 11:00 AM (អនុញ្ញាតចាប់ពី 10:50)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកចេញមុន:' 
+      : 'Lunch break is at 11:00 AM. Please state your reason for leaving early:';
+  } else if (currentScanAction === 'afternoon_in' && totalMins > 790) { // After 13:10
+    const lateMins = totalMins - 780;
+    const diffStr = formatDurationUi(lateMins);
+    promptReason = true;
+    promptTitle = currentLang === 'km' ? `⚠️ អ្នកមកយឺត ${diffStr}` : `⚠️ Late by ${diffStr}`;
+    promptSubtitle = currentLang === 'km' 
+      ? 'ម៉ោងចូលរសៀលគឺ 01:00 PM (អនុគ្រោះត្រឹម 01:10)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកមកយឺត:' 
+      : 'Afternoon starts at 01:00 PM. Please state your reason for being late:';
+  } else if (currentScanAction === 'evening_out' && totalMins < 1010) { // Before 16:50
+    const earlyMins = 1020 - totalMins;
+    const diffStr = formatDurationUi(earlyMins);
+    promptReason = true;
+    promptTitle = currentLang === 'km' ? `🏃💨 អ្នកចេញមុនម៉ោង ${diffStr}` : `🏃💨 Early leave by ${diffStr}`;
+    promptSubtitle = currentLang === 'km' 
+      ? 'ម៉ោងចេញធ្វើការគឺ 05:00 PM (អនុញ្ញាតចាប់ពី 04:50)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកចេញមុន:' 
+      : 'End of work is at 05:00 PM. Please state your reason for leaving early:';
+  }
+
+  let staffReason = '';
+  if (promptReason) {
+    const reasonResult = await Swal.fire({
+      title: promptTitle,
+      text: promptSubtitle,
+      input: 'textarea',
+      inputPlaceholder: currentLang === 'km' ? 'ឧ. ស្ទះចរាចរណ៍, ឈឺ/មិនស្រួលខ្លួន, មានធុរៈផ្ទាល់ខ្លួន...' : 'e.g. Traffic jam, doctor appointment...',
+      icon: 'warning',
+      confirmButtonText: currentLang === 'km' ? 'បញ្ជាក់ និងកត់ត្រាវត្តមាន' : 'Confirm & Check In',
+      cancelButtonText: currentLang === 'km' ? 'បោះបង់' : 'Cancel',
+      showCancelButton: true,
+      confirmButtonColor: '#f59e0b',
+      cancelButtonColor: '#64748b',
+      allowOutsideClick: false,
+      inputValidator: (value) => {
+        if (!value || !value.trim()) {
+          return currentLang === 'km' ? 'សូមបញ្ចូលមូលហេតុរបស់អ្នកជាមុនសិន!' : 'Please enter your reason!';
+        }
+      }
+    });
+
+    if (!reasonResult.isConfirmed) {
+      isSubmitting = false;
+      return;
+    }
+    staffReason = (reasonResult.value || '').trim();
+  }
 
   try {
     const res = await fetch('/api/attendance/check', {
@@ -878,7 +1431,9 @@ async function onOfficeQrCodeScanned(decodedText) {
         type: currentScanAction,
         qr_token: decodedText.trim(),
         latitude: userCoords.lat,
-        longitude: userCoords.lng
+        longitude: userCoords.lng,
+        note: staffReason,
+        device_id: getOrCreateDeviceId()
       })
     });
 
@@ -920,6 +1475,8 @@ async function onOfficeQrCodeScanned(decodedText) {
 
     const sundayBadge = data.isSunday ? `<div class="text-[11px] text-amber-700 font-bold bg-amber-50 p-1.5 rounded-lg border border-amber-200 mt-1">🏖️ ${currentLang === 'km' ? 'ស្កេនថ្ងៃអាទិត្យ (OT / សម្រាក)' : 'Sunday Scan (Day Off / OT)'}</div>` : '';
 
+    const reasonDisplay = data.note ? `<div class="text-xs text-amber-800 bg-amber-50/80 p-2 rounded-xl border border-amber-200/60 mt-1">📝 <b>${currentLang === 'km' ? 'មូលហេតុ' : 'Reason'}:</b> ${data.note}</div>` : '';
+
     Swal.fire({
       icon: 'success',
       title: currentLang === 'km' ? data.message : 'Attendance Recorded!',
@@ -928,6 +1485,8 @@ async function onOfficeQrCodeScanned(decodedText) {
           <div>👤 <b>${currentLang === 'km' ? 'សមាជិក' : 'Member'}:</b> ${data.member.name} (<code>${data.member.code}</code>)</div>
           <div>💼 <b>${currentLang === 'km' ? 'ផ្នែក' : 'Role'}:</b> ${data.member.role || 'General'}</div>
           <div>⏰ <b>${currentLang === 'km' ? 'វត្តមាន' : 'Slot'}:</b> <b>${slotLabel}</b></div>
+          <div>${data.statusText || ''}</div>
+          ${reasonDisplay}
           <div>📍 <b>${currentLang === 'km' ? 'ទីតាំង' : 'Location'}:</b> ${locNote}</div>
           <div>📊 <b>${currentLang === 'km' ? 'សរុបថ្ងៃនេះ' : 'Today Total'}:</b> ${data.todayScansCount}/4 ដង</div>
           ${sundayBadge}
@@ -992,6 +1551,66 @@ async function loadMyAttendanceActivity() {
 
     // Update Total Scans badge & 4-Segment Progress Bar
     const totalDone = summary.totalScansToday || 0;
+    // ACLEDA Circular Progress & Working Duration Updates
+    const circleEl = document.getElementById('acledaProgressCircle');
+    const circleTxt = document.getElementById('acledaProgressText');
+    const miniBadge = document.getElementById('todayScansMiniBadge');
+    if (circleEl) {
+      const circOffset = 201 - (Math.min(4, totalDone) / 4) * 201;
+      circleEl.style.strokeDashoffset = circOffset;
+    }
+    if (circleTxt) circleTxt.textContent = totalDone + '/4';
+    if (miniBadge) miniBadge.textContent = totalDone + '/4';
+
+    // Calculate Working Duration (Hours & Minutes)
+    let workedMinutes = 0;
+    const slots = summary.slots || {};
+    const now = new Date();
+
+    if (slots.morning_in) {
+      const tIn = new Date(slots.morning_in.timestamp);
+      if (slots.lunch_out) {
+        const tOut = new Date(slots.lunch_out.timestamp);
+        workedMinutes += Math.max(0, Math.round((tOut - tIn) / 60000));
+      } else {
+        workedMinutes += Math.max(0, Math.round((now - tIn) / 60000));
+      }
+    }
+    if (slots.afternoon_in) {
+      const tIn2 = new Date(slots.afternoon_in.timestamp);
+      if (slots.evening_out) {
+        const tOut2 = new Date(slots.evening_out.timestamp);
+        workedMinutes += Math.max(0, Math.round((tOut2 - tIn2) / 60000));
+      } else {
+        workedMinutes += Math.max(0, Math.round((now - tIn2) / 60000));
+      }
+    }
+    const durH = Math.floor(workedMinutes / 60);
+    const durM = workedMinutes % 60;
+    const durEl = document.getElementById('acledaWorkDurationText');
+    if (durEl && !durEl.dataset.blurred) {
+      durEl.textContent = `${durH} ម៉ោង ${durM} នាទី`;
+    }
+
+    // Update Hero 1-Click Action Button Text
+    const heroTitle = document.getElementById('heroBtnActionTitle');
+    const heroSub = document.getElementById('heroBtnActionSubtitle');
+    const heroIcon = document.getElementById('heroBtnActionIcon');
+    if (totalDone >= 4) {
+      if (heroTitle) heroTitle.textContent = 'គ្រប់ ៤/៤ ដងរួចរាល់';
+      if (heroSub) heroSub.textContent = 'បានបញ្ចប់វត្តមានថ្ងៃនេះ';
+    } else {
+      const nextSlot = summary.nextSuggestedSlot || 'morning_in';
+      const slotTitles = {
+        morning_in: 'ចុចចូលព្រឹក (08:00)',
+        lunch_out: 'ចុចចេញបាយ (11:00)',
+        afternoon_in: 'ចុចចូលរសៀល (13:00)',
+        evening_out: 'ចុចចេញល្ងាច (17:00)'
+      };
+      if (heroTitle) heroTitle.textContent = slotTitles[nextSlot] || 'ចុចកត់ត្រាវត្តមាន';
+      if (heroSub) heroSub.textContent = '1-Click (Wi-Fi ក្រុមហ៊ុន)';
+    }
+
     const countEl = document.getElementById('todayScansCountText');
     if (countEl) {
       countEl.textContent = totalDone;
@@ -1022,41 +1641,61 @@ async function loadMyAttendanceActivity() {
       const timeEl = document.getElementById(timeId);
       const statusEl = document.getElementById(statusId);
       const record = summary.slots && summary.slots[slotKey];
+      if (!card) return;
+
+      const titleEl = card.querySelector('span:first-child');
+      const pillEl = card.querySelector('div > div > span:last-child');
 
       if (record) {
-        // Completed step: Gradient accent / success appearance
-        const timeStr = new Date(record.timestamp).toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' });
-        if (timeEl) timeEl.textContent = timeStr;
+        // Completed step: Translucent emerald glass success appearance (NO WHITE GLARE)
+        const timeStr = new Date(record.timestamp).toLocaleTimeString('en-US', { 
+          timeZone: 'Asia/Phnom_Penh', 
+          hour: '2-digit', 
+          minute: '2-digit', 
+          hour12: true 
+        });
+        if (timeEl) {
+          timeEl.textContent = timeStr;
+          timeEl.className = 'text-base font-extrabold text-white font-mono mt-1';
+        }
         const rangeText = record.is_within_range 
           ? (currentLang === 'km' ? '✅ ការិយាល័យ' : '✅ Office') 
           : `⚠️ (${record.distance_meters !== null ? record.distance_meters + 'm' : 'ក្រៅ'})`;
         if (statusEl) {
           statusEl.textContent = rangeText;
-          statusEl.className = record.is_within_range ? 'text-xs text-brand-blue font-bold mt-1.5' : 'text-xs text-accent-warning font-bold mt-1.5';
+          statusEl.className = record.is_within_range 
+            ? 'text-xs text-emerald-300 font-bold mt-1.5 flex items-center gap-1' 
+            : 'text-xs text-amber-300 font-bold mt-1.5 flex items-center gap-1';
         }
-        if (card) {
-          card.className = 'p-3.5 rounded-xl bg-gradient-to-br from-brand-blue/10 via-brand-cyan/5 to-white/90 border border-brand-blue/30 shadow-xs flex flex-col justify-between transition-all';
+        card.className = 'p-3.5 rounded-2xl bg-emerald-500/15 border-2 border-emerald-400/50 shadow-[0_0_20px_rgba(16,185,129,0.2)] flex flex-col justify-between transition-all';
+        if (titleEl) titleEl.className = 'text-[11px] font-bold text-emerald-300';
+        if (pillEl) pillEl.className = 'text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-200 border border-emerald-400/30';
+      } else if (summary.nextSuggestedSlot === slotKey && todayScansTotalCount < 4) {
+        // Current step (ដល់ពេលស្កេន): Vibrant Cyan-Blue Glass with Glowing Border (NO WHITE GLARE, HIGH CONTRAST)
+        if (timeEl) {
+          timeEl.textContent = '--:--';
+          timeEl.className = 'text-base font-extrabold text-white font-mono mt-1';
         }
-      } else if (summary.nextSuggestedSlot === slotKey) {
-        // Current step: Soft pulse / active highlight
-        if (timeEl) timeEl.textContent = '--:--';
         if (statusEl) {
-          statusEl.textContent = currentLang === 'km' ? 'ស្កេនបន្ទាប់' : 'Next Step';
-          statusEl.className = 'text-xs text-brand-blue font-bold mt-1.5 flex items-center gap-1';
+          statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span><span>${currentLang === 'km' ? 'ស្កេនបន្ទាប់' : 'Next Step'}</span>`;
+          statusEl.className = 'text-xs text-cyan-300 font-extrabold mt-1.5 flex items-center gap-1.5 animate-pulse';
         }
-        if (card) {
-          card.className = 'p-3.5 rounded-xl bg-white/95 border-2 border-brand-blue/50 shadow-glass flex flex-col justify-between transition-all scale-[1.02] ring-2 ring-brand-blue/15';
-        }
+        card.className = 'p-3.5 rounded-2xl bg-gradient-to-br from-cyan-500/25 via-blue-600/20 to-indigo-600/15 border-2 border-cyan-400 shadow-[0_0_25px_rgba(6,182,212,0.45)] flex flex-col justify-between transition-all scale-[1.02] ring-2 ring-cyan-400/30';
+        if (titleEl) titleEl.className = 'text-[11px] font-bold text-cyan-200';
+        if (pillEl) pillEl.className = 'text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/30 text-cyan-200 border border-cyan-400/40';
       } else {
-        // Future step: Neutral glass
-        if (timeEl) timeEl.textContent = '--:--';
+        // Future step: Neutral subtle dark crystal glass
+        if (timeEl) {
+          timeEl.textContent = '--:--';
+          timeEl.className = 'text-base font-extrabold text-slate-400 font-mono mt-1';
+        }
         if (statusEl) {
           statusEl.textContent = t.waiting || 'រង់ចាំ';
-          statusEl.className = 'text-xs text-txt-muted mt-1.5';
+          statusEl.className = 'text-xs text-slate-400 mt-1.5';
         }
-        if (card) {
-          card.className = 'p-3.5 rounded-xl bg-white/60 border border-app-border flex flex-col justify-between transition-all';
-        }
+        card.className = 'p-3.5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-between transition-all';
+        if (titleEl) titleEl.className = 'text-[11px] font-bold text-slate-300';
+        if (pillEl) pillEl.className = 'text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-slate-400';
       }
     }
 
@@ -1070,24 +1709,25 @@ async function loadMyAttendanceActivity() {
     if (badgeEl) {
       if (!summary.totalScansToday || summary.totalScansToday === 0) {
         badgeEl.textContent = t.notCheckedIn;
-        badgeEl.className = 'px-3 py-1 rounded-full text-xs font-bold bg-white/80 text-txt-secondary border border-app-border shadow-xs';
+        badgeEl.className = 'px-3 py-0.5 rounded-full text-[11px] font-semibold bg-slate-800/80 text-slate-400 border border-slate-700/60 shadow-xs';
       } else if (summary.totalScansToday < 4) {
         badgeEl.textContent = `${currentLang === 'km' ? 'កំពុងបំពេញការងារ' : 'On Duty'} (${summary.totalScansToday}/4)`;
-        badgeEl.className = 'px-3 py-1 rounded-full text-xs font-bold bg-brand-blue/10 text-brand-blue border border-brand-blue/20 shadow-xs';
+        badgeEl.className = 'px-3 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-xs';
       } else {
         badgeEl.textContent = currentLang === 'km' ? 'គ្រប់ 4/4 ដងរួចរាល់' : 'All 4 Scans Done';
-        badgeEl.className = 'px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-accent-success border border-emerald-500/25 shadow-xs';
+        badgeEl.className = 'px-3 py-0.5 rounded-full text-[11px] font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/20 shadow-xs';
       }
     }
 
     // Auto-select next suggested slot if available
-    if (summary.nextSuggestedSlot && summary.nextSuggestedSlot !== 'completed') {
+    todayScansTotalCount = summary.totalScansToday || 0;
+    if (summary.nextSuggestedSlot && summary.nextSuggestedSlot !== 'completed' && todayScansTotalCount < 4) {
       setAttendanceSlot(summary.nextSuggestedSlot);
-    } else if (summary.nextSuggestedSlot === 'completed') {
+    } else {
       const iconEl = document.getElementById('heroSuggestedIcon');
       const textEl = document.getElementById('heroSuggestedText');
-      if (iconEl) iconEl.textContent = '✓';
-      if (textEl) textEl.textContent = currentLang === 'km' ? 'គ្រប់ 4/4 ដងរួចរាល់' : 'All 4 Scans Done';
+      if (iconEl) iconEl.textContent = '✅';
+      if (textEl) textEl.textContent = currentLang === 'km' ? 'គ្រប់ 4/4 ដងរួចរាល់សម្រាប់ថ្ងៃនេះ' : 'All 4 Scans Completed Today';
     }
 
     // 2. Fetch Recent 5 activity logs for the member
@@ -1114,22 +1754,25 @@ async function loadMyAttendanceActivity() {
         const meta = slotLabels[l.type] || { text: l.type, enText: l.type, icon: 'check-circle' };
         const labelStr = currentLang === 'km' ? meta.text : meta.enText;
         const timeStr = new Date(l.timestamp).toLocaleString(loc, { 
-          day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
+          timeZone: 'Asia/Phnom_Penh',
+          day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true
         });
         const rangeText = l.is_within_range ? (currentLang === 'km' ? 'ការិយាល័យ' : 'Office') : `(${l.distance_meters !== null ? l.distance_meters + 'm' : 'ក្រៅ'})`;
+        const noteHtml = l.note ? `<p class="text-[11px] text-amber-300 font-medium mt-0.5">📝 ${l.note}</p>` : '';
 
         return `
-          <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-app-border hover:bg-slate-100/70 transition text-xs">
+          <div class="flex items-center justify-between p-3 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition text-xs">
             <div class="flex items-center gap-3">
-              <div class="w-7 h-7 rounded-lg bg-white border border-app-border flex items-center justify-center text-teal">
-                <i data-lucide="${meta.icon}" class="w-3.5 h-3.5"></i>
+              <div class="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-400/30 flex items-center justify-center text-cyan-300 flex-shrink-0">
+                <i data-lucide="${meta.icon}" class="w-4 h-4"></i>
               </div>
               <div>
-                <span class="font-semibold text-txt-primary notranslate" translate="no">${labelStr}</span>
-                <p class="text-[11px] text-txt-muted font-mono mt-0.5">${timeStr}</p>
+                <span class="font-bold text-white notranslate" translate="no">${labelStr}</span>
+                <p class="text-[11px] text-slate-400 font-mono mt-0.5">${timeStr}</p>
+                ${noteHtml}
               </div>
             </div>
-            <span class="text-xs font-medium ${l.is_within_range ? 'text-teal' : 'text-accent-warning'}">
+            <span class="text-xs font-semibold ${l.is_within_range ? 'text-emerald-400' : 'text-amber-400'}">
               ${rangeText}
             </span>
           </div>
@@ -1185,24 +1828,16 @@ function showAdminView() {
   document.getElementById('btnSwitchToAdmin').classList.add('hidden');
   document.getElementById('btnSwitchToStaff').classList.remove('hidden');
 
+  // Hide bottom nav in Admin View
+  const bNav = document.getElementById('acledaBottomNav');
+  if (bNav) bNav.classList.add('hidden');
+
   switchAdminTab('dashboard');
   loadAdminDashboard();
   renderOfficeQrPoster();
 }
 
-function showStaffView() {
-  if (!currentStaff) {
-    showLoginView();
-    return;
-  }
-  const loginV = document.getElementById('loginView');
-  if (loginV) loginV.classList.add('hidden');
-  document.getElementById('adminView').classList.add('hidden');
-  document.getElementById('staffView').classList.remove('hidden');
-  document.getElementById('btnSwitchToStaff').classList.add('hidden');
-  document.getElementById('btnSwitchToAdmin').classList.remove('hidden');
-  loadMyAttendanceActivity();
-}
+// (showStaffView is defined above)
 
 function lockAdmin() {
   isAdminAuthenticated = false;
@@ -1215,13 +1850,13 @@ function lockAdmin() {
 
 function switchAdminTab(tabId) {
   document.querySelectorAll('.adm-tab').forEach(b => {
-    b.classList.remove('text-brand-blue', 'bg-gradient-to-r', 'from-brand-blue/12', 'to-brand-cyan/10', 'border-brand-blue/20', 'font-bold');
-    b.classList.add('text-txt-secondary', 'hover:text-txt-primary', 'hover:bg-white/80', 'border-transparent', 'font-semibold');
+    b.classList.remove('text-white', 'bg-gradient-to-r', 'from-blue-600', 'via-cyan-500', 'to-teal-400', 'border-cyan-300/40', 'font-extrabold', 'shadow-lg', 'shadow-cyan-500/25');
+    b.classList.add('text-slate-300', 'hover:text-white', 'hover:bg-slate-800/70', 'border-transparent', 'font-semibold');
   });
   const activeBtn = document.getElementById(`adm-tab-${tabId}`);
   if (activeBtn) {
-    activeBtn.classList.remove('text-txt-secondary', 'hover:text-txt-primary', 'hover:bg-white/80', 'border-transparent', 'font-semibold');
-    activeBtn.classList.add('text-brand-blue', 'bg-gradient-to-r', 'from-brand-blue/12', 'to-brand-cyan/10', 'border-brand-blue/20', 'font-bold');
+    activeBtn.classList.remove('text-slate-300', 'hover:text-white', 'hover:bg-slate-800/70', 'border-transparent', 'font-semibold');
+    activeBtn.classList.add('text-white', 'bg-gradient-to-r', 'from-blue-600', 'via-cyan-500', 'to-teal-400', 'border-cyan-300/40', 'font-extrabold', 'shadow-lg', 'shadow-cyan-500/25');
   }
 
   document.querySelectorAll('.adm-section').forEach(s => s.classList.add('hidden'));
@@ -1230,9 +1865,15 @@ function switchAdminTab(tabId) {
 
   if (window.lucide) lucide.createIcons();
 
-  if (tabId === 'dashboard') loadAdminDashboard();
+  if (tabId === 'dashboard') {
+    loadAdminDashboard();
+    loadPendingMembers();
+  }
   if (tabId === 'office-qr') renderOfficeQrPoster();
-  if (tabId === 'members') loadAdminMembers();
+  if (tabId === 'members') {
+    loadAdminMembers();
+    loadPendingMembers();
+  }
   if (tabId === 'history') loadAttendanceHistory();
   if (tabId === 'settings') loadAdminSettings();
 }
@@ -1257,26 +1898,26 @@ async function loadAdminDashboard() {
     const loc = currentLang === 'km' ? 'km-KH' : 'en-US';
 
     const slotBadgeMap = {
-      morning_in: `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/10 text-accent-success border border-emerald-500/20">1/4 ព្រឹកចូល</span>`,
-      lunch_out: `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500/10 text-accent-warning border border-amber-500/20">2/4 សម្រាកបាយ</span>`,
-      afternoon_in: `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-brand-blue/10 text-brand-blue border border-brand-blue/20">3/4 ចូលវិញ</span>`,
-      evening_out: `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-100 text-txt-secondary border border-app-border">4/4 ល្ងាចចេញ</span>`,
-      check_in: `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/10 text-accent-success border border-emerald-500/20">Check-In</span>`,
-      check_out: `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-brand-blue/10 text-brand-blue border border-brand-blue/20">Check-Out</span>`
+      morning_in: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>1/4 ព្រឹកចូល</span>`,
+      lunch_out: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>2/4 សម្រាកបាយ</span>`,
+      afternoon_in: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20"><span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>3/4 ចូលវិញ</span>`,
+      evening_out: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20"><span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span>4/4 ល្ងាចចេញ</span>`,
+      check_in: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>Check-In</span>`,
+      check_out: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20"><span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>Check-Out</span>`
     };
 
     tbody.innerHTML = data.recentLogs.map(l => {
-      const actionBadge = slotBadgeMap[l.type] || `<span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-white text-txt-secondary border border-app-border">${l.type}</span>`;
+      const actionBadge = slotBadgeMap[l.type] || `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-800 text-slate-300 border border-slate-700">${l.type}</span>`;
       const rangeBadge = l.is_within_range 
-        ? `<span class="inline-flex items-center gap-1.5 text-accent-success font-bold text-xs"><span class="w-1.5 h-1.5 rounded-full bg-accent-success animate-pulse"></span>ក្នុងរង្វង់ (${l.distance_meters !== null ? l.distance_meters + 'm' : 'OK'})</span>`
-        : `<span class="inline-flex items-center gap-1.5 text-accent-danger font-bold text-xs"><span class="w-1.5 h-1.5 rounded-full bg-accent-danger"></span>ក្រៅរង្វង់ (${l.distance_meters}m)</span>`;
+        ? `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>ក្នុងរង្វង់ (${l.distance_meters !== null ? l.distance_meters + 'm' : 'OK'})</span>`
+        : `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>ក្រៅរង្វង់ (${l.distance_meters}m)</span>`;
       const timeStr = new Date(l.timestamp).toLocaleTimeString(loc);
 
       return `
-        <tr class="hover:bg-brand-blue/[0.03] transition-colors border-b border-app-border">
-          <td class="py-3 px-5 font-bold text-txt-primary">${l.member_name} <span class="text-txt-muted text-[11px] font-mono">(${l.member_code})</span></td>
+        <tr class="hover:bg-cyan-500/[0.08] transition-colors border-b border-slate-800">
+          <td class="py-3 px-5 font-bold text-white">${l.member_name} <span class="text-slate-400 text-[11px] font-mono">(${l.member_code})</span></td>
           <td class="py-3 px-5">${actionBadge}</td>
-          <td class="py-3 px-5 font-mono text-txt-secondary text-xs">${timeStr}</td>
+          <td class="py-3 px-5 font-mono text-slate-300 text-xs">${timeStr}</td>
           <td class="py-3 px-5">${rangeBadge}</td>
         </tr>
       `;
@@ -1332,54 +1973,439 @@ function renderAdminMembers(members) {
   }
 
   container.innerHTML = members.map(m => {
-    const emailStr = m.email ? `<p class="text-[11px] text-txt-secondary mt-0.5 truncate flex items-center gap-1"><i data-lucide="mail" class="w-3 h-3 text-txt-muted flex-shrink-0"></i>${m.email}</p>` : '';
+    const emailStr = m.email ? `<p class="text-[11px] text-slate-400 mt-0.5 truncate flex items-center gap-1"><i data-lucide="mail" class="w-3 h-3 text-slate-500 flex-shrink-0"></i>${m.email}</p>` : '';
     const pwdDisplay = m.password ? m.password : '1234';
 
     const avatarHtml = (m.avatar && m.avatar.trim())
-      ? `<div class="w-12 h-12 rounded-2xl overflow-hidden shadow-glass border-2 border-white/80 flex-shrink-0"><img src="${m.avatar}" alt="${m.name}" class="w-full h-full object-cover"></div>`
-      : `<div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-brand-blue via-brand-cyan to-brand-purple text-white font-extrabold flex items-center justify-center text-sm shadow-glass border border-white/60 flex-shrink-0">${m.name.charAt(0)}</div>`;
+      ? `<div class="w-11 h-11 rounded-xl overflow-hidden border border-white/10 flex-shrink-0 shadow-sm"><img src="${m.avatar}" alt="${m.name}" class="w-full h-full object-cover"></div>`
+      : `<div class="w-11 h-11 rounded-xl bg-slate-800 text-white font-bold flex items-center justify-center text-sm border border-white/10 flex-shrink-0">${m.name.charAt(0)}</div>`;
 
     return `
-      <div class="glass-card glass-card-hover p-4 sm:p-5 border border-white/80 flex flex-col justify-between">
-        <div class="flex items-start justify-between gap-3">
-          <div class="flex items-start gap-3.5">
-            ${avatarHtml}
-            <div>
-              <h5 class="font-bold text-txt-primary text-sm leading-snug">${m.name}</h5>
-              <div class="flex flex-wrap items-center gap-1.5 mt-1">
-                <span class="text-[10px] font-mono font-bold bg-brand-blue/10 text-brand-blue border border-brand-blue/20 px-2 py-0.5 rounded-md">${m.code}</span>
-                <span class="text-[11px] font-medium text-txt-secondary">${m.role || 'សមាជិក'}</span>
+      <div class="p-4 sm:p-5 rounded-2xl bg-slate-900/60 backdrop-blur-md border border-white/10 hover:border-white/20 shadow-sm flex flex-col justify-between transition-all duration-200 group">
+        <div>
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-start gap-3">
+              ${avatarHtml}
+              <div class="min-w-0">
+                <h5 class="font-bold text-white text-sm leading-snug tracking-tight truncate">${m.name}</h5>
+                <div class="flex flex-wrap items-center gap-1.5 mt-1">
+                  <span class="text-[10px] font-mono font-medium bg-white/5 text-slate-300 border border-white/10 px-2 py-0.5 rounded-md">${m.code}</span>
+                  <span class="text-[11px] font-medium text-slate-400">${m.role || 'សមាជិក'}</span>
+                </div>
+                ${emailStr}
               </div>
-              ${emailStr}
+            </div>
+
+            <div class="flex items-center gap-1">
+              <button onclick="editMember(${m.id})" class="text-slate-400 hover:text-white p-1.5 transition rounded-lg hover:bg-white/10" title="Edit / កែប្រែ">
+                <i data-lucide="edit-3" class="w-4 h-4"></i>
+              </button>
+              <button onclick="deleteMember(${m.id}, '${m.name.replace(/'/g, "\\'")}')" class="text-slate-400 hover:text-rose-400 p-1.5 transition rounded-lg hover:bg-rose-500/10" title="Delete / លុប">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
             </div>
           </div>
 
-          <div class="flex items-center gap-1">
-            <button onclick="editMember(${m.id})" class="text-txt-muted hover:text-brand-blue p-1.5 transition rounded-xl hover:bg-white/80" title="Edit / កែប្រែ">
-              <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
-            </button>
-            <button onclick="deleteMember(${m.id}, '${m.name}')" class="text-txt-muted hover:text-accent-danger p-1.5 transition rounded-xl hover:bg-red-50" title="Delete / លុប">
-              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-            </button>
+          <!-- Account Credentials Chip (Masked PIN by Default with Show/Hide Eye Toggle) -->
+          <div class="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs">
+            <div class="flex items-center gap-1.5 text-slate-400">
+              <i data-lucide="key" class="w-3.5 h-3.5 text-slate-500"></i>
+              <span class="text-[11px]">PIN:</span>
+              <code id="memberPwdText-${m.id}" data-pwd="${pwdDisplay}" class="font-mono font-bold text-white bg-slate-950 px-2 py-0.5 rounded border border-white/10 tracking-widest select-all">••••</code>
+              <button type="button" onclick="toggleMemberPassword(${m.id})" class="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition" title="Show / Hide PIN">
+                <i id="memberPwdIcon-${m.id}" data-lucide="eye" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+            <span class="text-[11px] text-slate-500 font-medium">
+              ${m.phone || (m.join_date ? 'ចូល: ' + m.join_date : 'Active')}
+            </span>
           </div>
-        </div>
 
-        <!-- Account Credentials Chip (Password set by Admin) -->
-        <div class="mt-3 pt-2.5 border-t border-app-border flex items-center justify-between text-[11px]">
-          <div class="flex items-center gap-1.5 text-txt-secondary font-medium">
-            <i data-lucide="key" class="w-3 h-3 text-brand-blue"></i>
-            <span>Password:</span>
-            <code class="font-mono font-bold text-brand-blue bg-white/90 px-1.5 py-0.5 rounded-md border border-app-border">${pwdDisplay}</code>
+          <!-- 1 Device Security Lock Status & Reset -->
+          <div class="mt-2.5 pt-2.5 border-t border-white/5 flex items-center justify-between text-xs">
+            ${m.device_id ? `
+              <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" title="Device ID: ${m.device_id}">
+                <i data-lucide="smartphone" class="w-3 h-3 text-emerald-400"></i>
+                <span>ជាប់ទូរស័ព្ទ (1 Device Locked)</span>
+              </span>
+              <button type="button" onclick="resetMemberDevice(${m.id}, '${m.name.replace(/'/g, "\\'")}')" class="px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/25 text-[11px] font-bold flex items-center gap-1 transition active:scale-95" title="ដោះសោដើម្បីឱ្យបុគ្គលិកអាចប្តូរទូរស័ព្ទថ្មីបាន">
+                <i data-lucide="unlock" class="w-3 h-3"></i>
+                <span>ដោះសោ</span>
+              </button>
+            ` : `
+              <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-white/5 text-slate-400 border border-white/10">
+                <i data-lucide="smartphone" class="w-3 h-3 text-slate-500"></i>
+                <span>មិនទាន់ភ្ជាប់ទូរស័ព្ទ</span>
+              </span>
+              <span class="text-[10px] text-slate-500 italic">ភ្ជាប់ពេល Login ដំបូង</span>
+            `}
           </div>
-          <span class="text-[11px] text-txt-muted font-medium">
-            ${m.phone || (m.join_date ? 'ចូល: ' + m.join_date : 'Active')}
-          </span>
         </div>
       </div>
     `;
   }).join('');
 
   if (window.lucide) lucide.createIcons();
+}
+
+function toggleMemberPassword(id) {
+  const el = document.getElementById('memberPwdText-' + id);
+  const icon = document.getElementById('memberPwdIcon-' + id);
+  if (!el) return;
+  const realPwd = el.getAttribute('data-pwd');
+  const isMasked = el.textContent === '••••';
+  if (isMasked) {
+    el.textContent = realPwd;
+    el.classList.remove('tracking-widest');
+    if (icon) icon.setAttribute('data-lucide', 'eye-off');
+  } else {
+    el.textContent = '••••';
+    el.classList.add('tracking-widest');
+    if (icon) icon.setAttribute('data-lucide', 'eye');
+  }
+  if (window.lucide) lucide.createIcons();
+}
+
+// ================= ADMIN PENDING APPROVAL WORKFLOW =================
+async function loadPendingMembers() {
+  try {
+    const res = await fetch('/api/members/pending');
+    if (!res.ok) return;
+    allPendingMembers = await res.json();
+    renderPendingMembers(allPendingMembers);
+  } catch (err) {
+    console.error('Failed to load pending members:', err);
+  }
+}
+
+function renderPendingMembers(list) {
+  const section = document.getElementById('adminPendingSection');
+  const container = document.getElementById('adminPendingContainer');
+  const badge = document.getElementById('pendingCountBadge');
+  const navBadge = document.getElementById('admPendingNavBadge');
+
+  const count = list ? list.length : 0;
+  if (badge) badge.textContent = count + ' នាក់';
+  if (navBadge) {
+    if (count > 0) {
+      navBadge.textContent = count;
+      navBadge.classList.remove('hidden');
+    } else {
+      navBadge.classList.add('hidden');
+    }
+  }
+
+  if (!section || !container) return;
+
+  if (count === 0) {
+    section.classList.add('hidden');
+    container.innerHTML = '';
+    return;
+  }
+
+  section.classList.remove('hidden');
+  container.innerHTML = list.map(m => {
+    const avatarHtml = (m.avatar && m.avatar.trim())
+      ? `<div class="w-12 h-12 rounded-xl overflow-hidden border border-amber-400/30 flex-shrink-0 shadow-sm"><img src="${m.avatar}" alt="${m.name}" class="w-full h-full object-cover"></div>`
+      : `<div class="w-12 h-12 rounded-xl bg-amber-500/20 text-amber-300 font-bold flex items-center justify-center text-base border border-amber-400/30 flex-shrink-0">${m.name.charAt(0)}</div>`;
+
+    return `
+      <div class="p-4 rounded-2xl bg-slate-900/90 border-2 border-amber-400/40 shadow-lg flex flex-col justify-between space-y-3">
+        <div class="flex items-start gap-3">
+          ${avatarHtml}
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center justify-between gap-1">
+              <h5 class="font-bold text-white text-sm truncate">${m.name}</h5>
+              <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30 font-bold">${m.code}</span>
+            </div>
+            <p class="text-xs text-slate-300 mt-0.5 flex items-center gap-1 font-medium">
+              <i data-lucide="briefcase" class="w-3.5 h-3.5 text-slate-400"></i>
+              <span>${m.role || 'សមាជិកថ្មី'}</span>
+            </p>
+            <p class="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
+              <i data-lucide="phone" class="w-3 h-3 text-slate-500"></i>
+              <span>${m.phone || 'គ្មានលេខ'}</span>
+            </p>
+            <div class="mt-1.5 flex items-center gap-1 text-[10px] text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded-md border border-cyan-500/20 w-fit">
+              <i data-lucide="smartphone" class="w-3 h-3"></i>
+              <span>Device Locked (1 Device)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Approve / Reject Actions -->
+        <div class="grid grid-cols-2 gap-2 pt-2 border-t border-white/10">
+          <button type="button" onclick="rejectMember(${m.id}, '${m.name.replace(/'/g, "\\'")}')" class="py-2 px-3 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs font-bold transition flex items-center justify-center gap-1 active:scale-95">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+            <span>បដិសេធ</span>
+          </button>
+          <button type="button" onclick="approveMember(${m.id}, '${m.name.replace(/'/g, "\\'")}')" class="py-2 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold transition shadow-sm flex items-center justify-center gap-1 active:scale-95">
+            <i data-lucide="check" class="w-3.5 h-3.5"></i>
+            <span>យល់ព្រម (Approve)</span>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  if (window.lucide) lucide.createIcons();
+}
+
+async function approveMember(id, name) {
+  const result = await Swal.fire({
+    title: 'អនុម័តបុគ្គលិក?',
+    text: `តើអ្នកចង់យល់ព្រមទទួលយក "${name}" ជាបុគ្គលិកផ្លូវការមែនទេ? គាត់នឹងអាច Login និងកត់ត្រាវត្តមានលើទូរស័ព្ទនេះភ្លាមៗ។`,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'យល់ព្រម (Approve)',
+    cancelButtonText: 'បោះបង់',
+    confirmButtonColor: '#10b981',
+    cancelButtonColor: '#64748b'
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    const res = await fetch(`/api/members/${id}/approve`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) {
+      Swal.fire({ icon: 'error', title: 'បរាជ័យ', text: data.error || 'មិនអាចអនុម័តបានទេ' });
+      return;
+    }
+    Swal.fire({
+      icon: 'success',
+      title: 'បានអនុម័តជោគជ័យ!',
+      text: `បុគ្គលិក "${name}" អាចចាប់ផ្តើមកត់ត្រាវត្តមានបានហើយ!`,
+      timer: 2000,
+      showConfirmButton: false
+    });
+    loadAdminMembers();
+    loadPendingMembers();
+    if (typeof loadPublicInfo === 'function') loadPublicInfo();
+  } catch (err) {
+    Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+  }
+}
+
+async function rejectMember(id, name) {
+  const result = await Swal.fire({
+    title: 'បដិសេធសំណើ?',
+    text: `តើអ្នកប្រាកដជាចង់បដិសេធសំណើរបស់ "${name}" មែនទេ?`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'បដិសេធ (Reject)',
+    cancelButtonText: 'បោះបង់',
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#64748b'
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    const res = await fetch(`/api/members/${id}/reject`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) {
+      Swal.fire({ icon: 'error', title: 'បរាជ័យ', text: data.error || 'មិនអាចបដិសេធបានទេ' });
+      return;
+    }
+    Swal.fire({
+      icon: 'info',
+      title: 'បានបដិសេធសំណើ',
+      text: `សំណើរបស់ "${name}" ត្រូវបានលុបចេញពីបញ្ជីរង់ចាំ។`,
+      timer: 1800,
+      showConfirmButton: false
+    });
+    loadPendingMembers();
+  } catch (err) {
+    Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+  }
+}
+
+async function resetMemberDevice(id, name) {
+  const result = await Swal.fire({
+    title: 'ដោះសោទូរស័ព្ទ?',
+    text: `តើអ្នកចង់ដោះសោទូរស័ព្ទរបស់ "${name}" មែនទេ? គាត់នឹងអាចភ្ជាប់ Login ជាមួយទូរស័ព្ទថ្មីបានលើកក្រោយ។`,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'ដោះសោ (Unlock)',
+    cancelButtonText: 'បោះបង់',
+    confirmButtonColor: '#f59e0b',
+    cancelButtonColor: '#64748b'
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    const res = await fetch(`/api/members/${id}/reset-device`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) {
+      Swal.fire({ icon: 'error', title: 'បរាជ័យ', text: data.error || 'មិនអាចដោះសោបានទេ' });
+      return;
+    }
+    Swal.fire({
+      icon: 'success',
+      title: 'បានដោះសោទូរស័ព្ទជោគជ័យ!',
+      text: `ទូរស័ព្ទចាស់ត្រូវបានផ្តាច់។ បុគ្គលិកអាចយកទូរស័ព្ទថ្មីមក Login បានភ្លាមៗ។`,
+      timer: 2000,
+      showConfirmButton: false
+    });
+    loadAdminMembers();
+  } catch (err) {
+    Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+  }
+}
+
+// ================= STAFF SELF-REGISTRATION WORKFLOW =================
+let selfRegAvatarBase64 = '';
+
+function openSelfRegisterModal() {
+  const modal = document.getElementById('selfRegisterModal');
+  if (!modal) return;
+  const form = document.getElementById('selfRegisterForm');
+  if (form) form.reset();
+  const pwdInput = document.getElementById('selfRegPassword');
+  if (pwdInput) pwdInput.value = '1234';
+  selfRegAvatarBase64 = '';
+  const preview = document.getElementById('selfRegAvatarPreview');
+  if (preview) {
+    preview.innerHTML = '<i data-lucide="camera" class="w-8 h-8 text-cyan-400/70"></i>';
+  }
+  modal.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeSelfRegisterModal() {
+  const modal = document.getElementById('selfRegisterModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function handleSelfRegisterAvatarSelected(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      const MAX_SIZE = 300;
+      let width = img.width;
+      let height = img.height;
+      if (width > height) {
+        if (width > MAX_SIZE) {
+          height *= MAX_SIZE / width;
+          width = MAX_SIZE;
+        }
+      } else {
+        if (height > MAX_SIZE) {
+          width *= MAX_SIZE / height;
+          height = MAX_SIZE;
+        }
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      selfRegAvatarBase64 = canvas.toDataURL('image/jpeg', 0.85);
+
+      const preview = document.getElementById('selfRegAvatarPreview');
+      if (preview) {
+        preview.innerHTML = `<img src="${selfRegAvatarBase64}" alt="Selfie" class="w-full h-full object-cover">`;
+      }
+    };
+    img.src = evt.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function handleSelfRegisterSubmit(e) {
+  e.preventDefault();
+  const name = (document.getElementById('selfRegName').value || '').trim();
+  const phone = (document.getElementById('selfRegPhone').value || '').trim();
+  const role = (document.getElementById('selfRegRole').value || '').trim();
+  const password = (document.getElementById('selfRegPassword').value || '').trim();
+
+  if (!name) {
+    Swal.fire({ icon: 'warning', title: 'សូមបញ្ចូលឈ្មោះពេញ' });
+    return;
+  }
+  if (!phone) {
+    Swal.fire({ icon: 'warning', title: 'សូមបញ្ចូលលេខទូរស័ព្ទ' });
+    return;
+  }
+  if (!password || password.length < 4) {
+    Swal.fire({ icon: 'warning', title: 'Password ត្រូវមានយ៉ាងតិច ៤ ខ្ទង់' });
+    return;
+  }
+
+  const btn = document.getElementById('btnSubmitSelfReg');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="inline-block animate-spin mr-1">⏳</span> កំពុងផ្ញើ...';
+  }
+
+  try {
+    const deviceId = getOrCreateDeviceId();
+    const res = await fetch('/api/members/self-register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        phone,
+        role,
+        password,
+        avatar: selfRegAvatarBase64,
+        device_id: deviceId
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      Swal.fire({
+        icon: 'error',
+        title: 'ចុះឈ្មោះមិនបានសម្រេច',
+        text: data.error || 'មានបញ្ហាក្នុងការចុះឈ្មោះ'
+      });
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="send" class="w-4 h-4"></i><span>ផ្ញើសំណើចុះឈ្មោះ (Register)</span>';
+        if (window.lucide) lucide.createIcons();
+      }
+      return;
+    }
+
+    closeSelfRegisterModal();
+
+    Swal.fire({
+      icon: 'success',
+      title: 'បានផ្ញើសំណើចុះឈ្មោះជោគជ័យ!',
+      html: `
+        <div class="text-left text-xs space-y-2 mt-2 p-3 bg-slate-900 rounded-xl border border-white/10">
+          <p>ឈ្មោះ៖ <b class="text-white">${data.member.name}</b></p>
+          <p>លេខសម្គាល់ ID៖ <b class="text-cyan-400 font-mono">${data.member.code}</b></p>
+          <p class="text-amber-300 font-semibold">⏳ សំណើរបស់អ្នកបានផ្ញើទៅ Telegram របស់ Admin រួចហើយ! សូមរង់ចាំ Admin ពិនិត្យនិងអនុម័ត (Approve) ទើបអាច Login បាន។</p>
+          <p class="text-slate-400 text-[11px]">* ទូរស័ព្ទដៃនេះត្រូវបានចងភ្ជាប់សុវត្ថិភាព (1 Device Policy) មិនអាចប្តូរទូរស័ព្ទដោយគ្មានការអនុញ្ញាតឡើយ។</p>
+        </div>
+      `,
+      confirmButtonText: 'យល់ព្រម',
+      confirmButtonColor: '#0284c7'
+    });
+
+    // Pre-fill login input
+    const loginInput = document.getElementById('loginInputCode');
+    if (loginInput) loginInput.value = data.member.code;
+    const pwdInput = document.getElementById('loginInputPassword');
+    if (pwdInput) pwdInput.value = password;
+
+  } catch (err) {
+    Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="send" class="w-4 h-4"></i><span>ផ្ញើសំណើចុះឈ្មោះ (Register)</span>';
+      if (window.lucide) lucide.createIcons();
+    }
+  }
 }
 
 function filterAdminMembers() {
@@ -1585,26 +2611,26 @@ async function loadAttendanceHistory() {
     const loc = currentLang === 'km' ? 'km-KH' : 'en-US';
 
     const slotBadgeMap = {
-      morning_in: `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/10 text-accent-success border border-emerald-500/20">1/4 ព្រឹកចូល</span>`,
-      lunch_out: `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500/10 text-accent-warning border border-amber-500/20">2/4 សម្រាកបាយ</span>`,
-      afternoon_in: `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-brand-blue/10 text-brand-blue border border-brand-blue/20">3/4 ចូលវិញ</span>`,
-      evening_out: `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-100 text-txt-secondary border border-app-border">4/4 ល្ងាចចេញ</span>`,
-      check_in: `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/10 text-accent-success border border-emerald-500/20">Check-In</span>`,
-      check_out: `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-brand-blue/10 text-brand-blue border border-brand-blue/20">Check-Out</span>`
+      morning_in: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>1/4 ព្រឹកចូល</span>`,
+      lunch_out: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>2/4 សម្រាកបាយ</span>`,
+      afternoon_in: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20"><span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>3/4 ចូលវិញ</span>`,
+      evening_out: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20"><span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span>4/4 ល្ងាចចេញ</span>`,
+      check_in: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>Check-In</span>`,
+      check_out: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20"><span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>Check-Out</span>`
     };
 
     tbody.innerHTML = logs.map((l, i) => `
-      <tr class="hover:bg-brand-blue/[0.03] transition-colors border-b border-app-border">
-        <td class="py-2.5 px-4 font-mono text-txt-muted text-xs">${i + 1}</td>
-        <td class="py-2.5 px-4 font-bold text-txt-primary">${l.member_name}</td>
-        <td class="py-2.5 px-4 font-mono text-xs text-txt-secondary">${l.member_code}</td>
-        <td class="py-2.5 px-4 text-xs text-txt-secondary font-medium">${l.member_role || '-'}</td>
-        <td class="py-2.5 px-4">${slotBadgeMap[l.type] || `<span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-white text-txt-secondary border border-app-border">${l.type}</span>`}</td>
-        <td class="py-2.5 px-4 font-mono text-xs text-txt-secondary">${new Date(l.timestamp).toLocaleString(loc)}</td>
-        <td class="py-2.5 px-4 font-mono text-xs text-txt-secondary">${l.distance_meters !== null ? l.distance_meters + 'm' : '-'}</td>
+      <tr class="hover:bg-white/[0.03] transition-colors border-b border-slate-800/80">
+        <td class="py-2.5 px-4 font-mono text-slate-500 text-xs">${i + 1}</td>
+        <td class="py-2.5 px-4 font-bold text-white">${l.member_name}</td>
+        <td class="py-2.5 px-4 font-mono text-xs text-slate-300">${l.member_code}</td>
+        <td class="py-2.5 px-4 text-xs text-slate-400 font-medium">${l.member_role || '-'}</td>
+        <td class="py-2.5 px-4">${slotBadgeMap[l.type] || `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-800 text-slate-300 border border-slate-700">${l.type}</span>`}</td>
+        <td class="py-2.5 px-4 font-mono text-xs text-slate-400">${new Date(l.timestamp).toLocaleString(loc)}</td>
+        <td class="py-2.5 px-4 font-mono text-xs text-slate-400">${l.distance_meters !== null ? l.distance_meters + 'm' : '-'}</td>
         <td class="py-2.5 px-4">${l.is_within_range 
-          ? `<span class="inline-flex items-center gap-1.5 text-accent-success font-bold text-xs"><span class="w-1.5 h-1.5 rounded-full bg-accent-success animate-pulse"></span>ក្នុងរង្វង់</span>` 
-          : `<span class="inline-flex items-center gap-1.5 text-accent-danger font-bold text-xs"><span class="w-1.5 h-1.5 rounded-full bg-accent-danger"></span>ក្រៅរង្វង់</span>`}</td>
+          ? `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>ក្នុងរង្វង់</span>` 
+          : `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>ក្រៅរង្វង់</span>`}</td>
       </tr>
     `).join('');
 
@@ -1644,6 +2670,14 @@ async function loadAdminSettings() {
     if (s.office_lng) document.getElementById('inputOfficeLng').value = s.office_lng;
     if (s.allowed_radius) document.getElementById('inputAllowedRadius').value = s.allowed_radius;
     if (s.admin_pin) document.getElementById('inputAdminPin').value = s.admin_pin;
+    if (s.company_wifi_ips) {
+      const el = document.getElementById('inputCompanyWifiIps');
+      if (el) el.value = s.company_wifi_ips;
+    }
+    if (s.wifi_check_enabled !== undefined) {
+      const el = document.getElementById('inputWifiCheckEnabled');
+      if (el) el.checked = s.wifi_check_enabled === 'true';
+    }
   } catch (e) {
     console.error(e);
   }
@@ -1679,11 +2713,21 @@ async function saveGeofenceSettings() {
   const lng = document.getElementById('inputOfficeLng').value;
   const radius = document.getElementById('inputAllowedRadius').value;
   const pin = document.getElementById('inputAdminPin').value;
+  const wifiIps = document.getElementById('inputCompanyWifiIps') ? document.getElementById('inputCompanyWifiIps').value : '';
+  const wifiEnabled = document.getElementById('inputWifiCheckEnabled') ? (document.getElementById('inputWifiCheckEnabled').checked ? 'true' : 'false') : 'true';
 
   await fetch('/api/settings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ company_name: companyName, office_lat: lat, office_lng: lng, allowed_radius: radius, admin_pin: pin })
+    body: JSON.stringify({ 
+      company_name: companyName, 
+      office_lat: lat, 
+      office_lng: lng, 
+      allowed_radius: radius, 
+      admin_pin: pin,
+      company_wifi_ips: wifiIps,
+      wifi_check_enabled: wifiEnabled
+    })
   });
 
   await loadPublicInfo();
@@ -1801,3 +2845,331 @@ async function sendDailyTelegramSummaryNow() {
   }
 }
 
+
+
+// ================= ACLEDA MOBILE INTERFACE & WI-FI VERIFICATION LOGIC =================
+let currentNetworkStatus = null;
+let isWorkHoursBlurred = false;
+
+// Real-time Wi-Fi Network Status
+async function fetchNetworkStatus(showToast = false) {
+  try {
+    const res = await fetch('/api/network-status');
+    if (!res.ok) return;
+    const data = await res.json();
+    currentNetworkStatus = data;
+
+    const badgeWrap = document.getElementById('acledaWifiBadge');
+    const tileSub = document.getElementById('tileWifiSubtext');
+    const tileIconWrap = document.getElementById('tileWifiIconWrap');
+
+    if (data.isCompanyWifi) {
+      if (badgeWrap) {
+        badgeWrap.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-xs';
+        badgeWrap.innerHTML = `<i data-lucide="wifi" class="w-3.5 h-3.5"></i> <span>${data.matchedName || 'Wi-Fi ក្រុមហ៊ុន (បានភ្ជាប់)'}</span>`;
+      }
+      if (tileSub) tileSub.textContent = 'បានភ្ជាប់ Wi-Fi';
+      if (tileIconWrap) tileIconWrap.className = 'w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-600/30 to-teal-500/20 border border-emerald-400/30 flex items-center justify-center mb-1.5 text-emerald-300';
+
+      if (showToast) {
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: `បានភ្ជាប់ ${data.matchedName || 'Wi-Fi ក្រុមហ៊ុន'} រួចរាល់!`,
+          text: `IP: ${data.clientIp}`,
+          showConfirmButton: false,
+          timer: 2500
+        });
+      }
+    } else {
+      if (badgeWrap) {
+        badgeWrap.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 shadow-xs';
+        badgeWrap.innerHTML = `<i data-lucide="wifi-off" class="w-3.5 h-3.5"></i> <span>មិនទាន់ភ្ជាប់ Wi-Fi ក្រុមហ៊ុន</span>`;
+      }
+      if (tileSub) tileSub.textContent = data.clientIp || 'ក្រៅបណ្តាញ';
+      if (tileIconWrap) tileIconWrap.className = 'w-10 h-10 rounded-2xl bg-gradient-to-tr from-rose-600/30 to-red-500/20 border border-rose-400/30 flex items-center justify-center mb-1.5 text-rose-300';
+
+      if (showToast) {
+        Swal.fire({
+          icon: 'warning',
+          title: '⚠️ មិនទាន់ភ្ជាប់ Wi-Fi ក្រុមហ៊ុន',
+          html: `
+            <div class="text-left text-xs space-y-2 text-slate-600">
+              <p>IP បច្ចុប្បន្នរបស់អ្នក: <code class="font-bold text-amber-600">${data.clientIp || 'មិនស្គាល់'}</code></p>
+              <p>ដើម្បីចុចកត់ត្រាវត្តមាន សូមភ្ជាប់ទូរស័ព្ទរបស់អ្នកទៅកាន់ <b>Wi-Fi ទី ១</b> ឬ <b>Wi-Fi ទី ២</b> របស់ក្រុមហ៊ុនជាមុនសិន។</p>
+            </div>
+          `,
+          confirmButtonText: 'យល់ព្រម',
+          confirmButtonColor: '#0ea5e9'
+        });
+      }
+    }
+
+    if (window.lucide) lucide.createIcons();
+  } catch (e) {
+    console.warn('Network status fetch error:', e);
+  }
+}
+
+// 1-Click Check-in Execution (Wi-Fi Protected)
+async function executeStaffCheckIn() {
+  if (isSubmitting) return;
+
+  if (!currentStaff) {
+    Swal.fire({
+      icon: 'info',
+      title: 'សូមកំណត់ឈ្មោះជាមុនសិន',
+      text: 'សូមជ្រើសរើសឈ្មោះរបស់អ្នកក្នុងប្រព័ន្ធ'
+    });
+    return;
+  }
+
+  if (todayScansTotalCount >= 4) {
+    Swal.fire({
+      icon: 'info',
+      title: 'គ្រប់ 4/4 ដងរួចរាល់',
+      text: 'អ្នកបានកត់ត្រាវត្តមានគ្រប់ចំនួន ៤ ដង (4/4) សម្រាប់ថ្ងៃនេះរួចរាល់ហើយ!',
+      confirmButtonColor: '#0ea5e9'
+    });
+    return;
+  }
+
+  // 1. Strict Wi-Fi Protection Check
+  if (currentNetworkStatus && currentNetworkStatus.wifiCheckEnabled && !currentNetworkStatus.isCompanyWifi) {
+    Swal.fire({
+      icon: 'warning',
+      title: '⚠️ សូមភ្ជាប់ Wi-Fi ក្រុមហ៊ុន',
+      html: `
+        <div class="text-left text-xs space-y-2 text-slate-600">
+          <p>ប្រព័ន្ធពិនិត្យឃើញថាអ្នកមិនទាន់បានភ្ជាប់ <b>Wi-Fi របស់ក្រុមហ៊ុន</b> ទេ។</p>
+          <p class="bg-slate-100 p-2 rounded-lg font-mono text-[11px]">IP របស់អ្នកបច្ចុប្បន្ន: <b class="text-rose-600">${currentNetworkStatus.clientIp || 'មិនស្គាល់'}</b></p>
+          <p class="text-slate-500">👉 សូមភ្ជាប់ទូរស័ព្ទរបស់អ្នកទៅកាន់ <b>Wi-Fi ទី១</b> ឬ <b>Wi-Fi ទី២</b> របស់ក្រុមហ៊ុន ទើបអាចចុចកត់ត្រាវត្តមានបាន!</p>
+        </div>
+      `,
+      confirmButtonText: '🔄 ឆែក Wi-Fi ម្តងទៀត',
+      showCancelButton: true,
+      cancelButtonText: 'បិទ',
+      confirmButtonColor: '#0ea5e9'
+    }).then((res) => {
+      if (res.isConfirmed) {
+        fetchNetworkStatus(true);
+      }
+    });
+    return;
+  }
+
+  isSubmitting = true;
+
+  // 2. Cambodia Time (UTC+7) Late / Early Check
+  const now = new Date();
+  const cambodiaStr = now.toLocaleString('en-US', { timeZone: 'Asia/Phnom_Penh' });
+  const cambodiaDate = new Date(cambodiaStr);
+  const hours = cambodiaDate.getHours();
+  const minutes = cambodiaDate.getMinutes();
+  const totalMins = hours * 60 + minutes;
+
+  function formatDiffUi(mins) {
+    const m = Math.abs(Math.round(mins || 0));
+    const h = Math.floor(m / 60);
+    const rem = m % 60;
+    if (h > 0) return rem > 0 ? `${h} ម៉ោង ${rem} នាទី` : `${h} ម៉ោង`;
+    return `${rem} នាទី`;
+  }
+
+  let promptReason = false;
+  let promptTitle = '';
+  let promptSubtitle = '';
+
+  if (currentScanAction === 'morning_in' && totalMins > 490) { // After 08:10
+    const lateMins = totalMins - 480;
+    promptReason = true;
+    promptTitle = `⚠️ អ្នកមកយឺត ${formatDiffUi(lateMins)}`;
+    promptSubtitle = 'ម៉ោងចូលធ្វើការគឺ 08:00 AM (អនុគ្រោះត្រឹម 08:10)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកមកយឺត:';
+  } else if (currentScanAction === 'lunch_out' && totalMins < 650) { // Before 10:50
+    const earlyMins = 660 - totalMins;
+    promptReason = true;
+    promptTitle = `🏃💨 អ្នកចេញមុនម៉ោង ${formatDiffUi(earlyMins)}`;
+    promptSubtitle = 'ម៉ោងចេញសម្រាកបាយគឺ 11:00 AM (អនុញ្ញាតចាប់ពី 10:50)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកចេញមុន:';
+  } else if (currentScanAction === 'afternoon_in' && totalMins > 790) { // After 13:10
+    const lateMins = totalMins - 780;
+    promptReason = true;
+    promptTitle = `⚠️ អ្នកមកយឺត ${formatDiffUi(lateMins)}`;
+    promptSubtitle = 'ម៉ោងចូលរសៀលគឺ 01:00 PM (អនុគ្រោះត្រឹម 01:10)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកមកយឺត:';
+  } else if (currentScanAction === 'evening_out' && totalMins < 1010) { // Before 16:50
+    const earlyMins = 1020 - totalMins;
+    promptReason = true;
+    promptTitle = `🏃💨 អ្នកចេញមុនម៉ោង ${formatDiffUi(earlyMins)}`;
+    promptSubtitle = 'ម៉ោងចេញធ្វើការគឺ 05:00 PM (អនុញ្ញាតចាប់ពី 04:50)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកចេញមុន:';
+  }
+
+  let staffReason = '';
+  if (promptReason) {
+    const reasonResult = await Swal.fire({
+      title: promptTitle,
+      text: promptSubtitle,
+      input: 'textarea',
+      inputPlaceholder: 'ឧ. ស្ទះចរាចរណ៍, ឈឺ/មិនស្រួលខ្លួន, មានធុរៈផ្ទាល់ខ្លួន...',
+      icon: 'warning',
+      confirmButtonText: 'បញ្ជាក់ និងកត់ត្រាវត្តមាន',
+      cancelButtonText: 'បោះបង់',
+      showCancelButton: true,
+      confirmButtonColor: '#f59e0b',
+      cancelButtonColor: '#64748b',
+      allowOutsideClick: false,
+      inputValidator: (val) => {
+        if (!val || !val.trim()) {
+          return 'សូមបញ្ចូលមូលហេតុរបស់អ្នកជាមុនសិន!';
+        }
+      }
+    });
+
+    if (!reasonResult.isConfirmed) {
+      isSubmitting = false;
+      return;
+    }
+    staffReason = (reasonResult.value || '').trim();
+  }
+
+  // 3. Post One-Click Check-In to Backend
+  try {
+    const res = await fetch('/api/attendance/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: currentStaff.code,
+        type: currentScanAction,
+        check_method: 'wifi_button',
+        latitude: userCoords.lat,
+        longitude: userCoords.lng,
+        note: staffReason,
+        device_id: getOrCreateDeviceId()
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      Swal.fire({
+        icon: 'error',
+        title: 'កត់ត្រាមិនជោគជ័យ',
+        text: data.error || 'មានបញ្ហាក្នុងការផ្ទៀងផ្ទាត់វត្តមាន',
+        confirmButtonColor: '#f59e0b'
+      });
+      isSubmitting = false;
+      return;
+    }
+
+    playBeep();
+
+    const slotLabels = {
+      morning_in: '🌅 1/4 ព្រឹកចូល (08:00)',
+      lunch_out: '🍱 2/4 សម្រាកបាយ (11:00)',
+      afternoon_in: '☕ 3/4 ចូលវិញ (13:00)',
+      evening_out: '🏠 4/4 ល្ងាចចេញ (17:00)'
+    };
+    const slotLabel = slotLabels[data.actionType] || data.actionType;
+    const reasonDisplay = data.note ? `<div class="text-xs text-amber-800 bg-amber-50/80 p-2 rounded-xl border border-amber-200/60 mt-1">📝 <b>មូលហេតុ:</b> ${data.note}</div>` : '';
+
+    Swal.fire({
+      icon: 'success',
+      title: data.message || 'កត់ត្រាវត្តមានជោគជ័យ!',
+      html: `
+        <div class="text-left bg-slate-50 p-4 rounded-2xl border border-slate-200 mt-2 space-y-1.5 text-xs sm:text-sm">
+          <div>👤 <b>សមាជិក:</b> ${data.member.name} (<code>${data.member.code}</code>)</div>
+          <div>💼 <b>ផ្នែក:</b> ${data.member.role || 'General'}</div>
+          <div>⏰ <b>វត្តមាន:</b> <b>${slotLabel}</b></div>
+          <div>${data.statusText || ''}</div>
+          ${reasonDisplay}
+          <div>📶 <b>វិធីកត់ត្រា:</b> <span class="text-cyan-700 font-bold">1-Click Wi-Fi ក្រុមហ៊ុន</span></div>
+          <div>📊 <b>សរុបថ្ងៃនេះ:</b> ${data.todayScansCount}/4 ដង</div>
+          <div class="text-[11px] text-sky-600 mt-2 pt-2 border-t border-slate-200 flex items-center gap-1.5">
+            <i class="fa-brands fa-telegram text-sm"></i> សារបានផ្ញើជូនដំណឹងទៅ Telegram Group រួចរាល់!
+          </div>
+        </div>
+      `,
+      confirmButtonText: 'យល់ព្រម',
+      confirmButtonColor: '#0ea5e9'
+    });
+
+    loadMyAttendanceActivity();
+    fetchNetworkStatus();
+
+  } catch (err) {
+    Swal.fire({
+      icon: 'error',
+      title: 'បញ្ហាប្រព័ន្ធ / អ៊ីនធឺណិត',
+      text: err.message || 'មិនអាចទាក់ទងម៉ាស៊ីនបម្រើបានទេ',
+      confirmButtonColor: '#f59e0b'
+    });
+  } finally {
+    isSubmitting = false;
+  }
+}
+
+// Eye Icon: Blur / Show Working Hours
+function toggleWorkHoursBlur() {
+  const durEl = document.getElementById('acledaWorkDurationText');
+  const iconEl = document.getElementById('eyeDurationIcon');
+  if (!durEl) return;
+  isWorkHoursBlurred = !isWorkHoursBlurred;
+  if (isWorkHoursBlurred) {
+    durEl.dataset.original = durEl.textContent;
+    durEl.dataset.blurred = 'true';
+    durEl.textContent = '••••••••';
+    durEl.classList.add('blur-sm');
+    if (iconEl) iconEl.setAttribute('data-lucide', 'eye-off');
+  } else {
+    durEl.dataset.blurred = '';
+    durEl.textContent = durEl.dataset.original || '0 ម៉ោង 0 នាទី';
+    durEl.classList.remove('blur-sm');
+    if (iconEl) iconEl.setAttribute('data-lucide', 'eye');
+  }
+  if (window.lucide) lucide.createIcons();
+}
+
+function scrollToTodayTimeline() {
+  const el = document.getElementById('todayTimelineSection');
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function showScheduleModal() {
+  Swal.fire({
+    title: '🕒 កាលវិភាគបំពេញការងារ',
+    html: `
+      <div class="text-left text-xs sm:text-sm space-y-2.5 p-2">
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+          <div class="font-bold text-slate-800">📅 ថ្ងៃធ្វើការ: ចន្ទ - សៅរិ៍</div>
+          <div class="text-slate-500 text-xs mt-0.5">ថ្ងៃអាទិត្យ សម្រាកការងារ</div>
+        </div>
+        <div class="space-y-1.5 text-xs text-slate-700">
+          <div>🌅 <b>ព្រឹកចូល:</b> 08:00 AM (អនុគ្រោះដល់ 08:10)</div>
+          <div>🍱 <b>សម្រាកបាយ:</b> 11:00 AM (អនុញ្ញាតចាប់ពី 10:50)</div>
+          <div>☕ <b>រសៀលចូល:</b> 01:00 PM (អនុគ្រោះដល់ 01:10)</div>
+          <div>🏠 <b>ល្ងាចចេញ:</b> 05:00 PM (អនុញ្ញាតចាប់ពី 04:50)</div>
+        </div>
+      </div>
+    `,
+    confirmButtonText: 'យល់ព្រម',
+    confirmButtonColor: '#0ea5e9'
+  });
+}
+
+function showAcledaNoticeModal() {
+  Swal.fire({
+    title: '🔔 សេចក្តីជូនដំណឹង',
+    html: `
+      <div class="text-left text-xs space-y-2 p-2 text-slate-600">
+        <p>✅ ប្រព័ន្ធវត្តមានថ្មី គាំទ្រការ <b>ចុចប៊ូតុង Check-in ផ្ទាល់</b> ដោយភ្ជាប់ Wi-Fi ក្រុមហ៊ុន។</p>
+        <p>📶 Wi-Fi ក្រុមហ៊ុនដែលអនុញ្ញាត: <b>Wi-Fi ទី១</b> និង <b>Wi-Fi ទី២</b>។</p>
+        <p>📊 ម្នាក់អាចកត់ត្រាបាន <b>៤ ដងក្នុងមួយថ្ងៃ</b> (ព្រឹកចូល, ចេញបាយ, ចូលវិញ, ល្ងាចចេញ)។</p>
+      </div>
+    `,
+    confirmButtonText: 'យល់ព្រម',
+    confirmButtonColor: '#0ea5e9'
+  });
+}
+
+function openTelegramNoticeGroup() {
+  window.open('https://t.me/c/5037746251', '_blank');
+}
