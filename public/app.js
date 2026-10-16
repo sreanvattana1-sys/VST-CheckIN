@@ -771,6 +771,175 @@ async function promptChangeStaffProfile() {
   }
 }
 
+// ================= STAFF SELF PROFILE & AVATAR MANAGEMENT =================
+let pendingSelfAvatarData = null;
+
+function openStaffProfileModal() {
+  if (!currentStaff) {
+    promptChangeStaffProfile();
+    return;
+  }
+  
+  const modal = document.getElementById('staffProfileModal');
+  if (!modal) return;
+  
+  const nameEl = document.getElementById('staffModalDisplayName');
+  const codeEl = document.getElementById('staffModalDisplayCode');
+  const roleEl = document.getElementById('staffModalDisplayRole');
+  const preview = document.getElementById('staffSelfAvatarPreview');
+  
+  if (nameEl) nameEl.textContent = currentStaff.name || '--';
+  if (codeEl) codeEl.textContent = currentStaff.code || '--';
+  if (roleEl) roleEl.textContent = currentStaff.role || (currentLang === 'km' ? 'សមាជិក' : 'Member');
+  
+  pendingSelfAvatarData = null;
+  
+  if (preview) {
+    if (currentStaff.avatar && currentStaff.avatar.trim()) {
+      preview.innerHTML = `<img src="${currentStaff.avatar}" class="w-full h-full object-cover">`;
+    } else {
+      const initial = currentStaff.name ? currentStaff.name.trim().charAt(0) : 'U';
+      preview.innerHTML = `<span id="staffSelfAvatarFallback" class="font-extrabold text-white text-3xl">${initial}</span>`;
+    }
+  }
+  
+  modal.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeStaffProfileModal() {
+  const modal = document.getElementById('staffProfileModal');
+  if (modal) modal.classList.add('hidden');
+  pendingSelfAvatarData = null;
+  const input = document.getElementById('staffSelfAvatarInput');
+  if (input) input.value = '';
+}
+
+function handleStaffSelfAvatarSelected(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    Swal.fire({
+      icon: 'warning',
+      title: currentLang === 'km' ? 'សូមជ្រើសរើសរូបភាព' : 'Invalid Image',
+      text: currentLang === 'km' ? 'សូមជ្រើសរើសឯកសាររូបភាព (JPG, PNG, WEBP)' : 'Please select an image file.'
+    });
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      const maxDim = 400;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxDim) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        }
+      } else {
+        if (height > maxDim) {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      pendingSelfAvatarData = compressedDataUrl;
+
+      const preview = document.getElementById('staffSelfAvatarPreview');
+      if (preview) {
+        preview.innerHTML = `<img src="${compressedDataUrl}" class="w-full h-full object-cover animate-entrance">`;
+      }
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function saveStaffSelfAvatar() {
+  if (!currentStaff) return;
+  if (!pendingSelfAvatarData) {
+    Swal.fire({
+      icon: 'info',
+      title: currentLang === 'km' ? 'មិនមានការផ្លាស់ប្តូរ' : 'No Changes',
+      text: currentLang === 'km' ? 'សូមជ្រើសរើសរូបភាពថ្មីមុនពេលចុចរក្សាទុក' : 'Please select a new photo before saving.',
+      timer: 2000,
+      showConfirmButton: false
+    });
+    return;
+  }
+
+  const btn = document.getElementById('btnSaveStaffSelfAvatar');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>${currentLang === 'km' ? 'កំពុងរក្សាទុក...' : 'Saving...'}</span>`;
+    if (window.lucide) lucide.createIcons();
+  }
+
+  try {
+    const res = await fetch('/api/staff/update-avatar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: currentStaff.code,
+        avatar: pendingSelfAvatarData
+      })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Failed to update avatar');
+    }
+
+    currentStaff.avatar = pendingSelfAvatarData;
+    saveStaffToStorage(currentStaff);
+
+    const wrapper = document.getElementById('staffAvatarWrapper');
+    if (wrapper) {
+      wrapper.innerHTML = `<img src="${currentStaff.avatar}" alt="${currentStaff.name}" class="w-full h-full object-cover rounded-2xl block">`;
+    }
+
+    if (publicInfo && publicInfo.members) {
+      const idx = publicInfo.members.findIndex(m => m.code === currentStaff.code);
+      if (idx !== -1) {
+        publicInfo.members[idx].avatar = currentStaff.avatar;
+      }
+    }
+
+    closeStaffProfileModal();
+
+    Swal.fire({
+      icon: 'success',
+      title: currentLang === 'km' ? 'បានរក្សាទុករូបថតរួចរាល់!' : 'Profile Photo Updated!',
+      text: currentLang === 'km' ? 'រូបថតផ្ទាល់ខ្លួនរបស់អ្នកត្រូវបានធ្វើបច្ចុប្បន្នភាពជោគជ័យ។' : 'Your personal avatar has been successfully saved.',
+      timer: 2200,
+      showConfirmButton: false
+    });
+  } catch (err) {
+    Swal.fire({
+      icon: 'error',
+      title: currentLang === 'km' ? 'បរាជ័យក្នុងការរក្សាទុក' : 'Save Failed',
+      text: err.message
+    });
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i data-lucide="check" class="w-4 h-4"></i><span>${currentLang === 'km' ? 'រក្សាទុករូបថត' : 'Save Photo'}</span>`;
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+}
+
 // 4. Auto Slot State & Visual Styling (Schedule: 08:00 - 11:00 | 13:00 - 17:00)
 function setAttendanceSlot(slot) {
   currentScanAction = slot;
