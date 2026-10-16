@@ -9,6 +9,25 @@ let isStaffScannerRunning = false;
 let isAdminAuthenticated = false;
 let todayScansTotalCount = 0;
 let allAdminMembers = [];
+let allPendingMembers = [];
+
+// Persistent Device UUID for 1 Staff = 1 Device policy
+function getOrCreateDeviceId() {
+  try {
+    let devId = localStorage.getItem('vst_device_uuid');
+    if (!devId) {
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        devId = 'dev-' + crypto.randomUUID();
+      } else {
+        devId = 'dev-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 10);
+      }
+      localStorage.setItem('vst_device_uuid', devId);
+    }
+    return devId;
+  } catch (e) {
+    return 'dev-fallback-' + Math.random().toString(36).substring(2, 10);
+  }
+}
 
 // Local network IP address display
 const currentHost = window.location.host;
@@ -144,6 +163,10 @@ const translations = {
     nextScanLbl: "ស្កេនបន្ទាប់:",
     waiting: "រង់ចាំ",
     doneSlot: "រួចរាល់",
+    selfRegTitle: "មិនទាន់មានគណនីបុគ្គលិក?",
+    selfRegDesc: "ចុះឈ្មោះដោយខ្លួនឯងនៅលើទូរស័ព្ទនេះ។ បន្ទាប់ពី Admin ពិនិត្យនិងអនុម័ត (Approve) អ្នកអាចចូលបំពេញការងារបានភ្លាមៗ។",
+    btnSelfRegister: "ចុះឈ្មោះគណនីថ្មី (Self Register)",
+    pendingApprovalTitle: "សំណើសុំចុះឈ្មោះរង់ចាំការអនុម័ត (Pending Approvals)",
   },
   en: {
     appSubtitle: "Smart Digital Attendance Hub",
@@ -273,6 +296,10 @@ const translations = {
     nextScanLbl: "Next Scan:",
     waiting: "Pending",
     doneSlot: "Done",
+    selfRegTitle: "Don't have a staff account?",
+    selfRegDesc: "Register yourself directly on this device. Once approved by Admin, you can log in immediately.",
+    btnSelfRegister: "Register New Account (Self Register)",
+    pendingApprovalTitle: "Pending Staff Registrations (Awaiting Approval)",
   }
 };
 
@@ -625,8 +652,10 @@ function showLoginView() {
   if (adminV) adminV.classList.add('hidden');
   const btnStaff = document.getElementById('btnSwitchToStaff');
   const btnAdmin = document.getElementById('btnSwitchToAdmin');
+  const btnLogout = document.getElementById('btnStaffLogoutTop');
   if (btnStaff) btnStaff.classList.add('hidden');
   if (btnAdmin) btnAdmin.classList.remove('hidden');
+  if (btnLogout) btnLogout.classList.add('hidden');
 
   const bNav = document.getElementById('acledaBottomNav');
   if (bNav) bNav.classList.add('hidden');
@@ -641,8 +670,10 @@ function showStaffView() {
   if (adminV) adminV.classList.add('hidden');
   const btnStaff = document.getElementById('btnSwitchToStaff');
   const btnAdmin = document.getElementById('btnSwitchToAdmin');
+  const btnLogout = document.getElementById('btnStaffLogoutTop');
   if (btnStaff) btnStaff.classList.add('hidden');
   if (btnAdmin) btnAdmin.classList.remove('hidden');
+  if (btnLogout) btnLogout.classList.remove('hidden');
 
   const bNav = document.getElementById('acledaBottomNav');
   if (bNav) bNav.classList.remove('hidden');
@@ -710,7 +741,7 @@ async function handleEmployeeLogin(e) {
     const res = await fetch('/api/members/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: codeOrPhone, password })
+      body: JSON.stringify({ code: codeOrPhone, password, device_id: getOrCreateDeviceId() })
     });
     let data = {};
     const contentType = res.headers.get('content-type') || '';
@@ -755,21 +786,41 @@ async function handleEmployeeLogin(e) {
   }
 }
 
-async function logoutStaffProfile() {
-  const cf = await Swal.fire({
-    title: currentLang === 'km' ? 'ប្តូរសមាជិក?' : 'Switch Profile?',
-    text: currentLang === 'km' ? 'តើអ្នកចង់ជ្រើសរើសឈ្មោះសមាជិកផ្សេងមែនទេ?' : 'Would you like to select another staff profile?',
+async function logoutStaffAccount() {
+  const result = await Swal.fire({
+    title: currentLang === 'km' ? 'ចាកចេញពីគណនី?' : 'Log Out?',
+    text: currentLang === 'km' ? 'តើអ្នកចង់ចាកចេញពីគណនីនេះមែនទេ? អ្នកនឹងត្រឡប់ទៅផ្ទាំង Login វិញ។' : 'Are you sure you want to log out from this account?',
     icon: 'question',
     showCancelButton: true,
-    confirmButtonText: currentLang === 'km' ? 'ប្តូរឈ្មោះ' : 'Switch Name',
+    confirmButtonText: currentLang === 'km' ? 'ចាកចេញ (Log Out)' : 'Log Out',
     cancelButtonText: currentLang === 'km' ? 'បោះបង់' : 'Cancel',
-    confirmButtonColor: '#0ea5e9'
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#64748b'
   });
 
-  if (cf.isConfirmed) {
-    promptChangeStaffProfile();
-  }
+  if (!result.isConfirmed) return;
+
+  // Clear saved staff session
+  localStorage.removeItem('my_attendance_member_code');
+  localStorage.removeItem('my_attendance_member_data');
+  document.cookie = 'vst_staff=; path=/; max-age=0; SameSite=Lax';
+  currentStaff = null;
+
+  // Close profile modal if open
+  closeStaffProfileModal();
+
+  // Return to Login View
+  showLoginView();
+
+  Swal.fire({
+    icon: 'success',
+    title: currentLang === 'km' ? 'បានចាកចេញជោគជ័យ' : 'Logged Out',
+    timer: 1500,
+    showConfirmButton: false
+  });
 }
+
+const logoutStaffProfile = logoutStaffAccount;
 
 function setStaffProfile(member) {
   if (!member) return;
@@ -1405,7 +1456,8 @@ async function onOfficeQrCodeScanned(decodedText) {
         qr_token: decodedText.trim(),
         latitude: userCoords.lat,
         longitude: userCoords.lng,
-        note: staffReason
+        note: staffReason,
+        device_id: getOrCreateDeviceId()
       })
     });
 
@@ -1799,6 +1851,8 @@ function showAdminView() {
   document.getElementById('adminView').classList.remove('hidden');
   document.getElementById('btnSwitchToAdmin').classList.add('hidden');
   document.getElementById('btnSwitchToStaff').classList.remove('hidden');
+  const btnLogout = document.getElementById('btnStaffLogoutTop');
+  if (btnLogout) btnLogout.classList.add('hidden');
 
   // Hide bottom nav in Admin View
   const bNav = document.getElementById('acledaBottomNav');
@@ -1837,9 +1891,15 @@ function switchAdminTab(tabId) {
 
   if (window.lucide) lucide.createIcons();
 
-  if (tabId === 'dashboard') loadAdminDashboard();
+  if (tabId === 'dashboard') {
+    loadAdminDashboard();
+    loadPendingMembers();
+  }
   if (tabId === 'office-qr') renderOfficeQrPoster();
-  if (tabId === 'members') loadAdminMembers();
+  if (tabId === 'members') {
+    loadAdminMembers();
+    loadPendingMembers();
+  }
   if (tabId === 'history') loadAttendanceHistory();
   if (tabId === 'settings') loadAdminSettings();
 }
@@ -1948,42 +2008,64 @@ function renderAdminMembers(members) {
 
     return `
       <div class="p-4 sm:p-5 rounded-2xl bg-slate-900/60 backdrop-blur-md border border-white/10 hover:border-white/20 shadow-sm flex flex-col justify-between transition-all duration-200 group">
-        <div class="flex items-start justify-between gap-3">
-          <div class="flex items-start gap-3">
-            ${avatarHtml}
-            <div class="min-w-0">
-              <h5 class="font-bold text-white text-sm leading-snug tracking-tight truncate">${m.name}</h5>
-              <div class="flex flex-wrap items-center gap-1.5 mt-1">
-                <span class="text-[10px] font-mono font-medium bg-white/5 text-slate-300 border border-white/10 px-2 py-0.5 rounded-md">${m.code}</span>
-                <span class="text-[11px] font-medium text-slate-400">${m.role || 'សមាជិក'}</span>
+        <div>
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-start gap-3">
+              ${avatarHtml}
+              <div class="min-w-0">
+                <h5 class="font-bold text-white text-sm leading-snug tracking-tight truncate">${m.name}</h5>
+                <div class="flex flex-wrap items-center gap-1.5 mt-1">
+                  <span class="text-[10px] font-mono font-medium bg-white/5 text-slate-300 border border-white/10 px-2 py-0.5 rounded-md">${m.code}</span>
+                  <span class="text-[11px] font-medium text-slate-400">${m.role || 'សមាជិក'}</span>
+                </div>
+                ${emailStr}
               </div>
-              ${emailStr}
+            </div>
+
+            <div class="flex items-center gap-1">
+              <button onclick="editMember(${m.id})" class="text-slate-400 hover:text-white p-1.5 transition rounded-lg hover:bg-white/10" title="Edit / កែប្រែ">
+                <i data-lucide="edit-3" class="w-4 h-4"></i>
+              </button>
+              <button onclick="deleteMember(${m.id}, '${m.name.replace(/'/g, "\\'")}')" class="text-slate-400 hover:text-rose-400 p-1.5 transition rounded-lg hover:bg-rose-500/10" title="Delete / លុប">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
             </div>
           </div>
 
-          <div class="flex items-center gap-1">
-            <button onclick="editMember(${m.id})" class="text-slate-400 hover:text-white p-1.5 transition rounded-lg hover:bg-white/10" title="Edit / កែប្រែ">
-              <i data-lucide="edit-3" class="w-4 h-4"></i>
-            </button>
-            <button onclick="deleteMember(${m.id}, '${m.name.replace(/'/g, "\\'")}')" class="text-slate-400 hover:text-rose-400 p-1.5 transition rounded-lg hover:bg-rose-500/10" title="Delete / លុប">
-              <i data-lucide="trash-2" class="w-4 h-4"></i>
-            </button>
+          <!-- Account Credentials Chip (Masked PIN by Default with Show/Hide Eye Toggle) -->
+          <div class="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs">
+            <div class="flex items-center gap-1.5 text-slate-400">
+              <i data-lucide="key" class="w-3.5 h-3.5 text-slate-500"></i>
+              <span class="text-[11px]">PIN:</span>
+              <code id="memberPwdText-${m.id}" data-pwd="${pwdDisplay}" class="font-mono font-bold text-white bg-slate-950 px-2 py-0.5 rounded border border-white/10 tracking-widest select-all">••••</code>
+              <button type="button" onclick="toggleMemberPassword(${m.id})" class="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition" title="Show / Hide PIN">
+                <i id="memberPwdIcon-${m.id}" data-lucide="eye" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+            <span class="text-[11px] text-slate-500 font-medium">
+              ${m.phone || (m.join_date ? 'ចូល: ' + m.join_date : 'Active')}
+            </span>
           </div>
-        </div>
 
-        <!-- Account Credentials Chip (Masked PIN by Default with Show/Hide Eye Toggle) -->
-        <div class="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs">
-          <div class="flex items-center gap-1.5 text-slate-400">
-            <i data-lucide="key" class="w-3.5 h-3.5 text-slate-500"></i>
-            <span class="text-[11px]">PIN:</span>
-            <code id="memberPwdText-${m.id}" data-pwd="${pwdDisplay}" class="font-mono font-bold text-white bg-slate-950 px-2 py-0.5 rounded border border-white/10 tracking-widest select-all">••••</code>
-            <button type="button" onclick="toggleMemberPassword(${m.id})" class="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition" title="Show / Hide PIN">
-              <i id="memberPwdIcon-${m.id}" data-lucide="eye" class="w-3.5 h-3.5"></i>
-            </button>
+          <!-- 1 Device Security Lock Status & Reset -->
+          <div class="mt-2.5 pt-2.5 border-t border-white/5 flex items-center justify-between text-xs">
+            ${m.device_id ? `
+              <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" title="Device ID: ${m.device_id}">
+                <i data-lucide="smartphone" class="w-3 h-3 text-emerald-400"></i>
+                <span>ជាប់ទូរស័ព្ទ (1 Device Locked)</span>
+              </span>
+              <button type="button" onclick="resetMemberDevice(${m.id}, '${m.name.replace(/'/g, "\\'")}')" class="px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/25 text-[11px] font-bold flex items-center gap-1 transition active:scale-95" title="ដោះសោដើម្បីឱ្យបុគ្គលិកអាចប្តូរទូរស័ព្ទថ្មីបាន">
+                <i data-lucide="unlock" class="w-3 h-3"></i>
+                <span>ដោះសោ</span>
+              </button>
+            ` : `
+              <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-white/5 text-slate-400 border border-white/10">
+                <i data-lucide="smartphone" class="w-3 h-3 text-slate-500"></i>
+                <span>មិនទាន់ភ្ជាប់ទូរស័ព្ទ</span>
+              </span>
+              <span class="text-[10px] text-slate-500 italic">ភ្ជាប់ពេល Login ដំបូង</span>
+            `}
           </div>
-          <span class="text-[11px] text-slate-500 font-medium">
-            ${m.phone || (m.join_date ? 'ចូល: ' + m.join_date : 'Active')}
-          </span>
         </div>
       </div>
     `;
@@ -2008,6 +2090,348 @@ function toggleMemberPassword(id) {
     if (icon) icon.setAttribute('data-lucide', 'eye');
   }
   if (window.lucide) lucide.createIcons();
+}
+
+// ================= ADMIN PENDING APPROVAL WORKFLOW =================
+async function loadPendingMembers() {
+  try {
+    const res = await fetch('/api/members/pending');
+    if (!res.ok) return;
+    allPendingMembers = await res.json();
+    renderPendingMembers(allPendingMembers);
+  } catch (err) {
+    console.error('Failed to load pending members:', err);
+  }
+}
+
+function renderPendingMembers(list) {
+  const section = document.getElementById('adminPendingSection');
+  const container = document.getElementById('adminPendingContainer');
+  const badge = document.getElementById('pendingCountBadge');
+  const navBadge = document.getElementById('admPendingNavBadge');
+
+  const count = list ? list.length : 0;
+  if (badge) badge.textContent = count + ' នាក់';
+  if (navBadge) {
+    if (count > 0) {
+      navBadge.textContent = count;
+      navBadge.classList.remove('hidden');
+    } else {
+      navBadge.classList.add('hidden');
+    }
+  }
+
+  if (!section || !container) return;
+
+  if (count === 0) {
+    section.classList.add('hidden');
+    container.innerHTML = '';
+    return;
+  }
+
+  section.classList.remove('hidden');
+  container.innerHTML = list.map(m => {
+    const avatarHtml = (m.avatar && m.avatar.trim())
+      ? `<div class="w-12 h-12 rounded-xl overflow-hidden border border-amber-400/30 flex-shrink-0 shadow-sm"><img src="${m.avatar}" alt="${m.name}" class="w-full h-full object-cover"></div>`
+      : `<div class="w-12 h-12 rounded-xl bg-amber-500/20 text-amber-300 font-bold flex items-center justify-center text-base border border-amber-400/30 flex-shrink-0">${m.name.charAt(0)}</div>`;
+
+    return `
+      <div class="p-4 rounded-2xl bg-slate-900/90 border-2 border-amber-400/40 shadow-lg flex flex-col justify-between space-y-3">
+        <div class="flex items-start gap-3">
+          ${avatarHtml}
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center justify-between gap-1">
+              <h5 class="font-bold text-white text-sm truncate">${m.name}</h5>
+              <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30 font-bold">${m.code}</span>
+            </div>
+            <p class="text-xs text-slate-300 mt-0.5 flex items-center gap-1 font-medium">
+              <i data-lucide="briefcase" class="w-3.5 h-3.5 text-slate-400"></i>
+              <span>${m.role || 'សមាជិកថ្មី'}</span>
+            </p>
+            <p class="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
+              <i data-lucide="phone" class="w-3 h-3 text-slate-500"></i>
+              <span>${m.phone || 'គ្មានលេខ'}</span>
+            </p>
+            <div class="mt-1.5 flex items-center gap-1 text-[10px] text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded-md border border-cyan-500/20 w-fit">
+              <i data-lucide="smartphone" class="w-3 h-3"></i>
+              <span>Device Locked (1 Device)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Approve / Reject Actions -->
+        <div class="grid grid-cols-2 gap-2 pt-2 border-t border-white/10">
+          <button type="button" onclick="rejectMember(${m.id}, '${m.name.replace(/'/g, "\\'")}')" class="py-2 px-3 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs font-bold transition flex items-center justify-center gap-1 active:scale-95">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+            <span>បដិសេធ</span>
+          </button>
+          <button type="button" onclick="approveMember(${m.id}, '${m.name.replace(/'/g, "\\'")}')" class="py-2 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold transition shadow-sm flex items-center justify-center gap-1 active:scale-95">
+            <i data-lucide="check" class="w-3.5 h-3.5"></i>
+            <span>យល់ព្រម (Approve)</span>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  if (window.lucide) lucide.createIcons();
+}
+
+async function approveMember(id, name) {
+  const result = await Swal.fire({
+    title: 'អនុម័តបុគ្គលិក?',
+    text: `តើអ្នកចង់យល់ព្រមទទួលយក "${name}" ជាបុគ្គលិកផ្លូវការមែនទេ? គាត់នឹងអាច Login និងកត់ត្រាវត្តមានលើទូរស័ព្ទនេះភ្លាមៗ។`,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'យល់ព្រម (Approve)',
+    cancelButtonText: 'បោះបង់',
+    confirmButtonColor: '#10b981',
+    cancelButtonColor: '#64748b'
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    const res = await fetch(`/api/members/${id}/approve`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) {
+      Swal.fire({ icon: 'error', title: 'បរាជ័យ', text: data.error || 'មិនអាចអនុម័តបានទេ' });
+      return;
+    }
+    Swal.fire({
+      icon: 'success',
+      title: 'បានអនុម័តជោគជ័យ!',
+      text: `បុគ្គលិក "${name}" អាចចាប់ផ្តើមកត់ត្រាវត្តមានបានហើយ!`,
+      timer: 2000,
+      showConfirmButton: false
+    });
+    loadAdminMembers();
+    loadPendingMembers();
+    if (typeof loadPublicInfo === 'function') loadPublicInfo();
+  } catch (err) {
+    Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+  }
+}
+
+async function rejectMember(id, name) {
+  const result = await Swal.fire({
+    title: 'បដិសេធសំណើ?',
+    text: `តើអ្នកប្រាកដជាចង់បដិសេធសំណើរបស់ "${name}" មែនទេ?`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'បដិសេធ (Reject)',
+    cancelButtonText: 'បោះបង់',
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#64748b'
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    const res = await fetch(`/api/members/${id}/reject`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) {
+      Swal.fire({ icon: 'error', title: 'បរាជ័យ', text: data.error || 'មិនអាចបដិសេធបានទេ' });
+      return;
+    }
+    Swal.fire({
+      icon: 'info',
+      title: 'បានបដិសេធសំណើ',
+      text: `សំណើរបស់ "${name}" ត្រូវបានលុបចេញពីបញ្ជីរង់ចាំ។`,
+      timer: 1800,
+      showConfirmButton: false
+    });
+    loadPendingMembers();
+  } catch (err) {
+    Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+  }
+}
+
+async function resetMemberDevice(id, name) {
+  const result = await Swal.fire({
+    title: 'ដោះសោទូរស័ព្ទ?',
+    text: `តើអ្នកចង់ដោះសោទូរស័ព្ទរបស់ "${name}" មែនទេ? គាត់នឹងអាចភ្ជាប់ Login ជាមួយទូរស័ព្ទថ្មីបានលើកក្រោយ។`,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'ដោះសោ (Unlock)',
+    cancelButtonText: 'បោះបង់',
+    confirmButtonColor: '#f59e0b',
+    cancelButtonColor: '#64748b'
+  });
+
+  if (!result.isConfirmed) return;
+
+  try {
+    const res = await fetch(`/api/members/${id}/reset-device`, { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) {
+      Swal.fire({ icon: 'error', title: 'បរាជ័យ', text: data.error || 'មិនអាចដោះសោបានទេ' });
+      return;
+    }
+    Swal.fire({
+      icon: 'success',
+      title: 'បានដោះសោទូរស័ព្ទជោគជ័យ!',
+      text: `ទូរស័ព្ទចាស់ត្រូវបានផ្តាច់។ បុគ្គលិកអាចយកទូរស័ព្ទថ្មីមក Login បានភ្លាមៗ។`,
+      timer: 2000,
+      showConfirmButton: false
+    });
+    loadAdminMembers();
+  } catch (err) {
+    Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+  }
+}
+
+// ================= STAFF SELF-REGISTRATION WORKFLOW =================
+let selfRegAvatarBase64 = '';
+
+function openSelfRegisterModal() {
+  const modal = document.getElementById('selfRegisterModal');
+  if (!modal) return;
+  const form = document.getElementById('selfRegisterForm');
+  if (form) form.reset();
+  const pwdInput = document.getElementById('selfRegPassword');
+  if (pwdInput) pwdInput.value = '1234';
+  selfRegAvatarBase64 = '';
+  const preview = document.getElementById('selfRegAvatarPreview');
+  if (preview) {
+    preview.innerHTML = '<i data-lucide="camera" class="w-8 h-8 text-cyan-400/70"></i>';
+  }
+  modal.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeSelfRegisterModal() {
+  const modal = document.getElementById('selfRegisterModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function handleSelfRegisterAvatarSelected(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      const MAX_SIZE = 300;
+      let width = img.width;
+      let height = img.height;
+      if (width > height) {
+        if (width > MAX_SIZE) {
+          height *= MAX_SIZE / width;
+          width = MAX_SIZE;
+        }
+      } else {
+        if (height > MAX_SIZE) {
+          width *= MAX_SIZE / height;
+          height = MAX_SIZE;
+        }
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      selfRegAvatarBase64 = canvas.toDataURL('image/jpeg', 0.85);
+
+      const preview = document.getElementById('selfRegAvatarPreview');
+      if (preview) {
+        preview.innerHTML = `<img src="${selfRegAvatarBase64}" alt="Selfie" class="w-full h-full object-cover">`;
+      }
+    };
+    img.src = evt.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function handleSelfRegisterSubmit(e) {
+  e.preventDefault();
+  const name = (document.getElementById('selfRegName').value || '').trim();
+  const phone = (document.getElementById('selfRegPhone').value || '').trim();
+  const role = (document.getElementById('selfRegRole').value || '').trim();
+  const password = (document.getElementById('selfRegPassword').value || '').trim();
+
+  if (!name) {
+    Swal.fire({ icon: 'warning', title: 'សូមបញ្ចូលឈ្មោះពេញ' });
+    return;
+  }
+  if (!phone) {
+    Swal.fire({ icon: 'warning', title: 'សូមបញ្ចូលលេខទូរស័ព្ទ' });
+    return;
+  }
+  if (!password || password.length < 4) {
+    Swal.fire({ icon: 'warning', title: 'Password ត្រូវមានយ៉ាងតិច ៤ ខ្ទង់' });
+    return;
+  }
+
+  const btn = document.getElementById('btnSubmitSelfReg');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="inline-block animate-spin mr-1">⏳</span> កំពុងផ្ញើ...';
+  }
+
+  try {
+    const deviceId = getOrCreateDeviceId();
+    const res = await fetch('/api/members/self-register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        phone,
+        role,
+        password,
+        avatar: selfRegAvatarBase64,
+        device_id: deviceId
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      Swal.fire({
+        icon: 'error',
+        title: 'ចុះឈ្មោះមិនបានសម្រេច',
+        text: data.error || 'មានបញ្ហាក្នុងការចុះឈ្មោះ'
+      });
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="send" class="w-4 h-4"></i><span>ផ្ញើសំណើចុះឈ្មោះ (Register)</span>';
+        if (window.lucide) lucide.createIcons();
+      }
+      return;
+    }
+
+    closeSelfRegisterModal();
+
+    Swal.fire({
+      icon: 'success',
+      title: 'បានផ្ញើសំណើចុះឈ្មោះជោគជ័យ!',
+      html: `
+        <div class="text-left text-xs space-y-2 mt-2 p-3 bg-slate-900 rounded-xl border border-white/10">
+          <p>ឈ្មោះ៖ <b class="text-white">${data.member.name}</b></p>
+          <p>លេខសម្គាល់ ID៖ <b class="text-cyan-400 font-mono">${data.member.code}</b></p>
+          <p class="text-amber-300 font-semibold">⏳ សំណើរបស់អ្នកបានផ្ញើទៅ Telegram របស់ Admin រួចហើយ! សូមរង់ចាំ Admin ពិនិត្យនិងអនុម័ត (Approve) ទើបអាច Login បាន។</p>
+          <p class="text-slate-400 text-[11px]">* ទូរស័ព្ទដៃនេះត្រូវបានចងភ្ជាប់សុវត្ថិភាព (1 Device Policy) មិនអាចប្តូរទូរស័ព្ទដោយគ្មានការអនុញ្ញាតឡើយ។</p>
+        </div>
+      `,
+      confirmButtonText: 'យល់ព្រម',
+      confirmButtonColor: '#0284c7'
+    });
+
+    // Pre-fill login input
+    const loginInput = document.getElementById('loginInputCode');
+    if (loginInput) loginInput.value = data.member.code;
+    const pwdInput = document.getElementById('loginInputPassword');
+    if (pwdInput) pwdInput.value = password;
+
+  } catch (err) {
+    Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="send" class="w-4 h-4"></i><span>ផ្ញើសំណើចុះឈ្មោះ (Register)</span>';
+      if (window.lucide) lucide.createIcons();
+    }
+  }
 }
 
 function filterAdminMembers() {
@@ -2644,7 +3068,8 @@ async function executeStaffCheckIn() {
         check_method: 'wifi_button',
         latitude: userCoords.lat,
         longitude: userCoords.lng,
-        note: staffReason
+        note: staffReason,
+        device_id: getOrCreateDeviceId()
       })
     });
 
