@@ -281,7 +281,7 @@ function setLanguage(lang) {
   currentLang = lang;
   localStorage.setItem('attendance_lang', lang);
 
-  // Update Buttons explicitly
+  // Update Buttons explicitly (Header)
   const btnKm = document.getElementById('langKmBtn');
   const btnEn = document.getElementById('langEnBtn');
   if (btnKm && btnEn) {
@@ -294,6 +294,19 @@ function setLanguage(lang) {
     } else {
       btnEn.className = 'px-2.5 py-1.5 rounded-md transition-all flex items-center gap-1.5 bg-white text-txt-primary shadow-xs font-bold notranslate';
       btnKm.className = 'px-2.5 py-1.5 rounded-md transition-all flex items-center gap-1.5 text-txt-secondary hover:text-txt-primary font-medium notranslate';
+    }
+  }
+
+  // Update Admin Language Switcher Buttons
+  const admKm = document.getElementById('admLangKmBtn');
+  const admEn = document.getElementById('admLangEnBtn');
+  if (admKm && admEn) {
+    if (lang === 'km') {
+      admKm.className = 'px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-cyan-500/25 notranslate';
+      admEn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition-all flex items-center gap-1.5 notranslate';
+    } else {
+      admEn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-cyan-500/25 notranslate';
+      admKm.className = 'px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition-all flex items-center gap-1.5 notranslate';
     }
   }
 
@@ -338,8 +351,69 @@ function updateGreeting() {
   }
 }
 
+// ================= THEME ENGINE (LIQUID GLASS CHOICES) =================
+let currentTheme = localStorage.getItem('vst_theme') || 'crystal';
+
+function applyTheme(themeId) {
+  if (!['crystal', 'cyber', 'emerald', 'sunset'].includes(themeId)) {
+    themeId = 'crystal';
+  }
+  currentTheme = themeId;
+  document.body.setAttribute('data-theme', themeId);
+
+  // Update theme option card active borders and check icons
+  const themes = ['crystal', 'cyber', 'emerald', 'sunset'];
+  themes.forEach(t => {
+    const card = document.getElementById(`themeCard-${t}`);
+    if (card) {
+      const checkIcon = card.querySelector('.theme-check-icon');
+      if (t === themeId) {
+        card.classList.add('border-cyan-400', 'shadow-[0_0_20px_rgba(6,182,212,0.4)]');
+        card.classList.remove('border-white/15');
+        if (checkIcon) {
+          checkIcon.classList.remove('text-transparent');
+          checkIcon.classList.add('text-cyan-400');
+        }
+      } else {
+        card.classList.remove('border-cyan-400', 'shadow-[0_0_20px_rgba(6,182,212,0.4)]');
+        card.classList.add('border-white/15');
+        if (checkIcon) {
+          checkIcon.classList.add('text-transparent');
+          checkIcon.classList.remove('text-cyan-400');
+        }
+      }
+    }
+  });
+
+  if (window.lucide) {
+    lucide.createIcons();
+  }
+}
+
+function openThemeSelectorModal() {
+  applyTheme(currentTheme);
+  const modal = document.getElementById('themeSelectorModal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
+function closeThemeSelectorModal() {
+  const modal = document.getElementById('themeSelectorModal');
+  if (modal) {
+    modal.classList.add('hidden');
+  }
+}
+
+function selectTheme(themeId) {
+  applyTheme(themeId);
+  localStorage.setItem('vst_theme', themeId);
+}
+
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', async () => {
+  applyTheme(currentTheme);
   setLanguage(currentLang);
   initLiveClock();
 
@@ -493,6 +567,9 @@ function showLoginView() {
   const btnAdmin = document.getElementById('btnSwitchToAdmin');
   if (btnStaff) btnStaff.classList.add('hidden');
   if (btnAdmin) btnAdmin.classList.remove('hidden');
+
+  const bNav = document.getElementById('acledaBottomNav');
+  if (bNav) bNav.classList.add('hidden');
 }
 
 function showStaffView() {
@@ -506,6 +583,9 @@ function showStaffView() {
   const btnAdmin = document.getElementById('btnSwitchToAdmin');
   if (btnStaff) btnStaff.classList.add('hidden');
   if (btnAdmin) btnAdmin.classList.remove('hidden');
+
+  const bNav = document.getElementById('acledaBottomNav');
+  if (bNav) bNav.classList.remove('hidden');
   
   if (currentStaff) {
     loadMyAttendanceActivity();
@@ -1429,6 +1509,10 @@ function showAdminView() {
   document.getElementById('btnSwitchToAdmin').classList.add('hidden');
   document.getElementById('btnSwitchToStaff').classList.remove('hidden');
 
+  // Hide bottom nav in Admin View
+  const bNav = document.getElementById('acledaBottomNav');
+  if (bNav) bNav.classList.add('hidden');
+
   switchAdminTab('dashboard');
   loadAdminDashboard();
   renderOfficeQrPoster();
@@ -1447,13 +1531,13 @@ function lockAdmin() {
 
 function switchAdminTab(tabId) {
   document.querySelectorAll('.adm-tab').forEach(b => {
-    b.classList.remove('text-brand-blue', 'bg-gradient-to-r', 'from-brand-blue/12', 'to-brand-cyan/10', 'border-brand-blue/20', 'font-bold');
-    b.classList.add('text-txt-secondary', 'hover:text-txt-primary', 'hover:bg-white/80', 'border-transparent', 'font-semibold');
+    b.classList.remove('text-white', 'bg-gradient-to-r', 'from-blue-600', 'via-cyan-500', 'to-teal-400', 'border-cyan-300/40', 'font-extrabold', 'shadow-lg', 'shadow-cyan-500/25');
+    b.classList.add('text-slate-300', 'hover:text-white', 'hover:bg-slate-800/70', 'border-transparent', 'font-semibold');
   });
   const activeBtn = document.getElementById(`adm-tab-${tabId}`);
   if (activeBtn) {
-    activeBtn.classList.remove('text-txt-secondary', 'hover:text-txt-primary', 'hover:bg-white/80', 'border-transparent', 'font-semibold');
-    activeBtn.classList.add('text-brand-blue', 'bg-gradient-to-r', 'from-brand-blue/12', 'to-brand-cyan/10', 'border-brand-blue/20', 'font-bold');
+    activeBtn.classList.remove('text-slate-300', 'hover:text-white', 'hover:bg-slate-800/70', 'border-transparent', 'font-semibold');
+    activeBtn.classList.add('text-white', 'bg-gradient-to-r', 'from-blue-600', 'via-cyan-500', 'to-teal-400', 'border-cyan-300/40', 'font-extrabold', 'shadow-lg', 'shadow-cyan-500/25');
   }
 
   document.querySelectorAll('.adm-section').forEach(s => s.classList.add('hidden'));
@@ -1489,26 +1573,26 @@ async function loadAdminDashboard() {
     const loc = currentLang === 'km' ? 'km-KH' : 'en-US';
 
     const slotBadgeMap = {
-      morning_in: `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/10 text-accent-success border border-emerald-500/20">1/4 ព្រឹកចូល</span>`,
-      lunch_out: `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500/10 text-accent-warning border border-amber-500/20">2/4 សម្រាកបាយ</span>`,
-      afternoon_in: `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-brand-blue/10 text-brand-blue border border-brand-blue/20">3/4 ចូលវិញ</span>`,
-      evening_out: `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-100 text-txt-secondary border border-app-border">4/4 ល្ងាចចេញ</span>`,
-      check_in: `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/10 text-accent-success border border-emerald-500/20">Check-In</span>`,
-      check_out: `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-brand-blue/10 text-brand-blue border border-brand-blue/20">Check-Out</span>`
+      morning_in: `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">1/4 ព្រឹកចូល</span>`,
+      lunch_out: `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">2/4 សម្រាកបាយ</span>`,
+      afternoon_in: `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">3/4 ចូលវិញ</span>`,
+      evening_out: `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-800 text-slate-300 border border-slate-700">4/4 ល្ងាចចេញ</span>`,
+      check_in: `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Check-In</span>`,
+      check_out: `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">Check-Out</span>`
     };
 
     tbody.innerHTML = data.recentLogs.map(l => {
-      const actionBadge = slotBadgeMap[l.type] || `<span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-white text-txt-secondary border border-app-border">${l.type}</span>`;
+      const actionBadge = slotBadgeMap[l.type] || `<span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-slate-800 text-slate-300 border border-slate-700">${l.type}</span>`;
       const rangeBadge = l.is_within_range 
-        ? `<span class="inline-flex items-center gap-1.5 text-accent-success font-bold text-xs"><span class="w-1.5 h-1.5 rounded-full bg-accent-success animate-pulse"></span>ក្នុងរង្វង់ (${l.distance_meters !== null ? l.distance_meters + 'm' : 'OK'})</span>`
-        : `<span class="inline-flex items-center gap-1.5 text-accent-danger font-bold text-xs"><span class="w-1.5 h-1.5 rounded-full bg-accent-danger"></span>ក្រៅរង្វង់ (${l.distance_meters}m)</span>`;
+        ? `<span class="inline-flex items-center gap-1.5 text-emerald-400 font-bold text-xs"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>ក្នុងរង្វង់ (${l.distance_meters !== null ? l.distance_meters + 'm' : 'OK'})</span>`
+        : `<span class="inline-flex items-center gap-1.5 text-rose-400 font-bold text-xs"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>ក្រៅរង្វង់ (${l.distance_meters}m)</span>`;
       const timeStr = new Date(l.timestamp).toLocaleTimeString(loc);
 
       return `
-        <tr class="hover:bg-brand-blue/[0.03] transition-colors border-b border-app-border">
-          <td class="py-3 px-5 font-bold text-txt-primary">${l.member_name} <span class="text-txt-muted text-[11px] font-mono">(${l.member_code})</span></td>
+        <tr class="hover:bg-cyan-500/[0.08] transition-colors border-b border-slate-800">
+          <td class="py-3 px-5 font-bold text-white">${l.member_name} <span class="text-slate-400 text-[11px] font-mono">(${l.member_code})</span></td>
           <td class="py-3 px-5">${actionBadge}</td>
-          <td class="py-3 px-5 font-mono text-txt-secondary text-xs">${timeStr}</td>
+          <td class="py-3 px-5 font-mono text-slate-300 text-xs">${timeStr}</td>
           <td class="py-3 px-5">${rangeBadge}</td>
         </tr>
       `;
@@ -1568,42 +1652,42 @@ function renderAdminMembers(members) {
     const pwdDisplay = m.password ? m.password : '1234';
 
     const avatarHtml = (m.avatar && m.avatar.trim())
-      ? `<div class="w-12 h-12 rounded-2xl overflow-hidden shadow-glass border-2 border-white/80 flex-shrink-0"><img src="${m.avatar}" alt="${m.name}" class="w-full h-full object-cover"></div>`
-      : `<div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-brand-blue via-brand-cyan to-brand-purple text-white font-extrabold flex items-center justify-center text-sm shadow-glass border border-white/60 flex-shrink-0">${m.name.charAt(0)}</div>`;
+      ? `<div class="w-12 h-12 rounded-2xl overflow-hidden shadow-md border-2 border-cyan-400/30 flex-shrink-0"><img src="${m.avatar}" alt="${m.name}" class="w-full h-full object-cover"></div>`
+      : `<div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 via-cyan-500 to-indigo-600 text-white font-extrabold flex items-center justify-center text-sm shadow-md border border-cyan-400/30 flex-shrink-0">${m.name.charAt(0)}</div>`;
 
     return `
-      <div class="glass-card glass-card-hover p-4 sm:p-5 border border-white/80 flex flex-col justify-between">
+      <div class="p-4 sm:p-5 rounded-2xl bg-slate-900/85 backdrop-blur-xl border border-slate-700/70 flex flex-col justify-between hover:border-cyan-500/50 hover:shadow-lg hover:shadow-cyan-500/10 transition-all duration-200">
         <div class="flex items-start justify-between gap-3">
           <div class="flex items-start gap-3.5">
             ${avatarHtml}
             <div>
-              <h5 class="font-bold text-txt-primary text-sm leading-snug">${m.name}</h5>
+              <h5 class="font-bold text-white text-sm leading-snug">${m.name}</h5>
               <div class="flex flex-wrap items-center gap-1.5 mt-1">
-                <span class="text-[10px] font-mono font-bold bg-brand-blue/10 text-brand-blue border border-brand-blue/20 px-2 py-0.5 rounded-md">${m.code}</span>
-                <span class="text-[11px] font-medium text-txt-secondary">${m.role || 'សមាជិក'}</span>
+                <span class="text-[10px] font-mono font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-md">${m.code}</span>
+                <span class="text-[11px] font-medium text-slate-300">${m.role || 'សមាជិក'}</span>
               </div>
               ${emailStr}
             </div>
           </div>
 
           <div class="flex items-center gap-1">
-            <button onclick="editMember(${m.id})" class="text-txt-muted hover:text-brand-blue p-1.5 transition rounded-xl hover:bg-white/80" title="Edit / កែប្រែ">
+            <button onclick="editMember(${m.id})" class="text-slate-400 hover:text-cyan-300 p-1.5 transition rounded-xl hover:bg-slate-800" title="Edit / កែប្រែ">
               <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
             </button>
-            <button onclick="deleteMember(${m.id}, '${m.name}')" class="text-txt-muted hover:text-accent-danger p-1.5 transition rounded-xl hover:bg-red-50" title="Delete / លុប">
+            <button onclick="deleteMember(${m.id}, '${m.name}')" class="text-slate-400 hover:text-rose-400 p-1.5 transition rounded-xl hover:bg-rose-950/40" title="Delete / លុប">
               <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
             </button>
           </div>
         </div>
 
         <!-- Account Credentials Chip (Password set by Admin) -->
-        <div class="mt-3 pt-2.5 border-t border-app-border flex items-center justify-between text-[11px]">
-          <div class="flex items-center gap-1.5 text-txt-secondary font-medium">
-            <i data-lucide="key" class="w-3 h-3 text-brand-blue"></i>
+        <div class="mt-3 pt-2.5 border-t border-slate-800 flex items-center justify-between text-[11px]">
+          <div class="flex items-center gap-1.5 text-slate-300 font-medium">
+            <i data-lucide="key" class="w-3 h-3 text-cyan-400"></i>
             <span>Password:</span>
-            <code class="font-mono font-bold text-brand-blue bg-white/90 px-1.5 py-0.5 rounded-md border border-app-border">${pwdDisplay}</code>
+            <code class="font-mono font-bold text-cyan-300 bg-black/60 px-1.5 py-0.5 rounded-md border border-slate-700">${pwdDisplay}</code>
           </div>
-          <span class="text-[11px] text-txt-muted font-medium">
+          <span class="text-[11px] text-slate-400 font-medium">
             ${m.phone || (m.join_date ? 'ចូល: ' + m.join_date : 'Active')}
           </span>
         </div>
@@ -1817,26 +1901,26 @@ async function loadAttendanceHistory() {
     const loc = currentLang === 'km' ? 'km-KH' : 'en-US';
 
     const slotBadgeMap = {
-      morning_in: `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/10 text-accent-success border border-emerald-500/20">1/4 ព្រឹកចូល</span>`,
-      lunch_out: `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500/10 text-accent-warning border border-amber-500/20">2/4 សម្រាកបាយ</span>`,
-      afternoon_in: `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-brand-blue/10 text-brand-blue border border-brand-blue/20">3/4 ចូលវិញ</span>`,
-      evening_out: `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-100 text-txt-secondary border border-app-border">4/4 ល្ងាចចេញ</span>`,
-      check_in: `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/10 text-accent-success border border-emerald-500/20">Check-In</span>`,
-      check_out: `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-brand-blue/10 text-brand-blue border border-brand-blue/20">Check-Out</span>`
+      morning_in: `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">1/4 ព្រឹកចូល</span>`,
+      lunch_out: `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">2/4 សម្រាកបាយ</span>`,
+      afternoon_in: `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">3/4 ចូលវិញ</span>`,
+      evening_out: `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-800 text-slate-300 border border-slate-700">4/4 ល្ងាចចេញ</span>`,
+      check_in: `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Check-In</span>`,
+      check_out: `<span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">Check-Out</span>`
     };
 
     tbody.innerHTML = logs.map((l, i) => `
-      <tr class="hover:bg-brand-blue/[0.03] transition-colors border-b border-app-border">
-        <td class="py-2.5 px-4 font-mono text-txt-muted text-xs">${i + 1}</td>
-        <td class="py-2.5 px-4 font-bold text-txt-primary">${l.member_name}</td>
-        <td class="py-2.5 px-4 font-mono text-xs text-txt-secondary">${l.member_code}</td>
-        <td class="py-2.5 px-4 text-xs text-txt-secondary font-medium">${l.member_role || '-'}</td>
-        <td class="py-2.5 px-4">${slotBadgeMap[l.type] || `<span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-white text-txt-secondary border border-app-border">${l.type}</span>`}</td>
-        <td class="py-2.5 px-4 font-mono text-xs text-txt-secondary">${new Date(l.timestamp).toLocaleString(loc)}</td>
-        <td class="py-2.5 px-4 font-mono text-xs text-txt-secondary">${l.distance_meters !== null ? l.distance_meters + 'm' : '-'}</td>
+      <tr class="hover:bg-cyan-500/[0.08] transition-colors border-b border-slate-800">
+        <td class="py-2.5 px-4 font-mono text-slate-400 text-xs">${i + 1}</td>
+        <td class="py-2.5 px-4 font-bold text-white">${l.member_name}</td>
+        <td class="py-2.5 px-4 font-mono text-xs text-cyan-300">${l.member_code}</td>
+        <td class="py-2.5 px-4 text-xs text-slate-300 font-medium">${l.member_role || '-'}</td>
+        <td class="py-2.5 px-4">${slotBadgeMap[l.type] || `<span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-slate-800 text-slate-300 border border-slate-700">${l.type}</span>`}</td>
+        <td class="py-2.5 px-4 font-mono text-xs text-slate-300">${new Date(l.timestamp).toLocaleString(loc)}</td>
+        <td class="py-2.5 px-4 font-mono text-xs text-slate-300">${l.distance_meters !== null ? l.distance_meters + 'm' : '-'}</td>
         <td class="py-2.5 px-4">${l.is_within_range 
-          ? `<span class="inline-flex items-center gap-1.5 text-accent-success font-bold text-xs"><span class="w-1.5 h-1.5 rounded-full bg-accent-success animate-pulse"></span>ក្នុងរង្វង់</span>` 
-          : `<span class="inline-flex items-center gap-1.5 text-accent-danger font-bold text-xs"><span class="w-1.5 h-1.5 rounded-full bg-accent-danger"></span>ក្រៅរង្វង់</span>`}</td>
+          ? `<span class="inline-flex items-center gap-1.5 text-emerald-400 font-bold text-xs"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>ក្នុងរង្វង់</span>` 
+          : `<span class="inline-flex items-center gap-1.5 text-rose-400 font-bold text-xs"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>ក្រៅរង្វង់</span>`}</td>
       </tr>
     `).join('');
 
@@ -1876,6 +1960,14 @@ async function loadAdminSettings() {
     if (s.office_lng) document.getElementById('inputOfficeLng').value = s.office_lng;
     if (s.allowed_radius) document.getElementById('inputAllowedRadius').value = s.allowed_radius;
     if (s.admin_pin) document.getElementById('inputAdminPin').value = s.admin_pin;
+    if (s.company_wifi_ips) {
+      const el = document.getElementById('inputCompanyWifiIps');
+      if (el) el.value = s.company_wifi_ips;
+    }
+    if (s.wifi_check_enabled !== undefined) {
+      const el = document.getElementById('inputWifiCheckEnabled');
+      if (el) el.checked = s.wifi_check_enabled === 'true';
+    }
   } catch (e) {
     console.error(e);
   }
@@ -1911,11 +2003,21 @@ async function saveGeofenceSettings() {
   const lng = document.getElementById('inputOfficeLng').value;
   const radius = document.getElementById('inputAllowedRadius').value;
   const pin = document.getElementById('inputAdminPin').value;
+  const wifiIps = document.getElementById('inputCompanyWifiIps') ? document.getElementById('inputCompanyWifiIps').value : '';
+  const wifiEnabled = document.getElementById('inputWifiCheckEnabled') ? (document.getElementById('inputWifiCheckEnabled').checked ? 'true' : 'false') : 'true';
 
   await fetch('/api/settings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ company_name: companyName, office_lat: lat, office_lng: lng, allowed_radius: radius, admin_pin: pin })
+    body: JSON.stringify({ 
+      company_name: companyName, 
+      office_lat: lat, 
+      office_lng: lng, 
+      allowed_radius: radius, 
+      admin_pin: pin,
+      company_wifi_ips: wifiIps,
+      wifi_check_enabled: wifiEnabled
+    })
   });
 
   await loadPublicInfo();
