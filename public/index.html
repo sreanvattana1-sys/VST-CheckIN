@@ -1252,6 +1252,35 @@
             <i data-lucide="chevron-right" class="w-5 h-5 text-white"></i>
           </div>
         </button>
+
+        <!-- Secondary Quick Actions: Request Leave / Late & View History -->
+        <div class="grid grid-cols-2 gap-2 mt-2.5">
+          <button type="button" onclick="openLeaveRequestModal()" class="p-3 rounded-2xl bg-gradient-to-r from-amber-500/15 via-orange-500/15 to-rose-500/15 hover:from-amber-500/25 hover:to-rose-500/25 border border-amber-400/30 text-left transition-all active:scale-95 group shadow-sm flex items-center justify-between cursor-pointer">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-400/30 flex items-center justify-center group-hover:scale-110 transition-transform flex-shrink-0">
+                <i data-lucide="file-plus-2" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <span class="text-xs font-bold text-white block leading-tight">សុំច្បាប់ / មកយឺត</span>
+                <span class="text-[10px] text-amber-300/90 font-medium block mt-0.5">ផ្ញើសំណើ & Telegram</span>
+              </div>
+            </div>
+            <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-amber-400/60 group-hover:translate-x-0.5 transition-transform"></i>
+          </button>
+
+          <button type="button" onclick="showStaffHistoryView()" class="p-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/15 text-left transition-all active:scale-95 group shadow-sm flex items-center justify-between cursor-pointer">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 flex items-center justify-center group-hover:scale-110 transition-transform flex-shrink-0">
+                <i data-lucide="clipboard-list" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <span class="text-xs font-bold text-white block leading-tight">កំណត់ត្រាវត្តមាន</span>
+                <span class="text-[10px] text-cyan-300/90 font-medium block mt-0.5">ប្រវត្តិ ៤ វេនស្កេន</span>
+              </div>
+            </div>
+            <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-cyan-400/60 group-hover:translate-x-0.5 transition-transform"></i>
+          </button>
+        </div>
       </div>
 
       <!-- Essential Status Capsules (3 Clean Pills: Hours, Wi-Fi, GPS - Zero Clutter) -->
@@ -1518,6 +1547,11 @@
           <button onclick="switchAdminTab('history')" id="adm-tab-history" class="adm-tab px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/10 transition-all flex items-center gap-1.5 sm:gap-2 border border-transparent flex-shrink-0 cursor-pointer">
             <i data-lucide="calendar-days" class="w-4 h-4"></i>
             <span>ប្រវត្តិវត្តមាន</span>
+          </button>
+          <button onclick="switchAdminTab('leaves')" id="adm-tab-leaves" class="adm-tab px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/10 transition-all flex items-center gap-1.5 sm:gap-2 border border-transparent flex-shrink-0 cursor-pointer">
+            <i data-lucide="file-text" class="w-4 h-4"></i>
+            <span>សំណើសុំច្បាប់ & មកយឺត</span>
+            <span id="admPendingLeavesBadge" class="hidden px-1.5 py-0.5 text-[10px] font-black rounded-full bg-amber-400 text-slate-950 leading-none shadow-sm">0</span>
           </button>
           <button onclick="switchAdminTab('settings')" id="adm-tab-settings" class="adm-tab px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/10 transition-all flex items-center gap-1.5 sm:gap-2 border border-transparent flex-shrink-0 cursor-pointer">
             <i data-lucide="settings" class="w-4 h-4"></i>
@@ -1792,6 +1826,74 @@
         </div>
       </section>
 
+      <!-- Admin Section: Leave & Late Permissions Management -->
+      <section id="adm-sec-leaves" class="adm-section hidden space-y-6">
+        <div class="glass-crystal p-5 sm:p-6 rounded-3xl border border-white/20 shadow-2xl space-y-5">
+          
+          <!-- Header & Filter Bar -->
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/10">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-lg shadow-amber-500/25">
+                <i data-lucide="file-text" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h3 class="text-base font-extrabold text-white flex items-center gap-2">
+                  <span>សំណើសុំច្បាប់ & មកយឺត (Leave & Late Requests)</span>
+                </h3>
+                <p class="text-xs text-slate-300">ពិនិត្យ និងចុចយល់ព្រម (OK) ឬបដិសេធ ដើម្បីផ្ញើសារឆ្លើយតបទៅកាន់បុគ្គលិក & Telegram</p>
+              </div>
+            </div>
+
+            <!-- Filter Status Pills -->
+            <div class="flex items-center gap-1.5 p-1 rounded-2xl bg-black/40 border border-white/10 self-start md:self-auto overflow-x-auto scrollbar-none">
+              <button type="button" onclick="filterAdminLeaveRequests('all')" id="leaveFilterBtnAll" class="admin-leave-filter-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-sm transition cursor-pointer">
+                ទាំងអស់
+              </button>
+              <button type="button" onclick="filterAdminLeaveRequests('pending')" id="leaveFilterBtnPending" class="admin-leave-filter-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white transition cursor-pointer flex items-center gap-1">
+                <span>រង់ចាំ (Pending)</span>
+                <span id="leaveFilterPendingBadge" class="hidden w-2 h-2 rounded-full bg-amber-400"></span>
+              </button>
+              <button type="button" onclick="filterAdminLeaveRequests('approved')" id="leaveFilterBtnApproved" class="admin-leave-filter-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white transition cursor-pointer">
+                យល់ព្រម (OK)
+              </button>
+              <button type="button" onclick="filterAdminLeaveRequests('rejected')" id="leaveFilterBtnRejected" class="admin-leave-filter-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white transition cursor-pointer">
+                មិនអនុម័ត
+              </button>
+            </div>
+          </div>
+
+          <!-- Quick Stats Summary -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="p-3 rounded-2xl bg-slate-900/60 border border-white/10">
+              <span class="text-[11px] text-slate-400 block mb-0.5">សំណើសរុប</span>
+              <span id="admLeaveStatTotal" class="text-lg font-black text-white font-mono">0</span>
+              <span class="text-[10px] text-slate-400 block">សំណើទាំងអស់</span>
+            </div>
+            <div class="p-3 rounded-2xl bg-slate-900/60 border border-amber-500/25 bg-amber-500/5">
+              <span class="text-[11px] text-amber-300 block mb-0.5">រង់ចាំការពិនិត្យ</span>
+              <span id="admLeaveStatPending" class="text-lg font-black text-amber-400 font-mono">0</span>
+              <span class="text-[10px] text-amber-300/80 block">ត្រូវការឆ្លើយតប</span>
+            </div>
+            <div class="p-3 rounded-2xl bg-slate-900/60 border border-emerald-500/25 bg-emerald-500/5">
+              <span class="text-[11px] text-emerald-300 block mb-0.5">បានយល់ព្រម (OK)</span>
+              <span id="admLeaveStatApproved" class="text-lg font-black text-emerald-400 font-mono">0</span>
+              <span class="text-[10px] text-emerald-300/80 block">អនុម័តជោគជ័យ</span>
+            </div>
+            <div class="p-3 rounded-2xl bg-slate-900/60 border border-rose-500/25 bg-rose-500/5">
+              <span class="text-[11px] text-rose-300 block mb-0.5">បានបដិសេធ</span>
+              <span id="admLeaveStatRejected" class="text-lg font-black text-rose-400 font-mono">0</span>
+              <span class="text-[10px] text-rose-300/80 block">មិនអនុញ្ញាត</span>
+            </div>
+          </div>
+
+          <!-- Leave Cards List Container -->
+          <div id="adminLeaveRequestsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+            <div class="col-span-full py-12 text-center text-xs text-slate-400">កំពុងទាញយកសំណើ...</div>
+          </div>
+
+        </div>
+      </section>
+
       <!-- Admin Section 5: Settings -->
       <section id="adm-sec-settings" class="adm-section hidden space-y-6">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1841,6 +1943,32 @@
               <button onclick="sendDailyTelegramSummaryNow()" class="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-cyan-300 border border-cyan-400/40 shadow-xs flex items-center justify-center gap-2 transition active:scale-98">
                 <i data-lucide="send" class="w-3.5 h-3.5 text-cyan-400"></i>
                 <span>ផ្ញើរបាយការណ៍សរុបទៅ Telegram ឥឡូវនេះ (Send Summary)</span>
+              </button>
+            </div>
+
+            <!-- Dedicated Leave & Late Permissions Telegram Group Card -->
+            <div class="mt-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-400/30 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                  <i data-lucide="bell-ring" class="w-4 h-4 text-amber-400"></i>
+                  <span>Telegram Group សុំច្បាប់ & មកយឺត (New Group)</span>
+                </span>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/40">New</span>
+              </div>
+              <p class="text-[11px] text-slate-300 leading-relaxed">
+                ដាក់ Chat ID នៃ Group Telegram ថ្មីសម្រាប់ទទួលដំណឹងសុំច្បាប់ និងមកយឺតដោយឡែកពី Group វត្តមានទូទៅ៖
+              </p>
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-200 mb-1">Telegram Leave Chat ID (Group ID)</label>
+                <input type="text" id="inputTelegramLeaveChatId" placeholder="ឧ. -1001234567890 ឬ -50..." class="w-full text-xs bg-black/50 border border-amber-400/30 rounded-xl px-3.5 py-2 font-mono text-white placeholder-slate-500 focus:outline-none focus:border-amber-400">
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="checkbox" id="inputTelegramLeaveEnabled" class="w-4 h-4 text-amber-500 rounded border-white/20 bg-black/40 focus:ring-amber-500">
+                <label for="inputTelegramLeaveEnabled" class="text-xs text-slate-200 font-medium">បើកផ្ញើសារ Alert ពេលបុគ្គលិកសុំច្បាប់ ឬមកយឺត</label>
+              </div>
+              <button type="button" onclick="testTelegramLeaveConnection()" class="w-full py-2 px-3 rounded-xl text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-400/40 flex items-center justify-center gap-1.5 transition active:scale-98 cursor-pointer">
+                <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                <span>តេស្តផ្ញើសារសុំច្បាប់ទៅ Telegram Group ថ្មី (Test Alert)</span>
               </button>
             </div>
           </div>
@@ -2554,6 +2682,212 @@
     </div>
   </div>
 
+  <!-- ================= MODAL: LEAVE & LATE PERMISSION REQUEST ================= -->
+  <div id="leaveRequestModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-xl overflow-y-auto">
+    <div class="glass-crystal relative w-full max-w-lg bg-slate-900/95 border border-white/20 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 my-6 text-white animate-entrance max-h-[92vh] flex flex-col">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between pb-3 border-b border-white/10 flex-shrink-0">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-md shadow-amber-500/25">
+            <i data-lucide="file-plus-2" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-sm sm:text-base font-extrabold text-white">ស្នើសុំច្បាប់ ឬសុំមកយឺត</h3>
+            <p class="text-[11px] text-slate-300">Leave & Late Arrival Permission</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeLeaveRequestModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Segmented Tab Switcher (iOS Style) -->
+      <div class="flex p-1 rounded-2xl bg-black/40 border border-white/10 flex-shrink-0">
+        <button type="button" onclick="switchLeaveModalTab('leave')" id="leaveTabBtnLeave" class="flex-1 py-2 px-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-sm cursor-pointer">
+          <i data-lucide="calendar-off" class="w-3.5 h-3.5"></i>
+          <span>សុំច្បាប់សម្រាក</span>
+        </button>
+        <button type="button" onclick="switchLeaveModalTab('late')" id="leaveTabBtnLate" class="flex-1 py-2 px-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition flex items-center justify-center gap-1.5 cursor-pointer">
+          <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+          <span>សុំមកយឺត</span>
+        </button>
+        <button type="button" onclick="switchLeaveModalTab('history')" id="leaveTabBtnHistory" class="flex-1 py-2 px-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition flex items-center justify-center gap-1.5 cursor-pointer">
+          <i data-lucide="clipboard-list" class="w-3.5 h-3.5"></i>
+          <span>សំណើរបស់ខ្ញុំ</span>
+        </button>
+      </div>
+
+      <!-- Modal Body (Scrollable) -->
+      <div class="overflow-y-auto space-y-4 pr-1 custom-scroll flex-1">
+        
+        <!-- Form 1: Leave Request (សុំច្បាប់) -->
+        <form id="formLeaveRequest" onsubmit="handleLeaveFormSubmit(event)" class="space-y-3.5">
+          <!-- Staff Profile Mini Card -->
+          <div class="p-3 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center font-bold text-xs" id="leaveStaffInitial">
+                U
+              </div>
+              <div>
+                <div class="text-xs font-bold text-white" id="leaveStaffName">--</div>
+                <div class="text-[10px] text-slate-400 font-mono" id="leaveStaffCode">--</div>
+              </div>
+            </div>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-400/30">គណនីរបស់អ្នក</span>
+          </div>
+
+          <!-- Leave Sub-type -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">
+              ប្រភេទនៃការសុំច្បាប់ (Leave Type) <span class="text-rose-400">*</span>
+            </label>
+            <select id="leaveSubType" required class="w-full text-xs bg-slate-800/90 border border-white/15 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-cyan-400">
+              <option value="ច្បាប់ឈឺ (Sick Leave)">🤒 ច្បាប់ឈឺ (Sick Leave - ផ្តាសាយ, មិនស្រួលខ្លួន)</option>
+              <option value="ធុរៈផ្ទាល់ខ្លួន (Personal Leave)">💼 ធុរៈផ្ទាល់ខ្លួនបន្ទាន់ (Personal Emergency)</option>
+              <option value="ច្បាប់ប្រចាំឆ្នាំ (Annual Leave)">🏖️ ច្បាប់ប្រចាំឆ្នាំ (Annual Leave / Vacation)</option>
+              <option value="ធុរៈគ្រួសារ (Family Leave)">👨‍👩‍👦 ធុរៈគ្រួសារ / មង្គលការ / បុណ្យ (Family Event)</option>
+              <option value="ផ្សេងៗ (Other)">📝 ផ្សេងៗ (Other)</option>
+            </select>
+          </div>
+
+          <!-- Date Range & Duration Grid -->
+          <div class="grid grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">
+                ចាប់ពីថ្ងៃ (Start Date) <span class="text-rose-400">*</span>
+              </label>
+              <input type="date" id="leaveStartDate" required class="w-full text-xs bg-slate-800/90 border border-white/15 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-400">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">
+                ដល់ថ្ងៃ (End Date)
+              </label>
+              <input type="date" id="leaveEndDate" class="w-full text-xs bg-slate-800/90 border border-white/15 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-400">
+            </div>
+          </div>
+
+          <!-- Duration Segment -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">
+              ចំនួនពេលសុំសម្រាក (Duration) <span class="text-rose-400">*</span>
+            </label>
+            <select id="leaveDurationSelect" class="w-full text-xs bg-slate-800/90 border border-white/15 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-400">
+              <option value="1 ថ្ងៃពេញ (Full Day)">1 ថ្ងៃពេញ (Full Day)</option>
+              <option value="កន្លះថ្ងៃព្រឹក (Morning 08:00 - 11:00)">កន្លះថ្ងៃព្រឹក (Morning 08:00 - 11:00)</option>
+              <option value="កន្លះថ្ងៃរសៀល (Afternoon 13:00 - 17:00)">កន្លះថ្ងៃរសៀល (Afternoon 13:00 - 17:00)</option>
+              <option value="2 ថ្ងៃ">2 ថ្ងៃ</option>
+              <option value="3 ថ្ងៃ">3 ថ្ងៃ</option>
+              <option value="ច្រើនថ្ងៃ (តាមកាលបរិច្ឆេទ)">ច្រើនថ្ងៃ (តាមកាលបរិច្ឆេទ)</option>
+            </select>
+          </div>
+
+          <!-- Reason -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">
+              មូលហេតុលម្អិត (Reason) <span class="text-rose-400">*</span>
+            </label>
+            <textarea id="leaveReason" required rows="3" placeholder="សូមបញ្ជាក់មូលហេតុឱ្យបានច្បាស់លាស់ដើម្បី Admin ពិនិត្យសម្រេច..." class="w-full text-xs bg-slate-800/90 border border-white/15 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"></textarea>
+          </div>
+
+          <!-- Telegram broadcast notice -->
+          <div class="text-[11px] text-sky-400 flex items-center gap-1.5 p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/20">
+            <i data-lucide="send" class="w-3.5 h-3.5 text-sky-400 flex-shrink-0"></i>
+            <span>សំណើនេះនឹងផ្ញើជូនដំណឹងភ្លាមៗទៅកាន់ Group Telegram របស់ថ្នាក់ដឹកនាំ!</span>
+          </div>
+
+          <button type="submit" id="btnSubmitLeave" class="w-full btn-gradient-primary btn-shine py-3 px-4 rounded-xl text-xs font-bold text-white shadow-lg shadow-cyan-500/25 flex items-center justify-center gap-2 active:scale-95 cursor-pointer">
+            <i data-lucide="send" class="w-4 h-4"></i>
+            <span>ផ្ញើសំណើសុំច្បាប់ (Submit Leave)</span>
+          </button>
+        </form>
+
+        <!-- Form 2: Late Arrival Request (សុំមកយឺត) -->
+        <form id="formLateRequest" onsubmit="handleLateFormSubmit(event)" class="hidden space-y-3.5">
+          <!-- Staff Profile Mini Card -->
+          <div class="p-3 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center font-bold text-xs" id="lateStaffInitial">
+                U
+              </div>
+              <div>
+                <div class="text-xs font-bold text-white" id="lateStaffName">--</div>
+                <div class="text-[10px] text-slate-400 font-mono" id="lateStaffCode">--</div>
+              </div>
+            </div>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-400/30">សុំមកយឺត</span>
+          </div>
+
+          <!-- Late Issue Sub-type -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">
+              បញ្ហាជួបប្រទះតាមផ្លូវ (Late Reason) <span class="text-rose-400">*</span>
+            </label>
+            <select id="lateSubType" required class="w-full text-xs bg-slate-800/90 border border-white/15 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-400">
+              <option value="ស្ទះចរាចរណ៍ខ្លាំង (Traffic Jam)">🚗 ស្ទះចរាចរណ៍ខ្លាំងមិនអាចធ្វើដំណើរលឿនបាន (Heavy Traffic)</option>
+              <option value="ខូចម៉ូតូ/ឡាន ឬបែកកង់ (Vehicle Issue)">🛵 ខូចម៉ូតូ / ឡាន ឬបែកកង់តាមផ្លូវ (Flat Tire / Breakdown)</option>
+              <option value="ភ្លៀងធ្លាក់ខ្លាំង (Heavy Rain)">🌧️ ភ្លៀងធ្លាក់ខ្លាំងមិនអាចធ្វើដំណើរបាន (Heavy Rain)</option>
+              <option value="ធុរៈបន្ទាន់ពេលព្រឹក (Morning Emergency)">⚠️ មានធុរៈផ្ទាល់ខ្លួនបន្ទាន់ពេលព្រឹក (Morning Emergency)</option>
+              <option value="បញ្ហាផ្សេងៗ (Other)">📝 បញ្ហាផ្សេងៗទៀត (Other)</option>
+            </select>
+          </div>
+
+          <!-- Date and Estimated Arrival Time -->
+          <div class="grid grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">
+                ថ្ងៃកើតហេតុ (Date) <span class="text-rose-400">*</span>
+              </label>
+              <input type="date" id="lateDate" required class="w-full text-xs bg-slate-800/90 border border-white/15 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-400">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">
+                រំពឹងមកដល់ម៉ោង (Time) <span class="text-rose-400">*</span>
+              </label>
+              <input type="text" id="lateExpectedTime" required placeholder="ឧ. 08:45 AM ឬ 09:00 AM" class="w-full text-xs bg-slate-800/90 border border-white/15 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-amber-400">
+            </div>
+          </div>
+
+          <!-- Reason & Details -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">
+              ពិពណ៌នាលម្អិតពីបញ្ហា (Details) <span class="text-rose-400">*</span>
+            </label>
+            <textarea id="lateReason" required rows="3" placeholder="ឧ. កំពុងស្ទះនៅម្តុំស្ពានជ្រោយចង្វារ ឬកំពុងរង់ចាំជាងប៉ះកង់..." class="w-full text-xs bg-slate-800/90 border border-white/15 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"></textarea>
+          </div>
+
+          <!-- Telegram Notice -->
+          <div class="text-[11px] text-amber-300 flex items-center gap-1.5 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
+            <i data-lucide="send" class="w-3.5 h-3.5 text-amber-400 flex-shrink-0"></i>
+            <span>ដំណឹងសុំមកយឺតនេះនឹងលោត Alert ចូល Group Telegram ថ្នាក់ដឹកនាំភ្លាមៗ!</span>
+          </div>
+
+          <button type="submit" id="btnSubmitLate" class="w-full py-3 px-4 rounded-xl text-xs font-bold text-white shadow-lg shadow-amber-500/20 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 flex items-center justify-center gap-2 active:scale-95 cursor-pointer">
+            <i data-lucide="send" class="w-4 h-4"></i>
+            <span>ផ្ញើសំណើសុំមកយឺត (Submit Late Notice)</span>
+          </button>
+        </form>
+
+        <!-- Section 3: My Requests History (សំណើរបស់ខ្ញុំ) -->
+        <div id="sectionLeaveHistory" class="hidden space-y-3">
+          <div class="flex items-center justify-between pb-2 border-b border-white/10">
+            <span class="text-xs font-bold text-slate-300">ប្រវត្តិសំណើសុំច្បាប់ និងមកយឺតរបស់អ្នក</span>
+            <button type="button" onclick="loadMyLeaveRequests()" class="text-xs text-cyan-400 hover:text-white flex items-center gap-1">
+              <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+              <span>Refresh</span>
+            </button>
+          </div>
+
+          <div id="myLeaveRequestsContainer" class="space-y-2.5">
+            <div class="py-8 text-center text-xs text-slate-400">កំពុងទាញយកទិន្នន័យ...</div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
   <!-- ================= SLIDE-OVER APP DRAWER MENU ================= -->
   <div id="appDrawerMenu" class="fixed inset-0 z-50 overflow-hidden pointer-events-none transition-all duration-300 opacity-0 invisible" aria-modal="true" role="dialog">
     <!-- Backdrop Blur Overlay -->
@@ -2595,6 +2929,24 @@
           <!-- Navigation / Action Items -->
           <div class="space-y-1.5 pt-1">
             <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 block">សកម្មភាពផ្ទាល់ខ្លួន (My Workspace)</span>
+
+            <!-- Request Leave / Late Button in Drawer -->
+            <button type="button" onclick="closeAppDrawerMenu(); openLeaveRequestModal();" class="w-full p-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 to-orange-500/15 hover:from-amber-500/25 hover:to-orange-500/25 border border-amber-400/30 flex items-center justify-between transition text-left group cursor-pointer shadow-xs">
+              <span class="text-xs font-bold text-amber-300 flex items-center gap-2">
+                <i data-lucide="file-plus-2" class="w-4 h-4 text-amber-400"></i>
+                <span>សុំច្បាប់ ឬសុំមកយឺត (Request)</span>
+              </span>
+              <span class="text-[10px] px-2 py-0.5 rounded-md bg-amber-400/20 text-amber-200 font-bold">New</span>
+            </button>
+
+            <!-- My Requests Status Button in Drawer -->
+            <button type="button" onclick="closeAppDrawerMenu(); openLeaveRequestModal('history');" class="w-full p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-between transition text-left group cursor-pointer">
+              <span class="text-xs font-semibold text-slate-200 flex items-center gap-2">
+                <i data-lucide="bell" class="w-4 h-4 text-cyan-400"></i>
+                <span>ស្ថានភាពសំណើរបស់ខ្ញុំ</span>
+              </span>
+              <span id="drawerMyRequestsStatusBadge" class="hidden text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold">OK</span>
+            </button>
 
             <!-- My Attendance History View in Drawer -->
             <button type="button" onclick="closeAppDrawerMenu(); showStaffHistoryView();" class="w-full p-2.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-400/20 flex items-center justify-between transition text-left group cursor-pointer">
@@ -2671,13 +3023,13 @@
             <i data-lucide="log-out" class="w-4 h-4"></i>
             <span>ចាកចេញពីគណនី (Log Out)</span>
           </button>
-          <p class="text-[10px] text-slate-500 text-center font-mono">VST Attendance App • Version 20.0</p>
+          <p class="text-[10px] text-slate-500 text-center font-mono">VST Attendance App • Version 21.0</p>
         </div>
 
       </div>
     </div>
   </div>
 
-  <script src="/app.js?v=20.0"></script>
+  <script src="/app.js?v=21.0"></script>
 </body>
 </html>

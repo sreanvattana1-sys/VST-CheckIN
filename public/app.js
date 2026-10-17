@@ -2331,10 +2331,14 @@ function switchAdminTab(tabId) {
   if (tabId === 'dashboard') {
     loadAdminDashboard();
     loadPendingMembers();
+    loadAdminLeaveRequests();
   }
   if (tabId === 'members') {
     loadAdminMembers();
     loadPendingMembers();
+  }
+  if (tabId === 'leaves') {
+    loadAdminLeaveRequests();
   }
   if (tabId === 'history') loadAttendanceHistory();
   if (tabId === 'settings') loadAdminSettings();
@@ -3256,6 +3260,14 @@ async function loadAdminSettings() {
       const el = document.getElementById('inputWifiCheckEnabled');
       if (el) el.checked = s.wifi_check_enabled === 'true';
     }
+    if (s.telegram_leave_chat_id) {
+      const el = document.getElementById('inputTelegramLeaveChatId');
+      if (el) el.value = s.telegram_leave_chat_id;
+    }
+    if (s.telegram_leave_enabled !== undefined) {
+      const el = document.getElementById('inputTelegramLeaveEnabled');
+      if (el) el.checked = s.telegram_leave_enabled === 'true';
+    }
   } catch (e) {
     console.error(e);
   }
@@ -3266,7 +3278,17 @@ async function saveTelegramSettings() {
   const chatId = document.getElementById('inputTelegramChatId').value;
   const enabled = document.getElementById('inputTelegramEnabled').checked;
 
-  const payload = { telegram_chat_id: chatId, telegram_enabled: enabled ? 'true' : 'false' };
+  const leaveChatIdEl = document.getElementById('inputTelegramLeaveChatId');
+  const leaveEnabledEl = document.getElementById('inputTelegramLeaveEnabled');
+  const leaveChatId = leaveChatIdEl ? leaveChatIdEl.value.trim() : '';
+  const leaveEnabled = leaveEnabledEl ? leaveEnabledEl.checked : true;
+
+  const payload = { 
+    telegram_chat_id: chatId, 
+    telegram_enabled: enabled ? 'true' : 'false',
+    telegram_leave_chat_id: leaveChatId,
+    telegram_leave_enabled: leaveEnabled ? 'true' : 'false'
+  };
   if (token) payload.telegram_token = token;
 
   await fetch('/api/settings', {
@@ -3283,6 +3305,18 @@ async function testTelegramConnection() {
   const d = await res.json();
   if (res.ok) Swal.fire({ icon: 'success', title: translations[currentLang].alertSuccess, text: d.message });
   else Swal.fire({ icon: 'error', title: 'Error', text: d.error });
+}
+
+async function testTelegramLeaveConnection() {
+  Swal.fire({ title: 'Testing Leave Group...', didOpen: () => Swal.showLoading() });
+  try {
+    const res = await fetch('/api/settings/test-telegram-leave', { method: 'POST' });
+    const d = await res.json();
+    if (res.ok) Swal.fire({ icon: 'success', title: translations[currentLang].alertSuccess, text: d.message });
+    else Swal.fire({ icon: 'error', title: 'Error', text: d.error });
+  } catch (err) {
+    Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+  }
 }
 
 async function saveGeofenceSettings() {
@@ -3751,3 +3785,699 @@ function showAcledaNoticeModal() {
 function openTelegramNoticeGroup() {
   window.open('https://t.me/c/5037746251', '_blank');
 }
+
+// ========================================================
+// LEAVE & LATE PERMISSION REQUEST MODULE (V21.0)
+// ========================================================
+window.adminLeaveRequestsList = [];
+window.currentLeaveFilter = 'all';
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+function openLeaveRequestModal(defaultTab = 'leave') {
+  if (!currentStaff) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'សូមចូលគណនីបុគ្គលិក',
+      text: 'សូមជ្រើសរើស ឬចូលគណនីបុគ្គលិករបស់អ្នកជាមុនសិន ទើបអាចស្នើសុំច្បាប់ ឬមកយឺតបាន!',
+      confirmButtonText: 'យល់ព្រម',
+      confirmButtonColor: '#0ea5e9'
+    });
+    return;
+  }
+
+  // Populate staff profile preview
+  const initial = currentStaff.name ? currentStaff.name.trim().charAt(0).toUpperCase() : 'U';
+  const sName = currentStaff.name || '--';
+  const sCode = currentStaff.code || '--';
+
+  const leaveNameEl = document.getElementById('leaveStaffName');
+  const leaveCodeEl = document.getElementById('leaveStaffCode');
+  const leaveInitEl = document.getElementById('leaveStaffInitial');
+  if (leaveNameEl) leaveNameEl.textContent = sName;
+  if (leaveCodeEl) leaveCodeEl.textContent = sCode;
+  if (leaveInitEl) leaveInitEl.textContent = initial;
+
+  const lateNameEl = document.getElementById('lateStaffName');
+  const lateCodeEl = document.getElementById('lateStaffCode');
+  const lateInitEl = document.getElementById('lateStaffInitial');
+  if (lateNameEl) lateNameEl.textContent = sName;
+  if (lateCodeEl) lateCodeEl.textContent = sCode;
+  if (lateInitEl) lateInitEl.textContent = initial;
+
+  // Set default dates
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Phnom_Penh' });
+  const leaveStart = document.getElementById('leaveStartDate');
+  const leaveEnd = document.getElementById('leaveEndDate');
+  const lateDate = document.getElementById('lateDate');
+  if (leaveStart && !leaveStart.value) leaveStart.value = todayStr;
+  if (leaveEnd && !leaveEnd.value) leaveEnd.value = todayStr;
+  if (lateDate && !lateDate.value) lateDate.value = todayStr;
+
+  switchLeaveModalTab(defaultTab);
+
+  const modal = document.getElementById('leaveRequestModal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeLeaveRequestModal() {
+  const modal = document.getElementById('leaveRequestModal');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+}
+
+function switchLeaveModalTab(tab) {
+  const btnLeave = document.getElementById('leaveTabBtnLeave');
+  const btnLate = document.getElementById('leaveTabBtnLate');
+  const btnHistory = document.getElementById('leaveTabBtnHistory');
+
+  const formLeave = document.getElementById('formLeaveRequest');
+  const formLate = document.getElementById('formLateRequest');
+  const secHistory = document.getElementById('sectionLeaveHistory');
+
+  const activeClass = 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-sm font-bold';
+  const inactiveClass = 'text-slate-400 font-semibold hover:text-white bg-transparent';
+
+  [btnLeave, btnLate, btnHistory].forEach(btn => {
+    if (btn) {
+      btn.className = btn.className.replace(activeClass, '').replace(inactiveClass, '') + ' ' + inactiveClass;
+    }
+  });
+
+  if (tab === 'leave') {
+    if (btnLeave) btnLeave.className = btnLeave.className.replace(inactiveClass, '') + ' ' + activeClass;
+    if (formLeave) formLeave.classList.remove('hidden');
+    if (formLate) formLate.classList.add('hidden');
+    if (secHistory) secHistory.classList.add('hidden');
+  } else if (tab === 'late') {
+    if (btnLate) btnLate.className = btnLate.className.replace(inactiveClass, '') + ' ' + activeClass;
+    if (formLeave) formLeave.classList.add('hidden');
+    if (formLate) formLate.classList.remove('hidden');
+    if (secHistory) secHistory.classList.add('hidden');
+  } else if (tab === 'history') {
+    if (btnHistory) btnHistory.className = btnHistory.className.replace(inactiveClass, '') + ' ' + activeClass;
+    if (formLeave) formLeave.classList.add('hidden');
+    if (formLate) formLate.classList.add('hidden');
+    if (secHistory) secHistory.classList.remove('hidden');
+    loadMyLeaveRequests();
+  }
+
+  if (window.lucide) lucide.createIcons();
+}
+
+async function handleLeaveFormSubmit(e) {
+  if (e) e.preventDefault();
+  if (!currentStaff) {
+    Swal.fire({ icon: 'warning', title: 'សូមចូលគណនីបុគ្គលិកជាមុនសិន' });
+    return;
+  }
+
+  const btn = document.getElementById('btnSubmitLeave');
+  const subType = document.getElementById('leaveSubType')?.value;
+  const startDate = document.getElementById('leaveStartDate')?.value;
+  const endDate = document.getElementById('leaveEndDate')?.value || startDate;
+  const duration = document.getElementById('leaveDurationSelect')?.value;
+  const reason = document.getElementById('leaveReason')?.value;
+
+  if (!reason || !reason.trim()) {
+    Swal.fire({ icon: 'warning', title: 'សូមបំពេញមូលហេតុ', text: 'សូមបញ្ជាក់មូលហេតុនៃការសុំច្បាប់ឱ្យបានច្បាស់លាស់!' });
+    return;
+  }
+
+  const originalBtnHtml = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="inline-block animate-spin mr-2">🌀</span> កំពុងបញ្ជូនសំណើ...`;
+  }
+
+  try {
+    const payload = {
+      code: currentStaff.code,
+      member_id: currentStaff.id || null,
+      member_name: currentStaff.name,
+      member_code: currentStaff.code,
+      member_role: currentStaff.role || 'បុគ្គលិក',
+      request_type: 'leave',
+      sub_type: subType,
+      date_start: startDate,
+      date_end: endDate,
+      duration_text: duration,
+      reason: reason.trim()
+    };
+
+    const res = await fetch('/api/leave-requests', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'បរាជ័យក្នុងការផ្ញើសំណើ');
+
+    // Reset textarea
+    const reasonInput = document.getElementById('leaveReason');
+    if (reasonInput) reasonInput.value = '';
+
+    await Swal.fire({
+      icon: 'success',
+      title: 'បានផ្ញើសំណើដោយជោគជ័យ! 🎉',
+      html: `
+        <div class="text-xs text-slate-300 space-y-1.5 p-1">
+          <p>✅ សំណើសុំច្បាប់របស់អ្នកត្រូវបានកត់ត្រាក្នុងប្រព័ន្ធ។</p>
+          <p class="text-cyan-300 font-semibold">📲 សារជូនដំណឹងត្រូវបានបញ្ជូនទៅកាន់ Group Telegram របស់ថ្នាក់ដឹកនាំរួចរាល់។</p>
+          <p class="text-[11px] text-slate-400">អ្នកអាចតាមដានការឆ្លើយតបរបស់ថ្នាក់ដឹកនាំក្នុងផ្ទាំង "សំណើរបស់ខ្ញុំ"។</p>
+        </div>
+      `,
+      confirmButtonText: 'មើលស្ថានភាពសំណើ',
+      confirmButtonColor: '#0ea5e9'
+    });
+
+    switchLeaveModalTab('history');
+  } catch (err) {
+    console.error('Error submitting leave request:', err);
+    Swal.fire({ icon: 'error', title: 'មានបញ្ហា', text: err.message });
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalBtnHtml;
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+}
+
+async function handleLateFormSubmit(e) {
+  if (e) e.preventDefault();
+  if (!currentStaff) {
+    Swal.fire({ icon: 'warning', title: 'សូមចូលគណនីបុគ្គលិកជាមុនសិន' });
+    return;
+  }
+
+  const btn = document.getElementById('btnSubmitLate');
+  const subType = document.getElementById('lateSubType')?.value;
+  const lateDate = document.getElementById('lateDate')?.value;
+  const expectedTime = document.getElementById('lateExpectedTime')?.value;
+  const reason = document.getElementById('lateReason')?.value;
+
+  if (!expectedTime || !expectedTime.trim()) {
+    Swal.fire({ icon: 'warning', title: 'សូមបញ្ជាក់ម៉ោង', text: 'សូមបញ្ចូលម៉ោងដែលរំពឹងថានឹងមកដល់!' });
+    return;
+  }
+
+  if (!reason || !reason.trim()) {
+    Swal.fire({ icon: 'warning', title: 'សូមបញ្ជាក់មូលហេតុ', text: 'សូមបញ្ជាក់មូលហេតុ ឬបញ្ហាតាមផ្លូវឱ្យបានច្បាស់លាស់!' });
+    return;
+  }
+
+  const originalBtnHtml = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="inline-block animate-spin mr-2">🌀</span> កំពុងបញ្ជូនដំណឹង...`;
+  }
+
+  try {
+    const payload = {
+      code: currentStaff.code,
+      member_id: currentStaff.id || null,
+      member_name: currentStaff.name,
+      member_code: currentStaff.code,
+      member_role: currentStaff.role || 'បុគ្គលិក',
+      request_type: 'late',
+      sub_type: subType,
+      date_start: lateDate,
+      date_end: lateDate,
+      time_expected: expectedTime.trim(),
+      duration_text: `រំពឹងមកដល់: ${expectedTime.trim()}`,
+      reason: reason.trim()
+    };
+
+    const res = await fetch('/api/leave-requests', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'បរាជ័យក្នុងការផ្ញើសំណើ');
+
+    // Reset textarea
+    const reasonInput = document.getElementById('lateReason');
+    if (reasonInput) reasonInput.value = '';
+
+    await Swal.fire({
+      icon: 'success',
+      title: 'បានផ្ញើដំណឹងមកយឺតដោយជោគជ័យ! 🛵',
+      html: `
+        <div class="text-xs text-slate-300 space-y-1.5 p-1">
+          <p>✅ ដំណឹងសុំមកយឺតត្រូវបានកត់ត្រាចូលក្នុងប្រព័ន្ធ។</p>
+          <p class="text-amber-300 font-semibold">📲 សារ Alert ត្រូវបានផ្ញើជូនដំណឹងទៅ Group Telegram ថ្នាក់ដឹកនាំរួចរាល់។</p>
+          <p class="text-[11px] text-slate-400">សូមបើកបរដោយសុវត្ថិភាព!</p>
+        </div>
+      `,
+      confirmButtonText: 'យល់ព្រម',
+      confirmButtonColor: '#f59e0b'
+    });
+
+    switchLeaveModalTab('history');
+  } catch (err) {
+    console.error('Error submitting late request:', err);
+    Swal.fire({ icon: 'error', title: 'មានបញ្ហា', text: err.message });
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalBtnHtml;
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+}
+
+async function loadMyLeaveRequests() {
+  const container = document.getElementById('myLeaveRequestsContainer');
+  if (!container) return;
+
+  if (!currentStaff) {
+    container.innerHTML = `<div class="p-4 rounded-xl bg-white/5 border border-white/10 text-center text-xs text-slate-400">សូមចូលគណនីបុគ្គលិកដើម្បីមើលប្រវត្តិសំណើ</div>`;
+    return;
+  }
+
+  container.innerHTML = `<div class="py-8 text-center text-xs text-slate-400"><span class="inline-block animate-spin mr-1.5">🌀</span> កំពុងទាញយកទិន្នន័យ...</div>`;
+
+  try {
+    const res = await fetch(`/api/leave-requests/my?code=${encodeURIComponent(currentStaff.code)}`);
+    const data = await res.json();
+
+    if (!data.requests || data.requests.length === 0) {
+      container.innerHTML = `
+        <div class="p-6 rounded-2xl bg-white/5 border border-white/10 text-center space-y-2">
+          <div class="w-10 h-10 mx-auto rounded-full bg-white/10 flex items-center justify-center text-slate-400">
+            <i data-lucide="clipboard-x" class="w-5 h-5"></i>
+          </div>
+          <p class="text-xs text-slate-300 font-medium">ពុំទាន់មានសំណើសុំច្បាប់ ឬមកយឺតនៅឡើយទេ</p>
+          <p class="text-[11px] text-slate-500">រាល់សំណើដែលអ្នកបានស្នើ នឹងបង្ហាញនៅទីនេះ រួមទាំងការឆ្លើយតបពី Admin ផងដែរ</p>
+        </div>
+      `;
+      if (window.lucide) lucide.createIcons();
+      return;
+    }
+
+    container.innerHTML = data.requests.map(req => {
+      const isLeave = req.request_type === 'leave';
+      const typeBadge = isLeave 
+        ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-cyan-300 border border-blue-400/30">🏖️ សុំច្បាប់</span>`
+        : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30">🛵 មកយឺត</span>`;
+
+      let statusBadge = '';
+      if (req.status === 'pending') {
+        statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">⏳ កំពុងរង់ចាំពិនិត្យ</span>`;
+      } else if (req.status === 'approved') {
+        statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">✅ បានយល់ព្រម (OK)</span>`;
+      } else if (req.status === 'rejected') {
+        statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1">❌ មិនអនុម័ត</span>`;
+      }
+
+      let dateInfo = '';
+      if (isLeave) {
+        dateInfo = `📅 ${escapeHtml(req.date_start)} ${req.date_end && req.date_end !== req.date_start ? '→ ' + escapeHtml(req.date_end) : ''} • ${escapeHtml(req.duration_text || '1 ថ្ងៃ')}`;
+      } else {
+        dateInfo = `📅 ${escapeHtml(req.date_start)} • ⏰ មកដល់: ${escapeHtml(req.time_expected || '--')}`;
+      }
+
+      let adminResponseHtml = '';
+      if (req.admin_response) {
+        const isOk = req.status === 'approved';
+        adminResponseHtml = `
+          <div class="mt-2.5 p-2.5 rounded-xl ${isOk ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-200' : 'bg-rose-500/10 border border-rose-500/30 text-rose-200'} text-xs space-y-1">
+            <div class="flex items-center justify-between font-bold text-[11px] ${isOk ? 'text-emerald-400' : 'text-rose-400'}">
+              <span>💬 សារឆ្លើយតបពី Admin (ថ្នាក់ដឹកនាំ):</span>
+              <span class="font-normal text-[10px] opacity-75">${req.reviewed_by || 'Admin'}</span>
+            </div>
+            <p class="font-medium">"${escapeHtml(req.admin_response)}"</p>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-2 hover:border-white/20 transition">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              ${typeBadge}
+              <span class="text-xs font-bold text-white">${escapeHtml(req.sub_type)}</span>
+            </div>
+            ${statusBadge}
+          </div>
+
+          <div class="text-[11px] text-cyan-300 font-mono font-medium">
+            ${dateInfo}
+          </div>
+
+          <div class="text-xs text-slate-300 bg-black/30 p-2.5 rounded-xl border border-white/5">
+            ${escapeHtml(req.reason)}
+          </div>
+
+          ${adminResponseHtml}
+
+          <div class="text-[10px] text-slate-500 text-right pt-0.5">
+            កាលបរិច្ឆេទស្នើ: ${new Date(req.created_at).toLocaleString('km-KH', { timeZone: 'Asia/Phnom_Penh' })}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    if (window.lucide) lucide.createIcons();
+  } catch (err) {
+    console.error('Error loading my leave requests:', err);
+    container.innerHTML = `<div class="p-4 text-center text-xs text-rose-400">បរាជ័យក្នុងការទាញយកទិន្នន័យ: ${err.message}</div>`;
+  }
+}
+
+async function loadAdminLeaveRequests(filter = window.currentLeaveFilter || 'all') {
+  const container = document.getElementById('adminLeaveRequestsContainer');
+  if (container) {
+    container.innerHTML = `<div class="col-span-full py-12 text-center text-xs text-slate-400"><span class="inline-block animate-spin mr-1.5">🌀</span> កំពុងទាញយកសំណើសុំច្បាប់ & មកយឺត...</div>`;
+  }
+
+  try {
+    const res = await fetch('/api/leave-requests');
+    const data = await res.json();
+    window.adminLeaveRequestsList = data.requests || [];
+
+    // Calculate KPI stats
+    const total = window.adminLeaveRequestsList.length;
+    const pending = window.adminLeaveRequestsList.filter(r => r.status === 'pending').length;
+    const approved = window.adminLeaveRequestsList.filter(r => r.status === 'approved').length;
+    const rejected = window.adminLeaveRequestsList.filter(r => r.status === 'rejected').length;
+
+    // Update KPI UI
+    const statTotal = document.getElementById('admLeaveStatTotal');
+    const statPending = document.getElementById('admLeaveStatPending');
+    const statApproved = document.getElementById('admLeaveStatApproved');
+    const statRejected = document.getElementById('admLeaveStatRejected');
+
+    if (statTotal) statTotal.textContent = total;
+    if (statPending) statPending.textContent = pending;
+    if (statApproved) statApproved.textContent = approved;
+    if (statRejected) statRejected.textContent = rejected;
+
+    // Badges in Header & Filter
+    const navBadge = document.getElementById('admPendingLeavesBadge');
+    if (navBadge) {
+      if (pending > 0) {
+        navBadge.textContent = pending;
+        navBadge.classList.remove('hidden');
+      } else {
+        navBadge.classList.add('hidden');
+      }
+    }
+
+    const filterPendingBadge = document.getElementById('leaveFilterPendingBadge');
+    if (filterPendingBadge) {
+      if (pending > 0) filterPendingBadge.classList.remove('hidden');
+      else filterPendingBadge.classList.add('hidden');
+    }
+
+    filterAdminLeaveRequests(filter);
+  } catch (err) {
+    console.error('Error loading admin leave requests:', err);
+    if (container) {
+      container.innerHTML = `<div class="col-span-full py-8 text-center text-xs text-rose-400">មានបញ្ហាក្នុងការទាញយកសំណើ: ${err.message}</div>`;
+    }
+  }
+}
+
+function filterAdminLeaveRequests(status = 'all') {
+  window.currentLeaveFilter = status;
+
+  // Update button tabs
+  const btns = {
+    all: document.getElementById('leaveFilterBtnAll'),
+    pending: document.getElementById('leaveFilterBtnPending'),
+    approved: document.getElementById('leaveFilterBtnApproved'),
+    rejected: document.getElementById('leaveFilterBtnRejected')
+  };
+
+  const activeClass = 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-sm font-bold';
+  const inactiveClass = 'text-slate-300 font-semibold hover:text-white bg-transparent';
+
+  Object.entries(btns).forEach(([k, btn]) => {
+    if (btn) {
+      btn.className = btn.className.replace(activeClass, '').replace(inactiveClass, '') + ' ' + (k === status ? activeClass : inactiveClass);
+    }
+  });
+
+  renderAdminLeaveCards(status);
+}
+
+function renderAdminLeaveCards(status = 'all') {
+  const container = document.getElementById('adminLeaveRequestsContainer');
+  if (!container) return;
+
+  let list = window.adminLeaveRequestsList || [];
+  if (status !== 'all') {
+    list = list.filter(r => r.status === status);
+  }
+
+  if (list.length === 0) {
+    container.innerHTML = `
+      <div class="col-span-full py-16 text-center space-y-3">
+        <div class="w-12 h-12 mx-auto rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 shadow-inner">
+          <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+        </div>
+        <p class="text-sm font-semibold text-slate-300">ពុំមានសំណើក្នុងប្រភេទនេះទេ</p>
+        <p class="text-xs text-slate-500">រាល់សំណើសុំច្បាប់ និងមកយឺតថ្មីៗ នឹងបង្ហាញនៅទីនេះភ្លាមៗ</p>
+      </div>
+    `;
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+
+  container.innerHTML = list.map(req => {
+    const isLeave = req.request_type === 'leave';
+    const initial = req.member_name ? req.member_name.trim().charAt(0).toUpperCase() : 'U';
+
+    let typeBadge = isLeave
+      ? `<span class="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-blue-500/20 text-cyan-300 border border-blue-400/30 flex items-center gap-1">🏖️ សុំច្បាប់</span>`
+      : `<span class="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30 flex items-center gap-1">🛵 មកយឺត</span>`;
+
+    let statusPill = '';
+    if (req.status === 'pending') {
+      statusPill = `<span class="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1 animate-pulse">⏳ រង់ចាំពិនិត្យ</span>`;
+    } else if (req.status === 'approved') {
+      statusPill = `<span class="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">✅ បានយល់ព្រម (OK)</span>`;
+    } else if (req.status === 'rejected') {
+      statusPill = `<span class="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1">❌ មិនអនុម័ត</span>`;
+    }
+
+    let dateDetail = '';
+    if (isLeave) {
+      dateDetail = `
+        <div class="flex items-center gap-1.5 text-xs text-cyan-300">
+          <i data-lucide="calendar" class="w-3.5 h-3.5 text-cyan-400"></i>
+          <span><b>កាលបរិច្ឆេទ:</b> ${escapeHtml(req.date_start)} ${req.date_end && req.date_end !== req.date_start ? 'ដល់ ' + escapeHtml(req.date_end) : ''}</span>
+          <span class="text-slate-400">(${escapeHtml(req.duration_text || '1 ថ្ងៃ')})</span>
+        </div>
+      `;
+    } else {
+      dateDetail = `
+        <div class="flex items-center gap-1.5 text-xs text-amber-300">
+          <i data-lucide="clock" class="w-3.5 h-3.5 text-amber-400"></i>
+          <span><b>ថ្ងៃកើតហេតុ:</b> ${escapeHtml(req.date_start)}</span>
+          <span class="font-bold bg-amber-500/15 px-2 py-0.5 rounded-lg border border-amber-400/30">⏰ មកដល់: ${escapeHtml(req.time_expected || '--')}</span>
+        </div>
+      `;
+    }
+
+    let actionSection = '';
+    if (req.status === 'pending') {
+      actionSection = `
+        <div class="pt-2 border-t border-white/10 flex items-center gap-2">
+          <button type="button" onclick="promptReviewLeaveRequest(${req.id}, 'approved', '${escapeHtml(req.member_name)}', '${req.request_type}')" class="flex-1 py-2 px-3 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 shadow-md shadow-emerald-500/20 flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer">
+            <i data-lucide="check-circle" class="w-4 h-4"></i>
+            <span>យល់ព្រម (Approve / OK)</span>
+          </button>
+          <button type="button" onclick="promptReviewLeaveRequest(${req.id}, 'rejected', '${escapeHtml(req.member_name)}', '${req.request_type}')" class="flex-1 py-2 px-3 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-md shadow-rose-500/20 flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer">
+            <i data-lucide="x-circle" class="w-4 h-4"></i>
+            <span>មិនអនុម័ត (Reject)</span>
+          </button>
+        </div>
+      `;
+    } else {
+      const isApproved = req.status === 'approved';
+      actionSection = `
+        <div class="pt-2 border-t border-white/10">
+          <div class="p-2.5 rounded-xl ${isApproved ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-200' : 'bg-rose-500/10 border border-rose-500/30 text-rose-200'} text-xs space-y-1">
+            <div class="flex items-center justify-between font-bold text-[11px] ${isApproved ? 'text-emerald-400' : 'text-rose-400'}">
+              <span>💬 សារឆ្លើយតបទៅបុគ្គលិក:</span>
+              <span class="font-normal text-[10px] opacity-75">ពិនិត្យដោយ: ${escapeHtml(req.reviewed_by || 'Admin')}</span>
+            </div>
+            <p class="font-medium">"${escapeHtml(req.admin_response || 'គ្មានកំណត់សម្គាល់')}"</p>
+          </div>
+        </div>
+      `;
+    }
+
+    const createdTimeStr = new Date(req.created_at).toLocaleString('km-KH', { timeZone: 'Asia/Phnom_Penh' });
+
+    return `
+      <div class="glass-crystal p-4 rounded-3xl border border-white/15 bg-slate-900/80 shadow-xl space-y-3 hover:border-white/25 transition">
+        
+        <!-- Header: User info + Status badge -->
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 text-white font-bold flex items-center justify-center shadow-md">
+              ${initial}
+            </div>
+            <div>
+              <div class="text-sm font-extrabold text-white flex items-center gap-1.5">
+                <span>${escapeHtml(req.member_name)}</span>
+                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-cyan-300">${escapeHtml(req.member_code)}</span>
+              </div>
+              <div class="text-xs text-slate-400">${escapeHtml(req.member_role || 'បុគ្គលិក')}</div>
+            </div>
+          </div>
+          ${statusPill}
+        </div>
+
+        <!-- Type & SubType -->
+        <div class="flex items-center gap-2 flex-wrap">
+          ${typeBadge}
+          <span class="text-xs font-bold text-slate-200">${escapeHtml(req.sub_type)}</span>
+        </div>
+
+        <!-- Date Info -->
+        ${dateDetail}
+
+        <!-- Reason -->
+        <div class="p-3 rounded-2xl bg-black/40 border border-white/5 space-y-1">
+          <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">មូលហេតុនៃការស្នើសុំ:</div>
+          <div class="text-xs text-slate-200 whitespace-pre-wrap leading-relaxed">${escapeHtml(req.reason)}</div>
+        </div>
+
+        <!-- Actions or Review Result -->
+        ${actionSection}
+
+        <!-- Footer: Creation Timestamp -->
+        <div class="text-[10px] text-slate-500 text-right pt-1">
+          កាលបរិច្ឆេទស្នើ: ${createdTimeStr}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  if (window.lucide) lucide.createIcons();
+}
+
+async function promptReviewLeaveRequest(id, status, memberName, requestType) {
+  const isApproved = status === 'approved';
+  const actionTitle = isApproved ? '✅ យល់ព្រមលើសំណើ (Approve / OK)' : '❌ មិនអនុម័តសំណើ (Reject)';
+  const confirmBtnText = isApproved ? 'យល់ព្រម (OK)' : 'បដិសេធ (Reject)';
+  const confirmBtnColor = isApproved ? '#10b981' : '#f43f5e';
+
+  // Quick preset pills
+  const presets = isApproved
+    ? [
+        'Okay! បានយល់ព្រម',
+        'ជូនពរឱ្យឆាប់ជាសះស្បើយ!',
+        'សូមបើកបរដោយប្រុងប្រយ័ត្នតាមផ្លូវ!',
+        'យល់ព្រម សម្រាកឱ្យបានស្រួលបួល'
+      ]
+    : [
+        'មិនអនុញ្ញាតព្រោះខ្វះកម្លាំងពលកម្ម',
+        'សូមមកបំពេញការងារតាមការកំណត់',
+        'មូលហេតុពុំទាន់គ្រប់គ្រាន់'
+      ];
+
+  const presetsHtml = presets.map((text) => `
+    <button type="button" onclick="document.getElementById('swalLeaveAdminResponse').value = '${text.replace(/'/g, "\\'")}'" class="text-[11px] px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/10 transition cursor-pointer">
+      ${text}
+    </button>
+  `).join('');
+
+  const defaultText = isApproved ? 'Okay! បានយល់ព្រម' : 'មិនអនុម័ត';
+
+  const result = await Swal.fire({
+    title: actionTitle,
+    html: `
+      <div class="text-left text-xs space-y-3 p-1">
+        <div class="p-3 rounded-xl bg-slate-800/80 border border-white/10 space-y-1">
+          <div class="text-slate-300"><b>បុគ្គលិក:</b> <span class="text-white font-bold">${escapeHtml(memberName)}</span></div>
+          <div class="text-slate-300"><b>ប្រភេទសំណើ:</b> <span class="text-cyan-300 font-bold">${requestType === 'leave' ? '🏖️ សុំច្បាប់ឈប់សម្រាក' : '🛵 សុំមកយឺត'}</span></div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1">
+            សារឆ្លើយតបទៅកាន់បុគ្គលិក និង Telegram:
+          </label>
+          <textarea id="swalLeaveAdminResponse" rows="2" class="w-full text-xs bg-slate-900 border border-white/20 rounded-xl p-2.5 text-white focus:outline-none focus:border-cyan-400" placeholder="បញ្ចូលសារឆ្លើយតប...">${defaultText}</textarea>
+        </div>
+
+        <div>
+          <div class="text-[11px] text-slate-400 mb-1.5 font-semibold">ចុចជ្រើសរើសសារគំរូយ៉ាងរហ័ស:</div>
+          <div class="flex flex-wrap gap-1.5">
+            ${presetsHtml}
+          </div>
+        </div>
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: confirmBtnText,
+    cancelButtonText: 'ត្រឡប់ក្រោយ',
+    confirmButtonColor: confirmBtnColor,
+    cancelButtonColor: '#64748b',
+    preConfirm: () => {
+      const input = document.getElementById('swalLeaveAdminResponse');
+      return input ? input.value.trim() : defaultText;
+    }
+  });
+
+  if (!result.isConfirmed) return;
+
+  const adminResponse = result.value || defaultText;
+
+  Swal.fire({
+    title: 'កំពុងកត់ត្រាការសម្រេច...',
+    didOpen: () => Swal.showLoading()
+  });
+
+  try {
+    const res = await fetch(`/api/leave-requests/${id}/review`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status,
+        admin_response: adminResponse,
+        reviewed_by: 'Admin'
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'បរាជ័យក្នុងការឆ្លើយតប');
+
+    await Swal.fire({
+      icon: 'success',
+      title: 'ជោគជ័យ! 🎉',
+      html: `
+        <div class="text-xs text-slate-300 space-y-1">
+          <p>${data.message}</p>
+          <p class="text-cyan-300 font-semibold">📲 ការសម្រេចនេះត្រូវបានផ្ញើទៅកាន់ Telegram និងឆ្លុះបញ្ចាំងលើគណនីបុគ្គលិកភ្លាមៗ!</p>
+        </div>
+      `,
+      confirmButtonText: 'យល់ព្រម',
+      confirmButtonColor: '#0ea5e9'
+    });
+
+    loadAdminLeaveRequests(window.currentLeaveFilter || 'all');
+  } catch (err) {
+    console.error('Error reviewing leave request:', err);
+    Swal.fire({ icon: 'error', title: 'មានបញ្ហា', text: err.message });
+  }
+}
+
