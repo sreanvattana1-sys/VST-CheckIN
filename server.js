@@ -390,6 +390,139 @@ function escapeTg(str) {
     .replace(/>/g, '&gt;');
 }
 
+// Keep Telegram alerts compact while preserving names and staff-written notes.
+function tgText(value, fallback = '—') {
+  return escapeTg(String(value ?? '').replace(/&#(?:x20|32);/gi, ' ').replace(/\s+/g, ' ').trim() || fallback);
+}
+
+function formatTelegramDate(dateInput = new Date()) {
+  return parseSqliteUtcDate(dateInput).toLocaleDateString('en-GB', {
+    timeZone: 'Asia/Phnom_Penh', day: 'numeric', month: 'long', year: 'numeric'
+  });
+}
+
+function formatTelegramTime(dateInput = new Date()) {
+  return parseSqliteUtcDate(dateInput).toLocaleTimeString('en-US', {
+    timeZone: 'Asia/Phnom_Penh', hour: '2-digit', minute: '2-digit', hour12: true
+  });
+}
+
+function tgShortChoice(value, fallback = 'ទូទៅ') {
+  const source = String(value || '').trim().split('(')[0].trim();
+  const choices = {
+    'Sick Leave': 'ច្បាប់ឈឺ',
+    'Personal Leave': 'ធុរៈផ្ទាល់ខ្លួន',
+    'Annual Leave': 'ច្បាប់ប្រចាំឆ្នាំ',
+    'Family Leave': 'ធុរៈគ្រួសារ',
+    'Traffic Jam': 'ស្ទះចរាចរណ៍',
+    'Breakdown': 'ខូចយានជំនិះ',
+    'Heavy Rain': 'ភ្លៀងធ្លាក់ខ្លាំង',
+    Emergency: 'ធុរៈបន្ទាន់',
+    Other: 'ផ្សេងៗ'
+  };
+  return tgText(choices[source] || source, fallback);
+}
+
+const tgKhMonths = ['មករា', 'កុម្ភៈ', 'មីនា', 'មេសា', 'ឧសភា', 'មិថុនា', 'កក្កដា', 'សីហា', 'កញ្ញា', 'តុលា', 'វិច្ឆិកា', 'ធ្នូ'];
+
+function tgKhDate(value) {
+  const source = String(value || '').trim();
+  const match = source.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match || Number(match[2]) < 1 || Number(match[2]) > 12) return tgText(source);
+  return `${Number(match[3])} ${tgKhMonths[Number(match[2]) - 1]} ${match[1]}`;
+}
+
+function tgKhDateRange(start, end) {
+  if (!end || end === start) return tgKhDate(start);
+  const first = String(start || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const last = String(end || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (first && last && first[1] === last[1] && first[2] === last[2]) {
+    return `${Number(first[3])}–${Number(last[3])} ${tgKhMonths[Number(first[2]) - 1]} ${first[1]}`;
+  }
+  return `${tgKhDate(start)} → ${tgKhDate(end)}`;
+}
+
+function parseTgKhDate(value) {
+  const source = String(value || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(source)) return source;
+  const match = source.match(/^(\d{1,2})(?:[–-]\d{1,2})?\s+([^\s]+)\s+(\d{4})/);
+  if (!match) return source;
+  const month = tgKhMonths.indexOf(match[2]) + 1;
+  return month ? `${match[3]}-${String(month).padStart(2, '0')}-${match[1].padStart(2, '0')}` : source;
+}
+
+function parseTgKhDateRange(value) {
+  const source = String(value || '').split('·')[0].trim();
+  const compact = source.match(/^(\d{1,2})[–-](\d{1,2})\s+([^\s]+)\s+(\d{4})$/);
+  if (compact) {
+    const month = tgKhMonths.indexOf(compact[3]) + 1;
+    if (month) {
+      const prefix = `${compact[4]}-${String(month).padStart(2, '0')}-`;
+      return {
+        start: prefix + compact[1].padStart(2, '0'),
+        end: prefix + compact[2].padStart(2, '0')
+      };
+    }
+  }
+  const [start, end] = source.split(/\s*→\s*/);
+  return { start: parseTgKhDate(start), end: parseTgKhDate(end || start) };
+}
+
+function tgKhTime(value) {
+  const source = String(value || '').trim();
+  const match = source.match(/^(\d{1,2}:\d{2})(?::\d{2})?\s*(AM|PM)$/i);
+  if (!match) return tgText(source);
+  return `${match[1]} ${match[2].toUpperCase() === 'AM' ? 'ព្រឹក' : 'រសៀល'}`;
+}
+
+function tgKhDuration(minutes) {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return hours ? `${hours} ម៉ោង${rest ? ` ${rest} នាទី` : ''}` : `${rest} នាទី`;
+}
+
+function tgDuration(minutes) {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return hours ? `${hours}h${rest ? ` ${rest}m` : ''}` : `${rest}m`;
+}
+
+function tgLeaveDuration(value) {
+  const source = String(value || '').trim();
+  if (!source) return '';
+  if (/Full Day|ថ្ងៃពេញ/i.test(source)) return 'ពេញមួយថ្ងៃ';
+  return tgShortChoice(source);
+}
+
+function tgRequestDate(request) {
+  const date = tgKhDateRange(request.date_start, request.date_end);
+  const time = request.request_type === 'late' && request.time_expected
+    ? ` · ${tgKhTime(request.time_expected)}` : '';
+  const duration = request.request_type === 'leave' && request.duration_text
+    ? ` · ${tgLeaveDuration(request.duration_text)}` : '';
+  return `${date}${time}${duration}`;
+}
+
+function formatTelegramRequest(request, status = 'pending', response = '') {
+  const type = request.request_type === 'late' ? 'សំណើសុំមកយឺត' : 'សំណើសុំច្បាប់';
+  const heading = status === 'pending' ? `🔔 <b>${type}</b>`
+    : `${status === 'approved' ? '✅' : '❌'} <b>${status === 'approved' ? 'អនុម័ត' : 'បដិសេធ'}${type}</b>`;
+  const detail = tgShortChoice(request.sub_type, type);
+  const lines = [
+    `${heading} · #${tgText(request.id)}`,
+    `👤 <b>${tgText(request.member_name)}</b> · <code>${tgText(request.member_code)}</code>`,
+    `📌 ${detail} · ${tgRequestDate(request)}`
+  ];
+  if (status === 'pending') {
+    lines.push(`📝 ${tgText(request.reason)}`);
+  } else {
+    if (response && !/^(?:Approved(?: in Telegram)?|Rejected(?: in Telegram)?|Okay! បានយល់ព្រម|មិនអនុម័ត|អនុម័ត|បដិសេធ|បានអនុម័ត|បានបដិសេធ|អនុម័តតាម Telegram|បដិសេធតាម Telegram)$/i.test(response.trim())) {
+      lines.push(`💬 ${tgText(response)}`);
+    }
+  }
+  return lines.join('\n');
+}
+
 // Helper: Send Telegram notification to OLD / MAIN Group (-5037746251)
 async function sendTelegramMessage(text) {
   const token = await getTelegramToken();
@@ -498,6 +631,27 @@ async function removeTelegramInlineButtons(token, chatId, messageId) {
   }
 }
 
+async function updateTelegramRequestMessage(token, chatId, messageId, text) {
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${token}/editMessageText`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        message_id: messageId,
+        text,
+        parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: [] }
+      })
+    });
+    const result = await response.json();
+    if (!result.ok) throw new Error(result.description || 'Telegram edit failed');
+  } catch (err) {
+    console.error('Failed to update Telegram request:', err.message);
+    await removeTelegramInlineButtons(token, chatId, messageId);
+  }
+}
+
 // Helper: Handle Telegram Callback Query from Leaders (Inline Buttons: Approve / Reject)
 async function handleTelegramCallbackQuery(cq, token) {
   try {
@@ -516,28 +670,32 @@ async function handleTelegramCallbackQuery(cq, token) {
     if (!existing) {
       // Robust Fallback: Parse details directly from the Telegram message text so approval always succeeds!
       const msgText = (cq.message && cq.message.text) ? cq.message.text : '';
-      const nameMatch = msgText.match(/បុគ្គលិក:\s*([^\n(]+)(?:\(([^)]+)\))?/);
+      const nameMatch = msgText.match(/👤\s*([^\n·]+)\s*·\s*([^\n]+)/) || msgText.match(/បុគ្គលិក:\s*([^\n(]+)(?:\(([^)]+)\))?/);
       const roleMatch = msgText.match(/តួនាទី:\s*([^\n]+)/);
       const typeMatch = msgText.match(/ប្រភេទ:\s*([^\n]+)/);
       const dateMatch = msgText.match(/កាលបរិច្ឆេទ:\s*([^\n]+)/);
       const reasonMatch = msgText.match(/មូលហេតុ:\s*([^\n]+)/);
+      const shortDetailMatch = msgText.match(/📌\s*([^\n·]+)\s*·\s*([^\n]+)/);
+      const shortReasonMatch = msgText.match(/📝\s*([^\n]+)/);
 
       const parsedName = nameMatch ? nameMatch[1].trim() : 'បុគ្គលិក';
       const parsedCode = (nameMatch && nameMatch[2]) ? nameMatch[2].trim() : 'MEM';
       const parsedRole = roleMatch ? roleMatch[1].trim() : 'បុគ្គលិក';
-      const parsedType = typeMatch ? typeMatch[1].trim() : 'សុំច្បាប់';
-      const parsedDate = dateMatch ? dateMatch[1].trim() : '';
-      const parsedReason = reasonMatch ? reasonMatch[1].trim() : '--';
+      const parsedType = typeMatch ? typeMatch[1].trim() : (shortDetailMatch ? shortDetailMatch[1].trim() : 'សុំច្បាប់');
+      const parsedDates = dateMatch
+        ? parseTgKhDateRange(dateMatch[1])
+        : parseTgKhDateRange(shortDetailMatch ? shortDetailMatch[2] : '');
+      const parsedReason = reasonMatch ? reasonMatch[1].trim() : (shortReasonMatch ? shortReasonMatch[1].trim() : '—');
 
       existing = {
         id: requestId,
         member_name: parsedName,
         member_code: parsedCode,
         member_role: parsedRole,
-        request_type: parsedType.includes('យឺត') ? 'late' : 'leave',
+        request_type: /យឺត|late/i.test(parsedType) || /សុំមកយឺត|late arrival/i.test(msgText.split('\n')[0]) ? 'late' : 'leave',
         sub_type: parsedType,
-        date_start: parsedDate,
-        date_end: parsedDate,
+        date_start: parsedDates.start,
+        date_end: parsedDates.end,
         duration_text: '',
         reason: parsedReason,
         status: 'pending'
@@ -547,7 +705,7 @@ async function handleTelegramCallbackQuery(cq, token) {
         await db.run(`
           INSERT OR REPLACE INTO leave_requests (id, member_name, member_code, member_role, request_type, sub_type, date_start, date_end, reason, status)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
-        `, [requestId, parsedName, parsedCode, parsedRole, existing.request_type, parsedType, parsedDate, parsedDate, parsedReason]);
+        `, [requestId, parsedName, parsedCode, parsedRole, existing.request_type, parsedType, parsedDates.start, parsedDates.end, parsedReason]);
       } catch (e) {}
     }
 
@@ -556,8 +714,7 @@ async function handleTelegramCallbackQuery(cq, token) {
 
     // If already processed
     if (existing.status !== 'pending') {
-      const statusLabel = existing.status === 'approved' ? 'បានយល់ព្រម (OK)' : 'បានបដិសេធ';
-      await answerTelegramCallback(token, cq.id, `⚠️ សំណើនេះត្រូវបាន${statusLabel}រួចរាល់ហើយ ដោយ៖ ${existing.reviewed_by || 'Admin'}!`, true);
+      await answerTelegramCallback(token, cq.id, `សំណើនេះត្រូវបាន${existing.status === 'approved' ? 'អនុម័ត' : 'បដិសេធ'}រួចហើយ`, true);
       if (cq.message && cq.message.chat) {
         await removeTelegramInlineButtons(token, cq.message.chat.id, cq.message.message_id);
       }
@@ -566,7 +723,7 @@ async function handleTelegramCallbackQuery(cq, token) {
 
     const isApprove = action === 'leave_approve';
     const newStatus = isApprove ? 'approved' : 'rejected';
-    const adminResponse = isApprove ? 'Okay! បានយល់ព្រម (អនុញ្ញាតតាម Telegram)' : 'មិនអនុញ្ញាត (បដិសេធតាម Telegram)';
+    const adminResponse = isApprove ? 'អនុម័តតាម Telegram' : 'បដិសេធតាម Telegram';
 
     // 1. Update SQLite DB
     await db.run(`
@@ -579,40 +736,11 @@ async function handleTelegramCallbackQuery(cq, token) {
     await answerTelegramCallback(
       token, 
       cq.id, 
-      isApprove 
-        ? `✅ ជោគជ័យ! លោកអ្នកបាន «យល់ព្រម (OK)» លើសំណើរបស់ ${existing.member_name}។` 
-        : `❌ លោកអ្នកបាន «បដិសេធ» លើសំណើរបស់ ${existing.member_name}។`,
+      isApprove ? `✅ អនុម័ត៖ ${existing.member_name}` : `❌ បដិសេធ៖ ${existing.member_name}`,
       true
     );
 
-    const statusEmoji = isApprove ? '✅' : '❌';
-    const statusLabel = isApprove ? 'បានយល់ព្រម (APPROVED - OK)' : 'មិនអនុម័ត (REJECTED)';
-    const reqTypeLabel = existing.request_type === 'leave' ? '🏖️ សុំច្បាប់ឈប់សម្រាក' : '🛵 សុំមកយឺត (មានបញ្ហាតាមផ្លូវ)';
-
-    let dateInfo = '';
-    if (existing.request_type === 'leave') {
-      dateInfo = `${existing.date_start} ${existing.date_end && existing.date_end !== existing.date_start ? 'ដល់ ' + existing.date_end : ''} (${existing.duration_text || '1 ថ្ងៃ'})`;
-    } else {
-      dateInfo = `ថ្ងៃ ${existing.date_start} • ⏰ មកដល់: ${existing.time_expected || '--'}`;
-    }
-
-    // 3. BROADCAST TO OLD / MAIN GROUP (-5037746251) AS EXPLICITLY REQUESTED!
-    const decisionOldGroupMsg = `
-📢 <b>ការសម្រេចលើសំណើសុំច្បាប់ & មកយឺត</b>
-━━━━━━━━━━━━━━━━━
-👤 <b>បុគ្គលិក:</b> ${escapeTg(existing.member_name)} (<code>${escapeTg(existing.member_code)}</code>)
-💼 <b>តួនាទី:</b> ${escapeTg(existing.member_role || 'បុគ្គលិក')}
-📑 <b>ប្រភេទ:</b> ${escapeTg(reqTypeLabel)} (${escapeTg(existing.sub_type || 'ទូទៅ')})
-📅 <b>កាលបរិច្ឆេទ:</b> ${escapeTg(dateInfo)}
-📝 <b>មូលហេតុ:</b> ${escapeTg(existing.reason)}
-━━━━━━━━━━━━━━━━━
-📊 <b>ការសម្រេច:</b> ${statusEmoji} <b>${escapeTg(statusLabel)}</b>
-💬 <b>សារឆ្លើយតប:</b> "${escapeTg(adminResponse)}"
-👨‍💼 <b>អនុញ្ញាត/ពិនិត្យដោយ:</b> ${escapeTg(leaderName)}
-🕒 <b>កាលបរិច្ឆេទ:</b> ${formatCambodiaDate(new Date())} ${formatCambodiaTime(new Date())}
-━━━━━━━━━━━━━━━━━
-<i>ប្រព័ន្ធវត្តមានឆ្លាតវៃ VANN SITHA TRADING</i>
-    `.trim();
+    const decisionOldGroupMsg = formatTelegramRequest(existing, newStatus, adminResponse);
 
     try {
       await sendTelegramMessage(decisionOldGroupMsg);
@@ -622,25 +750,8 @@ async function handleTelegramCallbackQuery(cq, token) {
 
     // 4. UPDATE THE MESSAGE IN THE NEW GROUP (-5352852483): REMOVE BUTTONS & SHOW DECISION
     if (cq.message && cq.message.chat) {
-      try {
-        const origText = cq.message.text || '';
-        const updatedNewGroupText = origText + `\n\n━━━━━━━━━━━━━━━━━\n${statusEmoji} <b>${statusLabel}</b>\n👨‍💼 <b>ពិនិត្យដោយ:</b> ${leaderName}\n🕒 <b>ម៉ោង:</b> ${formatCambodiaTime(new Date())}`;
-        
-        await fetch(`https://api.telegram.org/bot${token}/editMessageText`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: cq.message.chat.id,
-            message_id: cq.message.message_id,
-            text: updatedNewGroupText,
-            parse_mode: 'HTML',
-            reply_markup: { inline_keyboard: [] }
-          })
-        });
-      } catch (editErr) {
-        console.error('Failed to edit original Telegram message:', editErr.message);
-        removeTelegramInlineButtons(token, cq.message.chat.id, cq.message.message_id);
-      }
+      const updatedNewGroupText = formatTelegramRequest(existing, newStatus, adminResponse);
+      await updateTelegramRequestMessage(token, cq.message.chat.id, cq.message.message_id, updatedNewGroupText);
     }
   } catch (err) {
     console.error('Error in handleTelegramCallbackQuery:', err);
@@ -1011,19 +1122,11 @@ app.post('/api/members/self-register', async (req, res) => {
     ]);
 
     // Send Instant Alert to Telegram
-    const companyName = await getSetting('company_name') || 'VANN SITHA TRADING';
     const tgMsg = `
-🔔 <b>ការស្នើសុំចុះឈ្មោះបុគ្គលិកថ្មី (Staff Self-Registration)</b>
-🏢 <b>${companyName}</b>
-━━━━━━━━━━━━━━━━━
-👤 <b>ឈ្មោះបុគ្គលិក:</b> ${name.trim()}
-💼 <b>ផ្នែក / តួនាទី:</b> ${role ? role.trim() : 'បុគ្គលិក'}
-📱 <b>លេខទូរស័ព្ទ:</b> ${phone.trim()}
-🆔 <b>កូដសម្គាល់បណ្តោះអាសន្ន:</b> ${nextCode}
-📱 <b>Device Locked:</b> ${device_id ? 'ភ្ជាប់ជាមួយទូរស័ព្ទនេះ (1 Device Only) ✅' : 'មិនទាន់ភ្ជាប់'}
-⏳ <b>ស្ថានភាព:</b> រង់ចាំ Admin អនុម័ត (Pending)
-━━━━━━━━━━━━━━━━━
-👉 <i>សូមចូល Admin Dashboard ដើម្បីត្រួតពិនិត្យ និងចុច «អនុម័ត (Approve)»</i>
+🔔 <b>New staff · Pending</b>
+👤 <b>${tgText(name)}</b> · <code>${tgText(nextCode)}</code>
+💼 ${tgShortChoice(role, 'Staff')}
+📱 ${tgText(phone)}
     `.trim();
 
     sendTelegramMessage(tgMsg).catch(err => console.error('Telegram alert failed:', err));
@@ -1066,16 +1169,10 @@ app.post('/api/members/:id/approve', async (req, res) => {
     await db.run("UPDATE members SET status = 'active' WHERE id = ?", [req.params.id]);
 
     // Send Telegram broadcast
-    const companyName = await getSetting('company_name') || 'VANN SITHA TRADING';
     const tgMsg = `
-✅ <b>អនុម័តបុគ្គលិកថ្មីជោគជ័យ (Staff Approved)</b>
-🏢 <b>${companyName}</b>
-━━━━━━━━━━━━━━━━━
-👤 <b>ឈ្មោះបុគ្គលិក:</b> ${member.name}
-🆔 <b>កូដសម្គាល់ផ្លូវការ:</b> ${member.code}
-💼 <b>ផ្នែក / តួនាទី:</b> ${member.role || 'បុគ្គលិក'}
-📱 <b>Device:</b> 1 Device Locked ✅
-🎉 <i>បុគ្គលិកបានក្លាយជាសមាជិកផ្លូវការ និងអាចចូលកត់ត្រាវត្តមានបានចាប់ពីពេលនេះតទៅ!</i>
+✅ <b>Staff approved</b>
+👤 <b>${tgText(member.name)}</b> · <code>${tgText(member.code)}</code>
+💼 ${tgShortChoice(member.role, 'Staff')}
     `.trim();
     sendTelegramMessage(tgMsg).catch(err => console.error('Telegram approval alert failed:', err));
 
@@ -1385,8 +1482,6 @@ app.post('/api/attendance/check', async (req, res) => {
 
     const todayScansCount = todayExisting.length + 1;
     const now = new Date();
-    const timeStr = formatCambodiaTime(now);
-    const dateStr = formatCambodiaDate(now);
     const isSunday = getCambodiaDayOfWeek(now) === 0;
 
     const slotMeta = {
@@ -1399,26 +1494,25 @@ app.post('/api/attendance/check', async (req, res) => {
     const meta = slotMeta[actionType] || { labelKm: actionType, labelEn: actionType, num: `${todayScansCount}/4`, badge: '📌' };
     const typeLabel = `${meta.badge} ${meta.labelKm} [${meta.num}]`;
 
-    const companyName = (await getSetting('company_name')) || 'VANN SITHA TRADING CO.,LTD';
-    const reasonLine = trimmedNote ? `\n📝 <b>មូលហេតុ:</b> ${trimmedNote}` : '';
-    const methodDesc = isButtonCheck 
-      ? `📶 ចុចប៊ូតុង Wi-Fi ក្រុមហ៊ុន (${clientIp})`
-      : `📷 ស្កេនកាមេរ៉ា QR Code`;
+    const isCheckIn = actionType === 'morning_in' || actionType === 'afternoon_in';
+    const targetMinutes = actionType === 'morning_in' ? 480 : 780;
+    let attendanceStatus = 'Good';
+    let statusIcon = isCheckIn ? '🟢' : '🔵';
+    if (isLate) {
+      attendanceStatus = `Late ${tgDuration(diffMinutes)}`;
+      statusIcon = '🔴';
+    } else if (isEarlyLeave) {
+      attendanceStatus = `Early ${tgDuration(diffMinutes)}`;
+      statusIcon = '🟠';
+    } else if (isCheckIn && totalMinutes < targetMinutes) {
+      attendanceStatus = `Early ${tgDuration(targetMinutes - totalMinutes)}`;
+    }
 
-    // Build Telegram Notification Message with Emojis
-    const telegramMsg = `
-🏢 <b>${companyName}</b>
-━━━━━━━━━━━━━━
-👤 <b>បុគ្គលិក:</b> ${member.name}
-💼 <b>តួនាទី:</b> ${member.role || 'ទូទៅ'}
-⏰ <b>វេនវត្តមាន:</b> ${meta.badge} ${meta.labelKm}
-🕒 <b>ម៉ោងកត់ត្រា:</b> ${timeStr}
-📱 <b>វិធី:</b> ${methodDesc}
-${statusText}${reasonLine}
-📅 <b>កាលបរិច្ឆេទ:</b> ${dateStr}
-━━━━━━━━━━━━━━
-📊 <b>កត់ត្រាបាន ${todayScansCount}/4 ដងសម្រាប់ថ្ងៃនេះ</b>
-    `.trim();
+    const telegramMsg = [
+      `<b>${tgText(member.name)}</b> ${isCheckIn ? 'checked in' : 'checked out'} ${statusIcon} <b>${attendanceStatus}</b>`,
+      `Date Time: ${formatTelegramDate(now)} ${formatTelegramTime(now)}`,
+      trimmedNote ? `Reason: ${tgText(trimmedNote)}` : null
+    ].filter(Boolean).join('\n');
 
     sendTelegramMessage(telegramMsg).catch(err => {
       console.error('Background Telegram send error:', err);
@@ -1607,14 +1701,7 @@ app.post('/api/settings', async (req, res) => {
 
 // 6. Test Telegram Connection
 app.post('/api/settings/test-telegram', async (req, res) => {
-  const testMsg = `
-🤖 <b>ការតេស្តសាកល្បង Telegram Bot</b>
-━━━━━━━━━━━━━━━━━━
-✅ ប្រព័ន្ធវត្តមាន Attendance Web App បានភ្ជាប់ជាមួយ Telegram ដោយជោគជ័យ!
-📅 កាលបរិច្ឆេទ: ${new Date().toLocaleString('km-KH')}
-━━━━━━━━━━━━━━━━━━
-<i>ត្រៀមទទួលការជូនដំណឹងពេលបុគ្គលិកស្កេនចូលធ្វើការ...</i>
-  `.trim();
+  const testMsg = '✅ <b>Attendance alerts connected</b>\nVANN SITHA TRADING';
 
   const result = await sendTelegramMessage(testMsg);
   if (result.success) {
@@ -1626,14 +1713,7 @@ app.post('/api/settings/test-telegram', async (req, res) => {
 
 // 6.1 Test Dedicated Telegram Leave Group
 app.post('/api/settings/test-telegram-leave', async (req, res) => {
-  const testMsg = `
-🔔 <b>តេស្តផ្ញើសារ Telegram Group សុំច្បាប់ & មកយឺត</b>
-━━━━━━━━━━━━━━━━━━
-✅ Group នេះបានភ្ជាប់ជោគជ័យ និងត្រៀមទទួលការជូនដំណឹងពេលបុគ្គលិកស្នើសុំច្បាប់ ឬសុំមកយឺត!
-📅 កាលបរិច្ឆេទ: ${formatCambodiaDate(new Date())} ${formatCambodiaTime(new Date())}
-━━━━━━━━━━━━━━━━━━
-<i>ប្រព័ន្ធគ្រប់គ្រងវត្តមានឆ្លាតវៃ VANN SITHA TRADING</i>
-  `.trim();
+  const testMsg = '✅ <b>Leave alerts connected</b>\nVANN SITHA TRADING';
 
   const result = await sendTelegramLeaveMessage(testMsg);
   if (result.success) {
@@ -1675,7 +1755,6 @@ app.post('/api/leave-requests', async (req, res) => {
     }
 
     const cleanReason = reason.trim();
-    const reqTypeLabel = request_type === 'leave' ? '🏖️ សុំច្បាប់ឈប់សម្រាក' : '🛵 សុំមកយឺត (មានបញ្ហាតាមផ្លូវ)';
     const cleanDuration = duration_text || (request_type === 'leave' ? '1 ថ្ងៃ' : 'មកយឺត');
 
     // Auto-calculate end date if user requested multiple days
@@ -1707,28 +1786,17 @@ app.post('/api/leave-requests', async (req, res) => {
     const requestId = result.lastInsertRowid;
 
     // Format Telegram Alert for the dedicated Leave Group (-5352852483) with Inline Buttons
-    const dateRangeStr = (finalEndDate && finalEndDate !== date_start) ? `${date_start} ដល់ ${finalEndDate}` : date_start;
-    const timeExpectedLine = time_expected ? `\n⏰ <b>រំពឹងមកដល់នៅម៉ោង:</b> ${escapeTg(time_expected)}` : '';
-
-    const telegramAlert = `
-🔔 <b>សំណើ${request_type === 'leave' ? 'សុំច្បាប់ឈប់សម្រាក' : 'សុំមកយឺត'}ថ្មី!</b>
-━━━━━━━━━━━━━━━━━
-👤 <b>បុគ្គលិក:</b> ${escapeTg(member.name)} (<code>${escapeTg(member.code)}</code>)
-💼 <b>តួនាទី:</b> ${escapeTg(member.role || 'បុគ្គលិក')}
-📑 <b>ប្រភេទ:</b> ${escapeTg(reqTypeLabel)} (${escapeTg(sub_type || 'ទូទៅ')})
-📅 <b>កាលបរិច្ឆេទ:</b> ${escapeTg(dateRangeStr)} (${escapeTg(cleanDuration)})${timeExpectedLine}
-📝 <b>មូលហេតុ:</b> ${escapeTg(cleanReason)}
-🕒 <b>ម៉ោងស្នើសុំ:</b> ${formatCambodiaDate(new Date())} ${formatCambodiaTime(new Date())}
-━━━━━━━━━━━━━━━━━
-📊 <b>ស្ថានភាព:</b> ⏳ <b>រង់ចាំការអនុម័ត (PENDING)</b>
-<i>👉 មេដឹកនាំ (Leaders) អាចចុចប៊ូតុងខាងក្រោមដើម្បី <b>អនុញ្ញាត</b> ឬ <b>បដិសេធ</b> ភ្លាមៗ</i>
-    `.trim();
+    const telegramAlert = formatTelegramRequest({
+      id: requestId, member_name: member.name, member_code: member.code,
+      request_type, sub_type, date_start, date_end: finalEndDate,
+      time_expected, duration_text: cleanDuration, reason: cleanReason
+    });
 
     const inlineKeyboard = {
       inline_keyboard: [
         [
-          { text: '✅ អនុញ្ញាត (Approve - OK)', callback_data: `leave_approve:${requestId}` },
-          { text: '❌ បដិសេធ (Reject)', callback_data: `leave_reject:${requestId}` }
+          { text: '✅ អនុម័ត', callback_data: `leave_approve:${requestId}` },
+          { text: '❌ បដិសេធ', callback_data: `leave_reject:${requestId}` }
         ]
       ]
     };
@@ -1829,7 +1897,7 @@ app.post('/api/leave-requests/:id/review', async (req, res) => {
       return res.status(404).json({ error: 'រកមិនឃើញសំណើនេះទេ' });
     }
 
-    const cleanResponse = (admin_response || (status === 'approved' ? 'Okay! បានយល់ព្រម' : 'មិនអនុម័ត')).trim();
+    const cleanResponse = (admin_response || (status === 'approved' ? 'បានអនុម័ត' : 'បានបដិសេធ')).trim();
     const reviewer = reviewed_by || 'Admin';
 
     await db.run(`
@@ -1838,34 +1906,7 @@ app.post('/api/leave-requests/:id/review', async (req, res) => {
       WHERE id = ?
     `, [status, cleanResponse, reviewer, id]);
 
-    // Send decision notification to OLD / MAIN Telegram Group (-5037746251)
-    const statusEmoji = status === 'approved' ? '✅' : '❌';
-    const statusLabel = status === 'approved' ? 'បានយល់ព្រម (APPROVED - OK)' : 'មិនអនុម័ត (REJECTED)';
-    const reqTypeLabel = existing.request_type === 'leave' ? '🏖️ សុំច្បាប់ឈប់សម្រាក' : '🛵 សុំមកយឺត (មានបញ្ហាតាមផ្លូវ)';
-
-    let dateInfo = '';
-    if (existing.request_type === 'leave') {
-      dateInfo = `${existing.date_start} ${existing.date_end && existing.date_end !== existing.date_start ? 'ដល់ ' + existing.date_end : ''} (${existing.duration_text || '1 ថ្ងៃ'})`;
-    } else {
-      dateInfo = `ថ្ងៃ ${existing.date_start} • ⏰ មកដល់: ${existing.time_expected || '--'}`;
-    }
-
-    const decisionTelegram = `
-📢 <b>ការសម្រេចលើសំណើសុំច្បាប់ & មកយឺត</b>
-━━━━━━━━━━━━━━━━━
-👤 <b>បុគ្គលិក:</b> ${escapeTg(existing.member_name)} (<code>${escapeTg(existing.member_code)}</code>)
-💼 <b>តួនាទី:</b> ${escapeTg(existing.member_role || 'បុគ្គលិក')}
-📑 <b>ប្រភេទសំណើ:</b> ${escapeTg(reqTypeLabel)} (${escapeTg(existing.sub_type || 'ទូទៅ')})
-📅 <b>កាលបរិច្ឆេទ:</b> ${escapeTg(dateInfo)}
-📝 <b>មូលហេតុ:</b> ${escapeTg(existing.reason)}
-━━━━━━━━━━━━━━━━━
-📊 <b>ការសម្រេច:</b> ${statusEmoji} <b>${escapeTg(statusLabel)}</b>
-💬 <b>សារពី Admin:</b> "${escapeTg(cleanResponse)}"
-👨‍💼 <b>ពិនិត្យ/អនុញ្ញាតដោយ:</b> ${escapeTg(reviewer)}
-🕒 <b>កាលបរិច្ឆេទ:</b> ${formatCambodiaDate(new Date())} ${formatCambodiaTime(new Date())}
-━━━━━━━━━━━━━━━━━
-<i>ប្រព័ន្ធវត្តមានឆ្លាតវៃ VANN SITHA TRADING</i>
-    `.trim();
+    const decisionTelegram = formatTelegramRequest(existing, status, cleanResponse);
 
     // Broadcast to the OLD / MAIN Telegram Group!
     try {
@@ -1874,10 +1915,10 @@ app.post('/api/leave-requests/:id/review', async (req, res) => {
       console.error('Telegram decision to old group error:', err);
     }
 
-    // Remove buttons and update message in the NEW GROUP if tg_message_id is known
+    // Reflect the decision in the request group and remove its action buttons.
     if (existing.tg_message_id && existing.tg_chat_id) {
       getTelegramToken().then(tok => {
-        if (tok) removeTelegramInlineButtons(tok, existing.tg_chat_id, existing.tg_message_id);
+        if (tok) updateTelegramRequestMessage(tok, existing.tg_chat_id, existing.tg_message_id, decisionTelegram);
       }).catch(e => console.error(e));
     }
 
@@ -1895,10 +1936,7 @@ app.post('/api/leave-requests/:id/review', async (req, res) => {
 
 // 7. Daily Evening Summary Report (Calculation & Formatting)
 async function generateDailySummaryReport() {
-  const companyName = (await getSetting('company_name')) || 'VANN SITHA TRADING CO., LTD';
   const now = new Date();
-  const dateStr = formatCambodiaDate(now);
-  const timeStr = formatCambodiaTime(now);
   const todayKhDate = getCambodiaDateString(now);
 
   // Get all active members
@@ -1938,13 +1976,13 @@ async function generateDailySummaryReport() {
       // Find first morning_in scan
       const morningLog = logs.find(l => l.type === 'morning_in' || l.type === 'check_in') || logs[0];
       if (morningLog) {
-        const timeFormat = formatCambodiaTime(morningLog.timestamp);
+        const timeFormat = formatTelegramTime(morningLog.timestamp);
         const { hour: h, minute: m } = getCambodiaHoursAndMinutes(morningLog.timestamp);
 
         // Schedule is 08:00 with 10 mins grace (late if > 08:10)
         if (h > 8 || (h === 8 && m > 10)) {
           const lateMinutes = (h - 8) * 60 + m;
-          const reasonText = morningLog.note ? ` | 📝 មូលហេតុ: ${morningLog.note}` : '';
+          const reasonText = morningLog.note ? ` · ${tgText(morningLog.note)}` : '';
           lateList.push({
             member,
             lateMinutes,
@@ -1970,42 +2008,19 @@ async function generateDailySummaryReport() {
   }
 
   // Format Latecomers Text
-  let lateSection = '<i>• គ្មានបុគ្គលិកមកយឺតទេ</i>';
-  if (lateList.length > 0) {
-    lateSection = lateList.map((item, idx) => 
-      `${idx + 1}. ${item.member.name}\n   └ ⏰ មកដល់: ${item.time} (យឺត ${formatDurationKm(item.lateMinutes)} | ស្កេន ${item.scansCount}/4)${item.reason || ''}`
-    ).join('\n');
+  const summaryLines = [
+    `📊 <b>សរុបវត្តមាន</b> · ${tgKhDate(todayKhDate)}`,
+    `👥 សរុប ${totalCount} នាក់ · ✅ វត្តមាន ${presentList.length} · ⚠️ មកយឺត ${lateList.length} · ❌ អវត្តមាន ${absentList.length}`
+  ];
+  if (lateList.length) {
+    summaryLines.push('', '<b>មកយឺត</b>', ...lateList.map(item =>
+      `• ${tgText(item.member.name)} · ${tgKhTime(item.time)} (${tgKhDuration(item.lateMinutes)})${item.reason || ''}`
+    ));
   }
-
-  // Format Absentee Text
-  let absentSection = '<i>• គ្មានបុគ្គលិកអវត្តមានទេ</i>';
-  if (absentList.length > 0) {
-    absentSection = absentList.map((item, idx) => 
-      `${idx + 1}. ${item.name} - ${item.role || 'ទូទៅ'}`
-    ).join('\n');
+  if (absentList.length) {
+    summaryLines.push('', '<b>អវត្តមាន</b>', ...absentList.map(item => `• ${tgText(item.name)}`));
   }
-
-  // Build Final Report
-  const summaryMsg = `
-📊 <b>របាយការណ៍សរុបវត្តមានប្រចាំថ្ងៃ (Daily Attendance Summary)</b>
-🏢 <b>${companyName}</b>
-📅 <b>កាលបរិច្ឆេទ:</b> ${dateStr}
-🕒 <b>ម៉ោងរបាយការណ៍:</b> ${timeStr}
-━━━━━━━━━━━━━━━━━━
-👥 <b>បុគ្គលិកសរុប:</b> ${totalCount} នាក់
-✅ <b>មានវត្តមាន:</b> ${presentList.length} នាក់
-⏰ <b>មកទាន់ពេល:</b> ${onTimeList.length} នាក់
-⚠️ <b>មកយឺត (Late):</b> ${lateList.length} នាក់
-❌ <b>អវត្តមាន (Absent):</b> ${absentList.length} នាក់
-
-⚠️ <b>បញ្ជីឈ្មោះបុគ្គលិកមកយឺត (${lateList.length} នាក់):</b>
-${lateSection}
-
-❌ <b>បញ្ជីឈ្មោះបុគ្គលិកអវត្តមាន (${absentList.length} នាក់):</b>
-${absentSection}
-━━━━━━━━━━━━━━━━━
-<i>ប្រព័ន្ធវត្តមានស្វ័យប្រវត្តិ VANN SITHA TRADING</i>
-  `.trim();
+  const summaryMsg = summaryLines.join('\n');
 
   return {
     summaryMsg,
