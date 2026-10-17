@@ -221,6 +221,36 @@ app.use(cors());
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(__dirname));
+
+// Route to always serve the latest index.html whether uploaded to root or public/
+app.get('/', (req, res) => {
+  const rootIndex = path.join(__dirname, 'index.html');
+  const pubIndex = path.join(__dirname, 'public', 'index.html');
+  if (fs.existsSync(rootIndex) && fs.existsSync(pubIndex)) {
+    const rootMtime = fs.statSync(rootIndex).mtimeMs;
+    const pubMtime = fs.statSync(pubIndex).mtimeMs;
+    return res.sendFile(rootMtime >= pubMtime ? rootIndex : pubIndex);
+  }
+  if (fs.existsSync(rootIndex)) return res.sendFile(rootIndex);
+  if (fs.existsSync(pubIndex)) return res.sendFile(pubIndex);
+  res.send('VST Attendance Web App');
+});
+
+// Route to always serve the latest app.js whether uploaded to root or public/
+app.get('/app.js', (req, res) => {
+  const rootApp = path.join(__dirname, 'app.js');
+  const pubApp = path.join(__dirname, 'public', 'app.js');
+  res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
+  if (fs.existsSync(rootApp) && fs.existsSync(pubApp)) {
+    const rootMtime = fs.statSync(rootApp).mtimeMs;
+    const pubMtime = fs.statSync(pubApp).mtimeMs;
+    return res.sendFile(rootMtime >= pubMtime ? rootApp : pubApp);
+  }
+  if (fs.existsSync(rootApp)) return res.sendFile(rootApp);
+  if (fs.existsSync(pubApp)) return res.sendFile(pubApp);
+  res.status(404).send('console.error("app.js not found");');
+});
 
 // Ensure DB is initialized before processing any route
 app.use(async (req, res, next) => {
@@ -463,10 +493,43 @@ async function handleTelegramCallbackQuery(cq, token) {
     if (!requestId) return;
 
     await ensureDb();
-    const existing = await db.get("SELECT * FROM leave_requests WHERE id = ?", [requestId]);
+    let existing = await db.get("SELECT * FROM leave_requests WHERE id = ?", [requestId]);
     if (!existing) {
-      await answerTelegramCallback(token, cq.id, '❌ រកមិនឃើញសំណើនេះក្នុងប្រព័ន្ធទេ!', true);
-      return;
+      // Robust Fallback: Parse details directly from the Telegram message text so approval always succeeds!
+      const msgText = (cq.message && cq.message.text) ? cq.message.text : '';
+      const nameMatch = msgText.match(/បុគ្គលិក:\s*([^\n(]+)(?:\(([^)]+)\))?/);
+      const roleMatch = msgText.match(/តួនាទី:\s*([^\n]+)/);
+      const typeMatch = msgText.match(/ប្រភេទ:\s*([^\n]+)/);
+      const dateMatch = msgText.match(/កាលបរិច្ឆេទ:\s*([^\n]+)/);
+      const reasonMatch = msgText.match(/មូលហេតុ:\s*([^\n]+)/);
+
+      const parsedName = nameMatch ? nameMatch[1].trim() : 'បុគ្គលិក';
+      const parsedCode = (nameMatch && nameMatch[2]) ? nameMatch[2].trim() : 'MEM';
+      const parsedRole = roleMatch ? roleMatch[1].trim() : 'បុគ្គលិក';
+      const parsedType = typeMatch ? typeMatch[1].trim() : 'សុំច្បាប់';
+      const parsedDate = dateMatch ? dateMatch[1].trim() : '';
+      const parsedReason = reasonMatch ? reasonMatch[1].trim() : '--';
+
+      existing = {
+        id: requestId,
+        member_name: parsedName,
+        member_code: parsedCode,
+        member_role: parsedRole,
+        request_type: parsedType.includes('យឺត') ? 'late' : 'leave',
+        sub_type: parsedType,
+        date_start: parsedDate,
+        date_end: parsedDate,
+        duration_text: '',
+        reason: parsedReason,
+        status: 'pending'
+      };
+
+      try {
+        await db.run(`
+          INSERT OR REPLACE INTO leave_requests (id, member_name, member_code, member_role, request_type, sub_type, date_start, date_end, reason, status)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+        `, [requestId, parsedName, parsedCode, parsedRole, existing.request_type, parsedType, parsedDate, parsedDate, parsedReason]);
+      } catch (e) {}
     }
 
     const from = cq.from || {};
@@ -603,6 +666,21 @@ async function startTelegramPolling() {
     }
   }
 }
+
+// Webhook for Telegram updates (Serverless & Direct Callback Support)
+app.post('/api/telegram-webhook', async (req, res) => {
+  try {
+    const token = await getSetting('telegram_token');
+    const update = req.body;
+    if (update && update.callback_query && token) {
+      await handleTelegramCallbackQuery(update.callback_query, token);
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Webhook error:', err);
+    res.status(200).json({ ok: true });
+  }
+});
 
 // ================= API ROUTES =================
 

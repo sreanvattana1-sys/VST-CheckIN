@@ -1104,41 +1104,36 @@
     <!-- ================= VIEW 1: STAFF WORKSPACE (ACLEDA BANKING STYLE MOBILE INTERFACE) ================= -->
     <main id="staffView" class="max-w-xl mx-auto w-full px-3.5 sm:px-5 py-3 pb-36 flex-1 flex flex-col justify-start">
       
-      <!-- ACLEDA Staff Profile Header -->
-      <div id="staffProfileSet" onclick="openStaffProfileModal()" class="glass-crystal p-3.5 sm:p-4 rounded-3xl border border-white/20 shadow-[0_10px_30px_rgba(0,0,0,0.3)] flex items-center justify-between mb-3.5 mt-2 sm:mt-3 cursor-pointer hover:border-cyan-400/50 transition-all group" title="ចុចដើម្បីមើលព័ត៌មាន & ប្តូររូបថត Profile">
-        <div class="flex items-center gap-3">
-          <!-- Circular Avatar with glowing border & online indicator -->
+      <!-- Staff Top Bar (Minimal: Photo, Name, Role, and Notification Icon) -->
+      <div id="staffProfileSet" onclick="openStaffProfileModal()" class="glass-crystal p-3 sm:p-3.5 rounded-2xl sm:rounded-3xl border border-white/20 shadow-[0_10px_30px_rgba(0,0,0,0.35)] flex items-center justify-between mb-3.5 mt-2 cursor-pointer hover:border-cyan-400/50 transition-all active:scale-[0.99] group" title="ចុចដើម្បីមើលព័ត៌មាន ឬប្តូររូបថត Profile">
+        <div class="flex items-center gap-3 min-w-0 flex-1">
+          <!-- 1. រូបថត (Staff Photo / Avatar) -->
           <div class="relative flex-shrink-0" style="width: 48px; height: 48px;">
-            <div id="staffAvatarWrapper" style="width: 48px; height: 48px; border-radius: 9999px; overflow: hidden;" class="bg-gradient-to-tr from-brand-blue via-brand-cyan to-brand-purple text-white font-extrabold flex items-center justify-center text-base shadow-lg border-2 border-cyan-400/60 group-hover:scale-105 transition-transform">
+            <div id="staffAvatarWrapper" style="width: 48px; height: 48px; border-radius: 9999px; overflow: hidden;" class="bg-gradient-to-tr from-brand-blue via-brand-cyan to-brand-purple text-white font-extrabold flex items-center justify-center text-base shadow-lg border-2 border-cyan-400/70 group-hover:scale-105 transition-transform">
               <span id="staffAvatar">U</span>
             </div>
+            <!-- Online status green pulse -->
             <span class="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-slate-900 shadow-xs"></span>
           </div>
 
-          <!-- Greeting & Name -->
-          <div class="min-w-0 flex-1">
-            <div class="text-[11px] text-cyan-200/80 font-medium truncate" id="greetingTimeText">ទិវាសួស្តី</div>
-            <h2 id="staffDisplayName" class="font-extrabold text-white text-sm sm:text-base tracking-tight truncate notranslate" translate="no">សមាជិក</h2>
-            <div class="text-[10px] text-cyan-300 group-hover:text-cyan-100 font-medium flex items-center gap-1.5 mt-0.5 transition">
-              <span id="staffDisplayCode" class="font-mono font-bold bg-white/10 px-1.5 py-0.5 rounded text-cyan-200 border border-cyan-400/20">MEM-003</span>
-              <span class="text-slate-400">•</span>
-              <span class="flex items-center gap-0.5"><i data-lucide="camera" class="w-3 h-3 text-cyan-400"></i> ប្តូររូប</span>
-            </div>
+          <!-- 2. ឈ្មោះ (Name) & 3. តំណែង (Role) -->
+          <div class="min-w-0 flex-1 pr-2">
+            <h2 id="staffDisplayName" class="font-extrabold text-white text-base sm:text-lg tracking-tight truncate leading-tight notranslate" translate="no">សមាជិក</h2>
+            <p id="staffDisplayRole" class="text-xs text-cyan-300 font-medium truncate mt-0.5">បុគ្គលិក</p>
+
+            <!-- Hidden elements preserved for JS compatibility -->
+            <span id="greetingTimeText" class="hidden">ទិវាសួស្តី</span>
+            <span id="staffDisplayCode" class="hidden">MEM-001</span>
             <span id="greetingStaffName" class="hidden"></span>
           </div>
         </div>
 
-        <div class="flex items-center gap-2 flex-shrink-0" onclick="event.stopPropagation()">
-          <!-- Notification Bell -->
-          <button type="button" onclick="showAcledaNoticeModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition border border-white/15 relative" title="Notifications">
-            <i data-lucide="bell" class="w-3.5 h-3.5 text-cyan-200"></i>
-            <span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400"></span>
+        <!-- 4. រូបជូនដំណឹង (Notification Bell Icon) -->
+        <div class="flex items-center flex-shrink-0 pl-1" onclick="event.stopPropagation()">
+          <button type="button" onclick="showAcledaNoticeModal()" class="w-10 h-10 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-slate-200 hover:text-white transition active:scale-90 relative shadow-sm" title="ដំណឹង (Notifications)">
+            <i data-lucide="bell" class="w-4 h-4 text-cyan-300"></i>
+            <span class="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-slate-900 animate-pulse"></span>
           </button>
-          <!-- Staff Quick Log Out Button -->
-          <button type="button" onclick="logoutStaffAccount()" class="w-8 h-8 rounded-full bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 hover:text-white flex items-center justify-center transition border border-rose-500/30 active:scale-95 shadow-sm" title="ចាកចេញ (Log Out)">
-            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
-          </button>
-          <span id="staffDisplayRole" class="hidden text-xs text-txt-secondary">IT Officer</span>
         </div>
       </div>
 
@@ -3049,13 +3044,13 @@
             <i data-lucide="log-out" class="w-4 h-4"></i>
             <span>ចាកចេញពីគណនី (Log Out)</span>
           </button>
-          <p class="text-[10px] text-slate-500 text-center font-mono">VST Attendance App • Version 23.0</p>
+          <p class="text-[10px] text-slate-500 text-center font-mono">VST Attendance App • Version 25.0</p>
         </div>
 
       </div>
     </div>
   </div>
 
-  <script src="/app.js?v=23.0"></script>
+  <script src="/app.js?v=25.0"></script>
 </body>
 </html>

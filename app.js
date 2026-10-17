@@ -383,13 +383,13 @@ function updateGreeting() {
   if (!greetingEl) return;
 
   if (currentLang === 'km') {
-    if (hour < 12) greetingEl.textContent = 'អរុណសួស្តី';
-    else if (hour < 17) greetingEl.textContent = 'ទិវាសួស្តី';
-    else greetingEl.textContent = 'សាយណ្ហសួស្តី';
+    if (hour < 12) greetingEl.textContent = 'អរុណសួស្តី ☀️';
+    else if (hour < 17) greetingEl.textContent = 'ទិវាសួស្តី 🌤️';
+    else greetingEl.textContent = 'សាយណ្ហសួស្តី 🌙';
   } else {
-    if (hour < 12) greetingEl.textContent = 'Good morning';
-    else if (hour < 17) greetingEl.textContent = 'Good afternoon';
-    else greetingEl.textContent = 'Good evening';
+    if (hour < 12) greetingEl.textContent = 'Good morning ☀️';
+    else if (hour < 17) greetingEl.textContent = 'Good afternoon 🌤️';
+    else greetingEl.textContent = 'Good evening 🌙';
   }
 }
 
@@ -1235,12 +1235,31 @@ function setStaffProfile(member) {
   const wrapper = document.getElementById('staffAvatarWrapper');
   if (wrapper) {
     if (member.avatar && member.avatar.trim()) {
-      wrapper.innerHTML = `<img src="${member.avatar}" alt="${member.name}" class="w-full h-full object-cover rounded-2xl block">`;
+      wrapper.innerHTML = `<img src="${member.avatar}" alt="${member.name}" class="w-full h-full object-cover rounded-full block">`;
     } else {
-      const initial = member.name ? member.name.trim().charAt(0) : 'U';
+      const initial = member.name ? member.name.trim().charAt(0).toUpperCase() : 'U';
       wrapper.innerHTML = `<span id="staffAvatar" class="font-extrabold text-lg text-white">${initial}</span>`;
     }
   }
+
+  // Update Drawer menu profile
+  const drawerName = document.getElementById('drawerStaffName');
+  const drawerCode = document.getElementById('drawerStaffCode');
+  const drawerRole = document.getElementById('drawerStaffRole');
+  const drawerAvatar = document.getElementById('drawerAvatarWrapper');
+  if (drawerName) drawerName.textContent = member.name;
+  if (drawerCode) drawerCode.textContent = member.code;
+  if (drawerRole) drawerRole.textContent = member.role || (currentLang === 'km' ? 'បុគ្គលិក' : 'Staff');
+  if (drawerAvatar) {
+    if (member.avatar && member.avatar.trim()) {
+      drawerAvatar.innerHTML = `<img src="${member.avatar}" alt="${member.name}" class="w-full h-full object-cover rounded-full block">`;
+    } else {
+      const initial = member.name ? member.name.trim().charAt(0).toUpperCase() : 'U';
+      drawerAvatar.innerHTML = `<span id="drawerAvatarText">${initial}</span>`;
+    }
+  }
+
+  updateGreeting();
   
   const greetEl = document.getElementById('greetingStaffName');
   if (greetEl) greetEl.textContent = member.name;
@@ -1408,7 +1427,11 @@ async function saveStaffSelfAvatar() {
 
   const wrapper = document.getElementById('staffAvatarWrapper');
   if (wrapper) {
-    wrapper.innerHTML = `<img src="${currentStaff.avatar}" alt="${currentStaff.name}" class="w-full h-full object-cover rounded-2xl block">`;
+    wrapper.innerHTML = `<img src="${currentStaff.avatar}" alt="${currentStaff.name}" class="w-full h-full object-cover rounded-full block">`;
+  }
+  const drawerAvatar = document.getElementById('drawerAvatarWrapper');
+  if (drawerAvatar) {
+    drawerAvatar.innerHTML = `<img src="${currentStaff.avatar}" alt="${currentStaff.name}" class="w-full h-full object-cover rounded-full block">`;
   }
 
   if (publicInfo && publicInfo.members) {
