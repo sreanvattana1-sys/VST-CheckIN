@@ -7,8 +7,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>VANN SITHA TRADING - Modern Enterprise Attendance Management</title>
   
-  <!-- Favicon -->
+  <!-- Installable mobile app identity -->
   <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="apple-touch-icon" href="/logo.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#07152f">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="VST CheckIN">
 
   <!-- Google Fonts: Inter & 5 Premium Khmer Fonts (Kantumruy Pro, Noto Sans Khmer, Battambang, Siemreap, Koulen) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -127,6 +134,59 @@
     .acleda-btn-glow:active {
       transform: scale(0.98);
     }
+    .attendance-action-shell {
+      position: relative;
+      isolation: isolate;
+    }
+    .attendance-action-shell::before {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      z-index: -1;
+      border-radius: 28px;
+      background: linear-gradient(120deg, rgba(34,211,238,.65), rgba(59,130,246,.18), rgba(168,85,247,.55));
+      opacity: .78;
+      filter: blur(.2px);
+    }
+    .attendance-primary-action {
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(145deg, rgba(15,23,42,.96), rgba(8,47,73,.92));
+      box-shadow: 0 18px 45px rgba(2,132,199,.22), inset 0 1px 0 rgba(255,255,255,.14);
+      transition: transform .28s cubic-bezier(.2,.9,.2,1), box-shadow .28s ease, border-color .28s ease;
+    }
+    .attendance-primary-action::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(105deg, transparent 15%, rgba(255,255,255,.13) 42%, transparent 68%);
+      transform: translateX(-120%);
+      animation: attendanceSheen 4.8s ease-in-out infinite;
+      pointer-events: none;
+    }
+    .attendance-primary-action:hover {
+      transform: translateY(-2px);
+      border-color: rgba(103,232,249,.7);
+      box-shadow: 0 22px 55px rgba(2,132,199,.32), inset 0 1px 0 rgba(255,255,255,.18);
+    }
+    .attendance-primary-action:active { transform: scale(.985); }
+    .attendance-fingerprint-orb {
+      background: radial-gradient(circle at 32% 25%, rgba(255,255,255,.32), rgba(14,165,233,.3) 45%, rgba(37,99,235,.22));
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.16), 0 0 25px rgba(34,211,238,.24);
+    }
+    .attendance-refresh-action {
+      background: linear-gradient(160deg, rgba(30,41,59,.96), rgba(15,23,42,.98));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 14px 32px rgba(0,0,0,.28);
+      transition: transform .25s cubic-bezier(.2,.9,.2,1), border-color .25s ease, background .25s ease;
+    }
+    .attendance-refresh-action:hover { transform: translateY(-2px); border-color: rgba(103,232,249,.65); }
+    .attendance-refresh-action:active { transform: scale(.96); }
+    .attendance-refresh-action.is-refreshing i { animation: refreshSpin .8s linear infinite; }
+    @keyframes attendanceSheen {
+      0%, 62% { transform: translateX(-120%); }
+      82%, 100% { transform: translateX(120%); }
+    }
+    @keyframes refreshSpin { to { transform: rotate(360deg); } }
     .acleda-bottom-bar {
       background: rgba(15, 23, 42, 0.90) !important;
       border: 1px solid rgba(255, 255, 255, 0.10) !important;
@@ -1128,8 +1188,11 @@
           </div>
         </div>
 
-        <!-- 4. រូបជូនដំណឹង (Notification Bell Icon) -->
-        <div class="flex items-center flex-shrink-0 pl-1" onclick="event.stopPropagation()">
+        <!-- Quick refresh and notification controls -->
+        <div class="flex items-center gap-2 flex-shrink-0 pl-1" onclick="event.stopPropagation()">
+          <button id="staffDashboardRefreshBtn" type="button" onclick="refreshStaffDashboard(this)" class="attendance-refresh-action w-10 h-10 rounded-2xl border border-white/15 flex items-center justify-center text-slate-200 hover:text-white" title="Refresh ទិន្នន័យថ្មី" aria-label="Refresh ទិន្នន័យថ្មី">
+            <i data-lucide="refresh-cw" class="w-4 h-4 text-cyan-300"></i>
+          </button>
           <button type="button" onclick="showAcledaNoticeModal()" class="w-10 h-10 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-slate-200 hover:text-white transition active:scale-90 relative shadow-sm" title="ដំណឹង (Notifications)">
             <i data-lucide="bell" class="w-4 h-4 text-cyan-300"></i>
             <span class="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-slate-900 animate-pulse"></span>
@@ -1222,26 +1285,28 @@
         </div>
       </div>
 
-      <!-- 1-Click Attendance Button (Clean, Hero, Prominent - Pure Wi-Fi & GPS) -->
+      <!-- Large premium attendance action -->
       <div class="mb-4">
-        <button id="heroOneClickBtn" onclick="executeStaffCheckIn()" class="acleda-btn-glow w-full py-4 sm:py-5 px-5 rounded-3xl text-white font-extrabold text-base sm:text-lg flex items-center justify-between gap-4 shadow-[0_15px_35px_rgba(2,132,199,0.4)] active:scale-95 transition-all group border border-cyan-400/40">
-          <div class="flex items-center gap-3.5 min-w-0 text-left">
-            <div class="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform shadow-inner">
-              <i data-lucide="fingerprint" id="heroBtnActionIcon" class="w-7 h-7 text-white"></i>
-            </div>
-            <div class="min-w-0">
-              <div class="font-extrabold text-base sm:text-lg leading-tight truncate tracking-tight text-white" id="heroBtnActionTitle">
-                ចុចកត់ត្រាវត្តមាន (1-Click Attendance)
+        <div class="attendance-action-shell rounded-[30px]">
+          <button id="heroOneClickBtn" onclick="executeStaffCheckIn()" class="attendance-primary-action min-h-[120px] sm:min-h-[128px] w-full px-5 sm:px-7 rounded-[29px] text-white flex items-center justify-between gap-4 group border border-cyan-300/30">
+            <div class="flex items-center gap-4 sm:gap-5 min-w-0 text-left relative z-10">
+              <div class="attendance-fingerprint-orb w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-[23px] flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform duration-300">
+                <i data-lucide="fingerprint" id="heroBtnActionIcon" class="w-9 h-9 sm:w-10 sm:h-10 text-cyan-100"></i>
               </div>
-              <p class="text-xs text-cyan-100/90 font-medium mt-0.5" id="heroBtnActionSubtitle">
-                ផ្ទៀងផ្ទាត់ Wi-Fi ក្រុមហ៊ុន & GPS Geofence
-              </p>
+              <div class="min-w-0">
+                <span class="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] font-bold text-cyan-300/90 mb-1.5">
+                  <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Quick Check-in
+                </span>
+                <div class="font-extrabold text-lg sm:text-xl leading-tight tracking-tight text-white" id="heroBtnActionTitle">ចុចកត់ត្រាវត្តមាន</div>
+                <p class="text-xs sm:text-[13px] text-slate-300 font-medium mt-1.5 line-clamp-1" id="heroBtnActionSubtitle">ផ្ទៀងផ្ទាត់ Wi-Fi និង GPS ដោយសុវត្ថិភាព</p>
+              </div>
             </div>
-          </div>
-          <div class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 group-hover:translate-x-1 transition-transform">
-            <i data-lucide="chevron-right" class="w-5 h-5 text-white"></i>
-          </div>
-        </button>
+            <div class="relative z-10 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-cyan-400/15 border border-cyan-300/20 flex items-center justify-center flex-shrink-0 group-hover:translate-x-1 transition-transform">
+              <i data-lucide="arrow-right" class="w-5 h-5 text-cyan-100"></i>
+            </div>
+          </button>
+        </div>
 
         <!-- Secondary Quick Actions: Request Leave / Late & View History -->
         <div class="grid grid-cols-2 gap-2 mt-2.5">
@@ -3051,6 +3116,6 @@
     </div>
   </div>
 
-  <script src="/app.js?v=25.0"></script>
+  <script src="/app.js?v=26.0"></script>
 </body>
 </html>
