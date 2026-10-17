@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vst-checkin-shell-v26';
+const CACHE_NAME = 'vst-checkin-shell-v27';
 const APP_SHELL = ['/', '/index.html', '/app.js', '/manifest.webmanifest', '/logo.png'];
 
 self.addEventListener('install', (event) => {
