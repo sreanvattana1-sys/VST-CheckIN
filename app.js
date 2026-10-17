@@ -97,6 +97,8 @@ const translations = {
     filterDate: "កាលបរិច្ឆេទ:",
     exportExcel: "Export Excel/CSV",
     colName: "ឈ្មោះ",
+    colPhone: "លេខទូរសព្ទ",
+    colEmail: "អ៊ីមែល",
     colCode: "កូដ",
     colRole: "តួនាទី",
     colDistance: "ចម្ងាយ GPS",
@@ -119,15 +121,17 @@ const translations = {
     pinPromptTitle: "🔒 ចូលផ្នែក Admin",
     pinPromptInput: "សូមបញ្ចូលលេខកូដសម្ងាត់ (PIN)",
     confirmBtn: "យល់ព្រម",
-    loginPortalSubtitle: "ចូលបំពេញការងារ (Sign In)",
+    loginPortalSubtitle: "ចូលប្រើប្រាស់",
     tabSignIn: "ចូលប្រើ (Sign In)",
     tabRegister: "ចុះឈ្មោះ",
-    lblPhoneOrCode: "លេខទូរស័ព្ទ (Phone Number) ឬ លេខកូដសម្គាល់ ID *",
+    lblPhoneOrCode: "លេខទូរសព្ទ ឬ ID",
+    phoneOrCodePlaceholder: "បញ្ចូលលេខទូរសព្ទ ឬ ID",
     lblSelectOrInput: "ជ្រើសរើសឈ្មោះបុគ្គលិក",
     orByCode: "ឬ វាយលេខកូដសម្គាល់ ID",
-    lblPassword: "លេខកូដសម្ងាត់ (Password) *",
-    pwdNotice: "* Password គឺកំណត់ដោយ Admin ពេលចុះឈ្មោះក្នុងបញ្ជីសមាជិក (Default: 1234)",
-    btnSignIn: "ចូលបំពេញការងារ (Sign In)",
+    lblPassword: "លេខសម្ងាត់",
+    passwordPlaceholder: "បញ្ចូលលេខសម្ងាត់",
+    pwdNotice: "ប្រើលេខសម្ងាត់ដែល Admin បានផ្តល់",
+    btnSignIn: "ចូលប្រើ",
     adminRegOnlyTitle: "បុគ្គលិកថ្មីដែលមិនទាន់មានឈ្មោះ?",
     adminRegOnlyDesc: "សូមទាក់ទងថ្នាក់ដឹកនាំ ឬ Admin ដើម្បីចុះឈ្មោះ និងទទួលយក Password ចូលប្រើប្រាស់។",
     addNewMember: "ចុះឈ្មោះសមាជិកបុគ្គលិកថ្មី",
@@ -164,10 +168,28 @@ const translations = {
     nextScanLbl: "ស្កេនបន្ទាប់:",
     waiting: "រង់ចាំ",
     doneSlot: "រួចរាល់",
-    selfRegTitle: "មិនទាន់មានគណនីបុគ្គលិក?",
-    selfRegDesc: "ចុះឈ្មោះដោយខ្លួនឯងនៅលើទូរស័ព្ទនេះ។ បន្ទាប់ពី Admin ពិនិត្យនិងអនុម័ត (Approve) អ្នកអាចចូលបំពេញការងារបានភ្លាមៗ។",
-    btnSelfRegister: "ចុះឈ្មោះគណនីថ្មី (Self Register)",
+    selfRegTitle: "មិនទាន់មានគណនី?",
+    selfRegDesc: "បង្កើតគណនីថ្មី រួចរង់ចាំ Admin អនុម័ត។",
+    btnSelfRegister: "បង្កើតគណនីថ្មី",
     pendingApprovalTitle: "សំណើសុំចុះឈ្មោះរង់ចាំការអនុម័ត (Pending Approvals)",
+    generalSettings: "ការកំណត់ទូទៅ",
+    languageLabel: "ភាសា",
+    themesLabel: "រចនាបថ និងពណ៌",
+    fontsLabel: "ពុម្ពអក្សរខ្មែរ",
+    themeModalTitle: "រចនាបថ និងពណ៌",
+    themeModalDesc: "ជ្រើសរើសទម្រង់ UI និងពណ៌ដែលអ្នកពេញចិត្ត",
+    uiStyleTitle: "ទម្រង់ UI",
+    colorThemeTitle: "ពណ៌ Theme",
+    doneTheme: "រួចរាល់",
+    fontModalTitle: "ពុម្ពអក្សរខ្មែរ",
+    fontModalDesc: "ជ្រើសរើសពុម្ពអក្សរដែលងាយអាន និងសមនឹងអ្នក",
+    recommended: "ណែនាំ",
+    requestLeave: "សុំច្បាប់ ឬមកយឺត",
+    myRequests: "ស្ថានភាពសំណើរបស់ខ្ញុំ",
+    myAttendance: "កំណត់ត្រាវត្តមានរបស់ខ្ញុំ",
+    adminSystem: "ប្រព័ន្ធគ្រប់គ្រង",
+    adminPortalLabel: "ចូលផ្នែក Admin",
+    companyTelegram: "Telegram ក្រុមហ៊ុន",
   },
   en: {
     appSubtitle: "Smart Digital Attendance Hub",
@@ -231,6 +253,8 @@ const translations = {
     filterDate: "Date Filter:",
     exportExcel: "Export Excel/CSV",
     colName: "Name",
+    colPhone: "Phone Number",
+    colEmail: "Email Address",
     colCode: "Code",
     colRole: "Role",
     colDistance: "GPS Distance",
@@ -253,15 +277,17 @@ const translations = {
     pinPromptTitle: "🔒 Admin Access",
     pinPromptInput: "Enter Admin PIN (Default: 1234)",
     confirmBtn: "Confirm",
-    loginPortalSubtitle: "Employee Sign-In",
+    loginPortalSubtitle: "Staff Login",
     tabSignIn: "Sign In",
     tabRegister: "Registration",
-    lblPhoneOrCode: "Phone Number or Member ID *",
+    lblPhoneOrCode: "Phone or Member ID",
+    phoneOrCodePlaceholder: "Enter phone or member ID",
     lblSelectOrInput: "Select Your Name",
     orByCode: "Or Enter Member ID",
-    lblPassword: "Password *",
-    pwdNotice: "* Password is set by Admin during registration (Default: 1234)",
-    btnSignIn: "Sign In to Workspace",
+    lblPassword: "Password",
+    passwordPlaceholder: "Enter your password",
+    pwdNotice: "Use the password provided by Admin",
+    btnSignIn: "Sign In",
     adminRegOnlyTitle: "New employee not on the list?",
     adminRegOnlyDesc: "Please contact Management / Admin to register and receive your login password.",
     addNewMember: "Register New Member",
@@ -298,10 +324,28 @@ const translations = {
     nextScanLbl: "Next Scan:",
     waiting: "Pending",
     doneSlot: "Done",
-    selfRegTitle: "Don't have a staff account?",
-    selfRegDesc: "Register yourself directly on this device. Once approved by Admin, you can log in immediately.",
-    btnSelfRegister: "Register New Account (Self Register)",
+    selfRegTitle: "No account yet?",
+    selfRegDesc: "Create an account, then wait for Admin approval.",
+    btnSelfRegister: "Create Account",
     pendingApprovalTitle: "Pending Staff Registrations (Awaiting Approval)",
+    generalSettings: "General Settings",
+    languageLabel: "Language",
+    themesLabel: "UI Style & Colors",
+    fontsLabel: "Khmer Fonts",
+    themeModalTitle: "UI Style & Colors",
+    themeModalDesc: "Choose your preferred interface style and color theme",
+    uiStyleTitle: "UI Style",
+    colorThemeTitle: "Color Theme",
+    doneTheme: "Done",
+    fontModalTitle: "Khmer Fonts",
+    fontModalDesc: "Choose a clear Khmer font that suits you",
+    recommended: "Recommended",
+    requestLeave: "Leave or Late Request",
+    myRequests: "My Request Status",
+    myAttendance: "My Attendance Records",
+    adminSystem: "Admin & System",
+    adminPortalLabel: "Open Admin Portal",
+    companyTelegram: "Company Telegram",
   }
 };
 
@@ -309,6 +353,7 @@ const translations = {
 function setLanguage(lang) {
   currentLang = lang;
   localStorage.setItem('attendance_lang', lang);
+  document.documentElement.lang = lang;
 
   // Update Buttons explicitly (Header)
   const btnKm = document.getElementById('langKmBtn');
@@ -360,6 +405,21 @@ function setLanguage(lang) {
     }
   });
 
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.getAttribute('data-i18n-placeholder');
+    if (translations[lang] && translations[lang][key]) {
+      el.setAttribute('placeholder', translations[lang][key]);
+    }
+  });
+
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    const key = el.getAttribute('data-i18n-title');
+    if (translations[lang] && translations[lang][key]) {
+      el.setAttribute('title', translations[lang][key]);
+      el.setAttribute('aria-label', translations[lang][key]);
+    }
+  });
+
   // Dynamic greetings based on time
   updateGreeting();
 
@@ -394,18 +454,20 @@ function updateGreeting() {
 }
 
 // ================= THEME ENGINE (LIQUID GLASS CHOICES) =================
+const COLOR_THEMES = ['crystal', 'cyber', 'emerald', 'sunset', 'ocean', 'royal', 'graphite', 'sakura'];
+const UI_STYLES = ['fluid', 'compact', 'minimal', 'soft'];
 let currentTheme = localStorage.getItem('vst_theme') || 'crystal';
+let currentUiStyle = localStorage.getItem('vst_ui_style') || 'fluid';
 
 function applyTheme(themeId) {
-  if (!['crystal', 'cyber', 'emerald', 'sunset'].includes(themeId)) {
+  if (!COLOR_THEMES.includes(themeId)) {
     themeId = 'crystal';
   }
   currentTheme = themeId;
   document.body.setAttribute('data-theme', themeId);
 
   // Update theme option card active borders and check icons
-  const themes = ['crystal', 'cyber', 'emerald', 'sunset'];
-  themes.forEach(t => {
+  COLOR_THEMES.forEach(t => {
     const card = document.getElementById(`themeCard-${t}`);
     if (card) {
       const checkIcon = card.querySelector('.theme-check-icon');
@@ -430,6 +492,28 @@ function applyTheme(themeId) {
   if (window.lucide) {
     lucide.createIcons();
   }
+}
+
+function applyUiStyle(styleId) {
+  if (!UI_STYLES.includes(styleId)) styleId = 'fluid';
+  currentUiStyle = styleId;
+  document.body.setAttribute('data-ui-style', styleId);
+  UI_STYLES.forEach(style => {
+    const card = document.getElementById(`uiStyleCard-${style}`);
+    if (!card) return;
+    const checkIcon = card.querySelector('.ui-style-check-icon');
+    card.classList.toggle('border-cyan-400', style === styleId);
+    card.classList.toggle('border-white/15', style !== styleId);
+    if (checkIcon) {
+      checkIcon.classList.toggle('text-cyan-400', style === styleId);
+      checkIcon.classList.toggle('text-transparent', style !== styleId);
+    }
+  });
+}
+
+function selectUiStyle(styleId) {
+  applyUiStyle(styleId);
+  localStorage.setItem('vst_ui_style', styleId);
 }
 
 // ================= APP SLIDE-OVER DRAWER MENU =================
@@ -501,6 +585,7 @@ function closeAppDrawerMenu() {
 
 function openThemeSelectorModal() {
   applyTheme(currentTheme);
+  applyUiStyle(currentUiStyle);
   const modal = document.getElementById('themeSelectorModal');
   if (modal) {
     modal.classList.remove('hidden');
@@ -582,6 +667,7 @@ function closeFontSelectorModal() {
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', async () => {
   applyTheme(currentTheme);
+  applyUiStyle(currentUiStyle);
   applyKhmerFont(currentKhmerFont);
   setLanguage(currentLang);
   initLiveClock();
