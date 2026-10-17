@@ -606,7 +606,47 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (err) {
     console.error('Error loading public info:', err);
   }
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/service-worker.js').catch((err) => {
+      console.warn('Service worker registration failed:', err);
+    });
+  }
 });
+
+let staffDashboardRefreshInFlight = false;
+async function refreshStaffDashboard(button) {
+  if (staffDashboardRefreshInFlight) return;
+  staffDashboardRefreshInFlight = true;
+  const refreshButton = button || document.getElementById('staffDashboardRefreshBtn');
+  if (refreshButton) {
+    refreshButton.classList.add('is-refreshing');
+    refreshButton.disabled = true;
+  }
+
+  try {
+    await Promise.allSettled([
+      loadMyAttendanceActivity(),
+      fetchNetworkStatus(false),
+      currentStaff ? loadMyAttendanceHistory() : Promise.resolve()
+    ]);
+    if (window.lucide) lucide.createIcons();
+    Swal.fire({
+      toast: true,
+      position: 'top-end',
+      icon: 'success',
+      title: 'ទិន្នន័យថ្មីបំផុតត្រូវបាន Refresh រួចរាល់',
+      showConfirmButton: false,
+      timer: 1700
+    });
+  } finally {
+    if (refreshButton) {
+      refreshButton.classList.remove('is-refreshing');
+      refreshButton.disabled = false;
+    }
+    staffDashboardRefreshInFlight = false;
+  }
+}
 
 // 1. Live Digital Clock
 function initLiveClock() {
