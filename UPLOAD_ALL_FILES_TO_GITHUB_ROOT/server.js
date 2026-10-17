@@ -168,14 +168,14 @@ async function initDb() {
     ['office_lat', '11.536445'],
     ['office_lng', '104.886851'],
     ['allowed_radius', '200'], // meters
-    ['telegram_token', '8879591305:AAFICQRiKd-ryiJ-e66CZpEPBi4PxoNuc-s'],
+    ['telegram_token', ''],
     ['telegram_chat_id', '-5037746251'],
     ['telegram_enabled', 'true'],
     ['telegram_leave_chat_id', '-5352852483'],
     ['telegram_leave_enabled', 'true'],
     ['office_qr_token', 'OFFICE-ATTENDANCE-HQ-2026'],
     ['company_name', 'VANN SITHA TRADING CO.,LTD'],
-    ['admin_pin', '1234'],
+    ['admin_pin', ''],
     ['wifi_check_enabled', 'true'],
     ['company_wifi_ips', '45.119.135.171, 36.37.169.199']
   ];
@@ -748,7 +748,7 @@ app.get('/api/network-status', async (req, res) => {
 // Admin verify PIN
 app.post('/api/admin/verify-pin', async (req, res) => {
   const { pin } = req.body;
-  const currentPin = (await getSetting('admin_pin')) || '1234';
+  const currentPin = await getSetting('admin_pin');
   if (pin === currentPin) {
     res.json({ success: true });
   } else {
