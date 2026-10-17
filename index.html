@@ -842,6 +842,48 @@
       background: radial-gradient(circle, rgba(147, 51, 234, 0.85) 0%, rgba(244, 63, 94, 0.45) 60%, transparent 100%);
     }
 
+    /* Theme 5: Ocean Blue */
+    body[data-theme="ocean"] { --theme-bg: radial-gradient(ellipse at 50% 0%, #073763 0%, #041b35 48%, #010a16 100%); }
+    body[data-theme="ocean"] .blob-1 { background: radial-gradient(circle, rgba(14,165,233,.95), rgba(2,132,199,.45) 55%, transparent 100%); }
+    body[data-theme="ocean"] .blob-2 { background: radial-gradient(circle, rgba(34,211,238,.85), rgba(8,145,178,.45) 55%, transparent 100%); }
+    body[data-theme="ocean"] .blob-3 { background: radial-gradient(circle, rgba(59,130,246,.85), rgba(29,78,216,.4) 55%, transparent 100%); }
+    body[data-theme="ocean"] .blob-4 { background: radial-gradient(circle, rgba(45,212,191,.75), rgba(6,182,212,.35) 55%, transparent 100%); }
+    body[data-theme="ocean"] .blob-5 { background: radial-gradient(circle, rgba(125,211,252,.8), rgba(37,99,235,.38) 60%, transparent 100%); }
+
+    /* Theme 6: Royal Violet */
+    body[data-theme="royal"] { --theme-bg: radial-gradient(ellipse at 50% 0%, #261052 0%, #13092c 48%, #070312 100%); }
+    body[data-theme="royal"] .blob-1 { background: radial-gradient(circle, rgba(139,92,246,.95), rgba(109,40,217,.5) 55%, transparent 100%); }
+    body[data-theme="royal"] .blob-2 { background: radial-gradient(circle, rgba(236,72,153,.85), rgba(168,85,247,.48) 55%, transparent 100%); }
+    body[data-theme="royal"] .blob-3 { background: radial-gradient(circle, rgba(99,102,241,.85), rgba(79,70,229,.42) 55%, transparent 100%); }
+    body[data-theme="royal"] .blob-4 { background: radial-gradient(circle, rgba(251,191,36,.7), rgba(217,70,239,.35) 55%, transparent 100%); }
+    body[data-theme="royal"] .blob-5 { background: radial-gradient(circle, rgba(192,132,252,.85), rgba(124,58,237,.4) 60%, transparent 100%); }
+
+    /* Theme 7: Graphite Mono */
+    body[data-theme="graphite"] { --theme-bg: radial-gradient(ellipse at 50% 0%, #263244 0%, #111827 48%, #030712 100%); }
+    body[data-theme="graphite"] .blob-1 { background: radial-gradient(circle, rgba(148,163,184,.55), rgba(71,85,105,.35) 55%, transparent 100%); }
+    body[data-theme="graphite"] .blob-2 { background: radial-gradient(circle, rgba(100,116,139,.55), rgba(30,41,59,.35) 55%, transparent 100%); }
+    body[data-theme="graphite"] .blob-3 { background: radial-gradient(circle, rgba(203,213,225,.45), rgba(71,85,105,.3) 55%, transparent 100%); }
+    body[data-theme="graphite"] .blob-4 { background: radial-gradient(circle, rgba(94,234,212,.42), rgba(15,118,110,.25) 55%, transparent 100%); }
+    body[data-theme="graphite"] .blob-5 { background: radial-gradient(circle, rgba(129,140,248,.45), rgba(51,65,85,.3) 60%, transparent 100%); }
+
+    /* Theme 8: Sakura Rose */
+    body[data-theme="sakura"] { --theme-bg: radial-gradient(ellipse at 50% 0%, #46152f 0%, #250c1b 48%, #10040b 100%); }
+    body[data-theme="sakura"] .blob-1 { background: radial-gradient(circle, rgba(251,113,133,.9), rgba(225,29,72,.42) 55%, transparent 100%); }
+    body[data-theme="sakura"] .blob-2 { background: radial-gradient(circle, rgba(244,114,182,.88), rgba(190,24,93,.42) 55%, transparent 100%); }
+    body[data-theme="sakura"] .blob-3 { background: radial-gradient(circle, rgba(216,180,254,.78), rgba(147,51,234,.35) 55%, transparent 100%); }
+    body[data-theme="sakura"] .blob-4 { background: radial-gradient(circle, rgba(253,186,116,.68), rgba(244,63,94,.32) 55%, transparent 100%); }
+    body[data-theme="sakura"] .blob-5 { background: radial-gradient(circle, rgba(249,168,212,.8), rgba(219,39,119,.36) 60%, transparent 100%); }
+
+    /* UI density and shape choices */
+    body[data-ui-style="fluid"] { --ui-card-radius: 24px; }
+    body[data-ui-style="compact"] { --ui-card-radius: 16px; font-size: 15px; }
+    body[data-ui-style="minimal"] { --ui-card-radius: 12px; }
+    body[data-ui-style="minimal"] .aurora-blob { animation: none !important; opacity: .18 !important; }
+    body[data-ui-style="soft"] { --ui-card-radius: 30px; }
+    body[data-ui-style="soft"] .glass-crystal { backdrop-filter: blur(30px) saturate(180%); }
+    body[data-ui-style] .glass-crystal,
+    body[data-ui-style] .acleda-card { border-radius: var(--ui-card-radius) !important; }
+
     /* ================= BUTTONS & GRADIENTS ================= */
     .btn-gradient-primary {
       background: linear-gradient(135deg, #2563EB 0%, #06B6D4 100%);
@@ -1092,22 +1134,22 @@
               <h2 class="font-extrabold text-xl text-white tracking-wider">VANN SITHA TRADING</h2>
               <div class="inline-flex items-center gap-2 mt-1.5 px-3 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20">
                 <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
-                <p class="text-xs text-cyan-300 font-medium" data-i18n="loginPortalSubtitle">ចូលបំពេញការងារ (Employee Sign In)</p>
+                <p class="text-xs text-cyan-300 font-medium" data-i18n="loginPortalSubtitle">ចូលប្រើប្រាស់</p>
               </div>
             </div>
           </div>
 
           <!-- Sign In Form -->
-          <form id="employeeLoginForm" onsubmit="handleEmployeeLogin(event)" class="space-y-4">
+          <form id="employeeLoginForm" onsubmit="handleEmployeeLogin(event)" class="space-y-3.5">
             
             <!-- Phone Number or Member ID -->
             <div>
               <label class="block text-xs font-semibold text-slate-200 mb-1.5" data-i18n="lblPhoneOrCode">
-                លេខទូរស័ព្ទ (Phone Number) ឬ លេខកូដសម្គាល់ ID *
+                លេខទូរសព្ទ ឬ ID
               </label>
               <div class="relative group">
                 <i data-lucide="phone" class="w-4 h-4 text-slate-400 group-focus-within:text-cyan-400 absolute left-3.5 top-3.5 transition"></i>
-                <input type="text" id="loginInputCode" required placeholder="បញ្ចូលលេខទូរស័ព្ទ (ឧ. 012345678) ឬកូដ ID" class="w-full text-xs font-semibold bg-slate-950/70 border border-white/15 rounded-xl pl-10 pr-3.5 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-500/15 transition shadow-inner">
+                <input type="text" id="loginInputCode" required data-i18n-placeholder="phoneOrCodePlaceholder" placeholder="បញ្ចូលលេខទូរសព្ទ ឬ ID" class="w-full text-xs font-semibold bg-slate-950/70 border border-white/15 rounded-xl pl-10 pr-3.5 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-500/15 transition shadow-inner">
               </div>
             </div>
 
@@ -1115,45 +1157,34 @@
             <div>
               <div class="flex items-center justify-between mb-1.5">
                 <label class="text-xs font-semibold text-slate-200" data-i18n="lblPassword">
-                  លេខកូដសម្ងាត់ (Password) *
+                  លេខសម្ងាត់
                 </label>
               </div>
               <div class="relative group">
                 <i data-lucide="lock" class="w-4 h-4 text-slate-400 group-focus-within:text-cyan-400 absolute left-3.5 top-3.5 transition"></i>
-                <input type="password" id="loginInputPassword" required placeholder="បញ្ចូល Password របស់អ្នក (Default: 1234)" class="w-full text-xs font-semibold bg-slate-950/70 border border-white/15 rounded-xl pl-10 pr-10 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-500/15 transition shadow-inner">
+                <input type="password" id="loginInputPassword" required data-i18n-placeholder="passwordPlaceholder" placeholder="បញ្ចូលលេខសម្ងាត់" class="w-full text-xs font-semibold bg-slate-950/70 border border-white/15 rounded-xl pl-10 pr-10 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-500/15 transition shadow-inner">
                 <button type="button" onclick="togglePasswordVisibility('loginInputPassword', 'togglePwdIcon')" class="absolute right-3.5 top-3 text-slate-400 hover:text-white transition">
                   <i data-lucide="eye" id="togglePwdIcon" class="w-4 h-4"></i>
                 </button>
               </div>
-              <p class="text-[11px] text-slate-400 mt-1.5" data-i18n="pwdNotice">
-                * បញ្ចូល Password ដែលបានកំណត់ពេលចុះឈ្មោះ (Default: <code class="font-mono text-cyan-400 font-bold">1234</code>)
-              </p>
             </div>
 
             <!-- Gradient Sign In Button with beam shimmer -->
             <button type="submit" class="w-full beam-shimmer relative rounded-xl font-bold py-3.5 px-4 text-xs text-white shadow-[0_10px_25px_rgba(6,182,212,0.35)] bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:via-blue-500 hover:to-indigo-500 active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-2 cursor-pointer">
               <i data-lucide="log-in" class="w-4 h-4 text-cyan-200"></i>
-              <span data-i18n="btnSignIn">ចូលបំពេញការងារ (Sign In)</span>
+              <span data-i18n="btnSignIn">ចូលប្រើ</span>
             </button>
           </form>
 
           <!-- Staff Self Registration CTA -->
-          <div class="p-3.5 rounded-2xl bg-slate-950/60 backdrop-blur-md border border-white/10 text-left space-y-2.5 hover:border-cyan-500/30 transition">
-            <div class="flex items-center justify-between">
-              <div class="font-semibold text-xs text-white flex items-center gap-1.5">
+          <div class="p-3 rounded-2xl bg-slate-950/60 backdrop-blur-md border border-white/10 hover:border-cyan-500/30 transition flex items-center justify-between gap-3">
+              <div class="font-semibold text-xs text-white flex items-center gap-2 min-w-0">
                 <i data-lucide="user-plus" class="w-3.5 h-3.5 text-cyan-400"></i>
-                <span data-i18n="selfRegTitle">មិនទាន់មានគណនីបុគ្គលិក?</span>
+                <span data-i18n="selfRegTitle">មិនទាន់មានគណនី?</span>
               </div>
-              <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 font-semibold flex items-center gap-1">
-                <i data-lucide="smartphone" class="w-3 h-3"></i> 1 Device
-              </span>
-            </div>
-            <p class="text-[11px] text-slate-400 leading-relaxed" data-i18n="selfRegDesc">
-              ចុះឈ្មោះដោយខ្លួនឯងនៅលើទូរស័ព្ទនេះ។ បន្ទាប់ពី Admin ពិនិត្យនិងអនុម័ត (Approve) អ្នកអាចចូលបំពេញការងារបានភ្លាមៗ។
-            </p>
-            <button type="button" onclick="openSelfRegisterModal()" class="w-full py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-cyan-300 hover:text-white border border-cyan-400/30 text-xs font-bold transition flex items-center justify-center gap-2 active:scale-95 shadow-sm cursor-pointer">
+            <button type="button" onclick="openSelfRegisterModal()" class="py-2 px-3 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 hover:text-white border border-cyan-400/30 text-[11px] font-bold transition flex items-center justify-center gap-1.5 active:scale-95 shadow-sm cursor-pointer whitespace-nowrap">
               <i data-lucide="user-check" class="w-4 h-4 text-cyan-400"></i>
-              <span data-i18n="btnSelfRegister">ចុះឈ្មោះគណនីថ្មី (Self Register)</span>
+              <span data-i18n="btnSelfRegister">បង្កើតគណនីថ្មី</span>
             </button>
           </div>
 
@@ -2343,9 +2374,9 @@
 
   </div>
 
-  <!-- ================= THEME SELECTOR MODAL (4 CRYSTAL GLASS THEMES) ================= -->
+  <!-- ================= UI STYLE & COLOR SELECTOR ================= -->
   <div id="themeSelectorModal" class="fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-xl hidden flex items-center justify-center p-4">
-    <div class="glass-crystal w-full max-w-lg rounded-3xl p-6 sm:p-7 border border-white/30 shadow-[0_25px_60px_rgba(0,0,0,0.8)] relative animate-in fade-in zoom-in-95 duration-200">
+    <div class="glass-crystal w-full max-w-2xl max-h-[88vh] overflow-y-auto rounded-3xl p-5 sm:p-7 border border-white/30 shadow-[0_25px_60px_rgba(0,0,0,0.8)] relative animate-in fade-in zoom-in-95 duration-200">
       
       <!-- Modal Header -->
       <div class="flex items-center justify-between pb-4 border-b border-white/15 mb-5">
@@ -2355,10 +2386,10 @@
           </div>
           <div>
             <h3 class="text-base font-extrabold text-white flex items-center gap-2">
-              <span>ជ្រើសរើសស្បែកកញ្ចក់រាវ</span>
-              <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-400/20 text-cyan-300 border border-cyan-400/40">Liquid Glass</span>
+              <span data-i18n="themeModalTitle">រចនាបថ និងពណ៌</span>
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-400/20 text-cyan-300 border border-cyan-400/40">8 COLORS</span>
             </h3>
-            <p class="text-xs text-slate-300">ជ្រើសរើសពណ៌កញ្ចក់ថ្លា និងចលនា Color Gradient តាមចំណង់ចំណូលចិត្ត</p>
+            <p class="text-xs text-slate-300" data-i18n="themeModalDesc">ជ្រើសរើសទម្រង់ UI និងពណ៌ដែលអ្នកពេញចិត្ត</p>
           </div>
         </div>
         <button onclick="closeThemeSelectorModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition">
@@ -2366,7 +2397,27 @@
         </button>
       </div>
 
-      <!-- 4 Theme Option Cards -->
+      <h4 class="text-[11px] font-bold text-slate-300 uppercase tracking-[0.16em] mb-2" data-i18n="uiStyleTitle">ទម្រង់ UI</h4>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-5">
+        <button type="button" onclick="selectUiStyle('fluid')" id="uiStyleCard-fluid" class="p-3 rounded-2xl border-2 border-cyan-400 bg-white/5 text-left transition hover:bg-white/10">
+          <div class="flex justify-between items-center"><span class="text-xs font-bold text-white">Fluid</span><span class="ui-style-check-icon text-cyan-400"><i data-lucide="check-circle-2" class="w-4 h-4"></i></span></div>
+          <div class="mt-2 h-5 rounded-xl bg-gradient-to-r from-cyan-500/60 to-blue-500/60"></div>
+        </button>
+        <button type="button" onclick="selectUiStyle('compact')" id="uiStyleCard-compact" class="p-3 rounded-xl border-2 border-white/15 bg-white/5 text-left transition hover:bg-white/10">
+          <div class="flex justify-between items-center"><span class="text-xs font-bold text-white">Compact</span><span class="ui-style-check-icon text-transparent"><i data-lucide="check-circle-2" class="w-4 h-4"></i></span></div>
+          <div class="mt-2 h-5 rounded-md bg-gradient-to-r from-emerald-500/60 to-cyan-500/60"></div>
+        </button>
+        <button type="button" onclick="selectUiStyle('minimal')" id="uiStyleCard-minimal" class="p-3 rounded-lg border-2 border-white/15 bg-white/5 text-left transition hover:bg-white/10">
+          <div class="flex justify-between items-center"><span class="text-xs font-bold text-white">Minimal</span><span class="ui-style-check-icon text-transparent"><i data-lucide="check-circle-2" class="w-4 h-4"></i></span></div>
+          <div class="mt-2 h-5 rounded bg-slate-500/50"></div>
+        </button>
+        <button type="button" onclick="selectUiStyle('soft')" id="uiStyleCard-soft" class="p-3 rounded-[22px] border-2 border-white/15 bg-white/5 text-left transition hover:bg-white/10">
+          <div class="flex justify-between items-center"><span class="text-xs font-bold text-white">Soft</span><span class="ui-style-check-icon text-transparent"><i data-lucide="check-circle-2" class="w-4 h-4"></i></span></div>
+          <div class="mt-2 h-5 rounded-full bg-gradient-to-r from-pink-500/55 to-violet-500/55"></div>
+        </button>
+      </div>
+
+      <h4 class="text-[11px] font-bold text-slate-300 uppercase tracking-[0.16em] mb-2" data-i18n="colorThemeTitle">ពណ៌ Theme</h4>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-6">
         
         <!-- Theme 1: Crystal Aurora -->
@@ -2382,7 +2433,6 @@
               CRYSTAL AURORA
             </div>
           </div>
-          <p class="text-[11px] text-slate-300 leading-snug">ពន្លឺឥន្ធនូពេជ្រថ្លាចាំងរលកពណ៌ខៀវ ផ្ទៃមេឃ និងត្បូង</p>
         </div>
 
         <!-- Theme 2: Cyber Neon -->
@@ -2398,7 +2448,6 @@
               CYBER NEON
             </div>
           </div>
-          <p class="text-[11px] text-slate-300 leading-snug">កញ្ចក់រាត្រីលំហរអគ្គិសនី Neon ខៀវភ្លឺ និងផ្កាឈូក</p>
         </div>
 
         <!-- Theme 3: Emerald Mint -->
@@ -2414,7 +2463,6 @@
               EMERALD JADE
             </div>
           </div>
-          <p class="text-[11px] text-slate-300 leading-snug">កញ្ចក់ត្បូងមរកតបៃតងរាវ លាយទឹកប្រាក់និងពន្លឺមាស</p>
         </div>
 
         <!-- Theme 4: Sunset Twilight -->
@@ -2430,7 +2478,26 @@
               SUNSET TWILIGHT
             </div>
           </div>
-          <p class="text-[11px] text-slate-300 leading-snug">កញ្ចក់ព្រលប់ថ្ងៃលិច ក្រហមផ្កាថ្ម ទឹកក្រូច និងស្វាយកក់ក្តៅ</p>
+        </div>
+
+        <div onclick="selectTheme('ocean')" id="themeCard-ocean" class="theme-option-card cursor-pointer p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] border-white/15 bg-gradient-to-br from-sky-950/70 via-blue-950/60 to-cyan-950/60">
+          <div class="flex items-center justify-between mb-2"><span class="text-xs font-bold text-white">🌊 Ocean Blue</span><span class="theme-check-icon text-transparent"><i data-lucide="check-circle-2" class="w-4 h-4"></i></span></div>
+          <div class="h-10 rounded-xl bg-gradient-to-r from-blue-600 via-sky-400 to-cyan-300"></div>
+        </div>
+
+        <div onclick="selectTheme('royal')" id="themeCard-royal" class="theme-option-card cursor-pointer p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] border-white/15 bg-gradient-to-br from-violet-950/70 via-purple-950/60 to-fuchsia-950/60">
+          <div class="flex items-center justify-between mb-2"><span class="text-xs font-bold text-white">👑 Royal Violet</span><span class="theme-check-icon text-transparent"><i data-lucide="check-circle-2" class="w-4 h-4"></i></span></div>
+          <div class="h-10 rounded-xl bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500"></div>
+        </div>
+
+        <div onclick="selectTheme('graphite')" id="themeCard-graphite" class="theme-option-card cursor-pointer p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] border-white/15 bg-gradient-to-br from-slate-800/80 via-slate-950/80 to-gray-900/80">
+          <div class="flex items-center justify-between mb-2"><span class="text-xs font-bold text-white">⚫ Graphite</span><span class="theme-check-icon text-transparent"><i data-lucide="check-circle-2" class="w-4 h-4"></i></span></div>
+          <div class="h-10 rounded-xl bg-gradient-to-r from-slate-600 via-slate-400 to-teal-400"></div>
+        </div>
+
+        <div onclick="selectTheme('sakura')" id="themeCard-sakura" class="theme-option-card cursor-pointer p-4 rounded-2xl border-2 transition-all duration-300 hover:scale-[1.02] border-white/15 bg-gradient-to-br from-rose-950/70 via-pink-950/60 to-purple-950/60">
+          <div class="flex items-center justify-between mb-2"><span class="text-xs font-bold text-white">🌸 Sakura Rose</span><span class="theme-check-icon text-transparent"><i data-lucide="check-circle-2" class="w-4 h-4"></i></span></div>
+          <div class="h-10 rounded-xl bg-gradient-to-r from-rose-400 via-pink-400 to-violet-400"></div>
         </div>
 
       </div>
@@ -2439,7 +2506,7 @@
       <div class="flex justify-end">
         <button onclick="closeThemeSelectorModal()" class="btn-gradient-primary px-6 py-2.5 rounded-xl text-xs font-bold text-white shadow-lg shadow-cyan-500/25 flex items-center gap-2">
           <i data-lucide="check" class="w-4 h-4"></i>
-          <span>យល់ព្រម (Done)</span>
+          <span data-i18n="doneTheme">រួចរាល់</span>
         </button>
       </div>
 
@@ -2458,10 +2525,10 @@
           </div>
           <div>
             <h3 class="text-base font-extrabold text-white flex items-center gap-2">
-              <span>ជ្រើសរើសពុម្ពអក្សរខ្មែរ (Khmer Fonts)</span>
+              <span data-i18n="fontModalTitle">ពុម្ពអក្សរខ្មែរ</span>
               <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-400/20 text-cyan-300 border border-cyan-400/40">Typography</span>
             </h3>
-            <p class="text-xs text-slate-300">ផ្លាស់ប្តូរម៉ូតអក្សរខ្មែរស្អាតៗ និងទំនើបតាមចំណង់ចំណូលចិត្ត</p>
+            <p class="text-xs text-slate-300" data-i18n="fontModalDesc">ជ្រើសរើសពុម្ពអក្សរដែលងាយអាន និងសមនឹងអ្នក</p>
           </div>
         </div>
         <button onclick="closeFontSelectorModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition">
@@ -2477,7 +2544,7 @@
           <div class="flex items-center justify-between mb-1">
             <div class="flex items-center gap-2">
               <span class="text-xs font-bold text-white">🌟 Kantumruy Pro (Modern App)</span>
-              <span class="px-2 py-0.5 rounded-md text-[9px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">ណែនាំ</span>
+              <span class="px-2 py-0.5 rounded-md text-[9px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-400/30" data-i18n="recommended">ណែនាំ</span>
             </div>
             <span class="font-check-icon text-cyan-400"><i data-lucide="check-circle-2" class="w-4 h-4"></i></span>
           </div>
@@ -2531,7 +2598,7 @@
       <div class="flex justify-end">
         <button onclick="closeFontSelectorModal()" class="btn-gradient-primary px-6 py-2.5 rounded-xl text-xs font-bold text-white shadow-lg shadow-cyan-500/25 flex items-center gap-2">
           <i data-lucide="check" class="w-4 h-4"></i>
-          <span>យល់ព្រម (Done)</span>
+          <span data-i18n="doneTheme">រួចរាល់</span>
         </button>
       </div>
 
@@ -3020,7 +3087,7 @@
             <button type="button" onclick="closeAppDrawerMenu(); openLeaveRequestModal();" class="w-full p-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 to-orange-500/15 hover:from-amber-500/25 hover:to-orange-500/25 border border-amber-400/30 flex items-center justify-between transition text-left group cursor-pointer shadow-xs">
               <span class="text-xs font-bold text-amber-300 flex items-center gap-2">
                 <i data-lucide="file-plus-2" class="w-4 h-4 text-amber-400"></i>
-                <span>សុំច្បាប់ ឬសុំមកយឺត (Request)</span>
+                <span data-i18n="requestLeave">សុំច្បាប់ ឬមកយឺត</span>
               </span>
               <span class="text-[10px] px-2 py-0.5 rounded-md bg-amber-400/20 text-amber-200 font-bold">New</span>
             </button>
@@ -3029,7 +3096,7 @@
             <button type="button" onclick="closeAppDrawerMenu(); openLeaveRequestModal('history');" class="w-full p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-between transition text-left group cursor-pointer">
               <span class="text-xs font-semibold text-slate-200 flex items-center gap-2">
                 <i data-lucide="bell" class="w-4 h-4 text-cyan-400"></i>
-                <span>ស្ថានភាពសំណើរបស់ខ្ញុំ</span>
+                <span data-i18n="myRequests">ស្ថានភាពសំណើរបស់ខ្ញុំ</span>
               </span>
               <span id="drawerMyRequestsStatusBadge" class="hidden text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold">OK</span>
             </button>
@@ -3038,18 +3105,18 @@
             <button type="button" onclick="closeAppDrawerMenu(); showStaffHistoryView();" class="w-full p-2.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-400/20 flex items-center justify-between transition text-left group cursor-pointer">
               <span class="text-xs font-bold text-cyan-300 flex items-center gap-2">
                 <i data-lucide="clipboard-list" class="w-4 h-4 text-cyan-400"></i>
-                <span>កំណត់ត្រាវត្តមានរបស់ខ្ញុំ</span>
+                <span data-i18n="myAttendance">កំណត់ត្រាវត្តមានរបស់ខ្ញុំ</span>
               </span>
               <span class="text-[10px] px-2 py-0.5 rounded-md bg-cyan-500/20 text-cyan-200 font-mono">Week / Month</span>
             </button>
 
-            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 block pt-2">ការកំណត់ទូទៅ (General Settings)</span>
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 block pt-2" data-i18n="generalSettings">ការកំណត់ទូទៅ</span>
 
             <!-- Language Switcher in Drawer -->
             <div class="p-2.5 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between">
               <span class="text-xs font-semibold text-slate-200 flex items-center gap-2">
                 <i data-lucide="globe" class="w-4 h-4 text-cyan-400"></i>
-                <span>ភាសា (Language)</span>
+                <span data-i18n="languageLabel">ភាសា</span>
               </span>
               <div class="flex items-center p-0.5 rounded-lg bg-black/40 border border-white/10 notranslate" translate="no">
                 <button type="button" id="drawerLangKmBtn" onclick="setLanguage('km')" class="px-2 py-1 rounded-md text-[11px] font-bold transition flex items-center gap-1 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-xs">
@@ -3065,7 +3132,7 @@
             <button type="button" onclick="closeAppDrawerMenu(); openThemeSelectorModal();" class="w-full p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-between transition text-left group">
               <span class="text-xs font-semibold text-slate-200 flex items-center gap-2">
                 <i data-lucide="palette" class="w-4 h-4 text-purple-400"></i>
-                <span>ប្តូរពណ៌ស្បែក (Themes)</span>
+                <span data-i18n="themesLabel">រចនាបថ និងពណ៌</span>
               </span>
               <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500 group-hover:text-white transition"></i>
             </button>
@@ -3074,20 +3141,20 @@
             <button type="button" onclick="closeAppDrawerMenu(); openFontSelectorModal();" class="w-full p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-between transition text-left group">
               <span class="text-xs font-semibold text-slate-200 flex items-center gap-2">
                 <i data-lucide="type" class="w-4 h-4 text-pink-400"></i>
-                <span>ពុម្ពអក្សរខ្មែរ (Khmer Fonts)</span>
+                <span data-i18n="fontsLabel">ពុម្ពអក្សរខ្មែរ</span>
               </span>
               <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500 group-hover:text-white transition"></i>
             </button>
 
             <div class="pt-2">
-              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 block">ប្រព័ន្ធគ្រប់គ្រង (Admin & System)</span>
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 block" data-i18n="adminSystem">ប្រព័ន្ធគ្រប់គ្រង</span>
             </div>
 
             <!-- Admin Portal PIN Access -->
             <button type="button" onclick="closeAppDrawerMenu(); promptAdminPin();" class="w-full p-2.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-400/30 flex items-center justify-between transition text-left group">
               <span class="text-xs font-bold text-cyan-300 flex items-center gap-2">
                 <i data-lucide="shield" class="w-4 h-4 text-cyan-400"></i>
-                <span>ចូលផ្នែក Admin (Admin Portal)</span>
+                <span data-i18n="adminPortalLabel">ចូលផ្នែក Admin</span>
               </span>
               <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-400/20 text-cyan-200 font-bold">PIN</span>
             </button>
@@ -3096,7 +3163,7 @@
             <button type="button" onclick="closeAppDrawerMenu(); openTelegramNoticeGroup();" class="w-full p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-between transition text-left group">
               <span class="text-xs font-semibold text-slate-200 flex items-center gap-2">
                 <i data-lucide="send" class="w-4 h-4 text-sky-400"></i>
-                <span>Telegram ក្រុមហ៊ុន</span>
+                <span data-i18n="companyTelegram">Telegram ក្រុមហ៊ុន</span>
               </span>
               <i data-lucide="external-link" class="w-3.5 h-3.5 text-slate-500"></i>
             </button>
@@ -3109,13 +3176,13 @@
             <i data-lucide="log-out" class="w-4 h-4"></i>
             <span>ចាកចេញពីគណនី (Log Out)</span>
           </button>
-          <p class="text-[10px] text-slate-500 text-center font-mono">VST Attendance App • Version 25.0</p>
+          <p class="text-[10px] text-slate-500 text-center font-mono">VST Attendance App • Version 27.0</p>
         </div>
 
       </div>
     </div>
   </div>
 
-  <script src="/app.js?v=26.0"></script>
+  <script src="/app.js?v=27.0"></script>
 </body>
 </html>
