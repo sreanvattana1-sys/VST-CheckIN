@@ -669,7 +669,7 @@ function getSavedStaffFromStorage() {
 
 function initStaffProfile() {
   const saved = getSavedStaffFromStorage();
-  if (saved) {
+  if (saved && (saved.code || saved.id || saved.name)) {
     setStaffProfile(saved);
     showStaffView();
     return true;
@@ -677,7 +677,7 @@ function initStaffProfile() {
 
   const savedCode = localStorage.getItem('my_attendance_member_code');
   if (savedCode && publicInfo && publicInfo.members && publicInfo.members.length > 0) {
-    const found = publicInfo.members.find(m => m.code.toUpperCase() === savedCode.toUpperCase());
+    const found = publicInfo.members.find(m => m.code && m.code.toUpperCase() === savedCode.toUpperCase());
     if (found) {
       setStaffProfile(found);
       showStaffView();
@@ -685,18 +685,10 @@ function initStaffProfile() {
     }
   }
 
-  // If publicInfo loaded, default to Srean Vattana or the first member
-  if (publicInfo && publicInfo.members && publicInfo.members.length > 0) {
-    const vattana = publicInfo.members.find(m => (m.name && m.name.toLowerCase().includes('vattana')) || m.code === 'MEM-003');
-    const target = vattana || publicInfo.members[0];
-    setStaffProfile(target);
-    showStaffView();
-    return true;
-  }
-
-  // Default: ALWAYS show staffView on refresh
-  showStaffView();
-  return true;
+  // Strict session check: if not logged in, stay on loginView (do NOT auto-login to staff view)
+  currentStaff = null;
+  showLoginView();
+  return false;
 }
 
 function showLoginView() {
