@@ -3,10 +3,13 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const { createClient } = require('@libsql/client');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const ENV_ADMIN_PIN = (process.env.ADMIN_PIN || '').trim();
+const ENV_TELEGRAM_BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 
 // Initialize Database (Cloud Turso or local SQLite fallback)
 let client;
@@ -168,14 +171,14 @@ async function initDb() {
     ['office_lat', '11.536445'],
     ['office_lng', '104.886851'],
     ['allowed_radius', '200'], // meters
-    ['telegram_token', '8879591305:AAFICQRiKd-ryiJ-e66CZpEPBi4PxoNuc-s'],
+    ['telegram_token', ''],
     ['telegram_chat_id', '-5037746251'],
     ['telegram_enabled', 'true'],
     ['telegram_leave_chat_id', '-5352852483'],
     ['telegram_leave_enabled', 'true'],
     ['office_qr_token', 'OFFICE-ATTENDANCE-HQ-2026'],
     ['company_name', 'VANN SITHA TRADING CO.,LTD'],
-    ['admin_pin', '1234'],
+    ['admin_pin', ''],
     ['wifi_check_enabled', 'true'],
     ['company_wifi_ips', '45.119.135.171, 36.37.169.199']
   ];
@@ -367,6 +370,17 @@ async function getSetting(key) {
   return row ? row.value : null;
 }
 
+async function getTelegramToken() {
+  return ENV_TELEGRAM_BOT_TOKEN || await getSetting('telegram_token');
+}
+
+function safeEqualSecret(candidate, expected) {
+  const candidateBuffer = Buffer.from(String(candidate || ''), 'utf8');
+  const expectedBuffer = Buffer.from(String(expected || ''), 'utf8');
+  if (!expectedBuffer.length || candidateBuffer.length !== expectedBuffer.length) return false;
+  return crypto.timingSafeEqual(candidateBuffer, expectedBuffer);
+}
+
 // Helper: Escape HTML special characters for Telegram HTML parse_mode
 function escapeTg(str) {
   if (str === null || str === undefined) return '';
@@ -378,7 +392,7 @@ function escapeTg(str) {
 
 // Helper: Send Telegram notification to OLD / MAIN Group (-5037746251)
 async function sendTelegramMessage(text) {
-  const token = await getSetting('telegram_token');
+  const token = await getTelegramToken();
   const chatId = await getSetting('telegram_chat_id');
   const enabled = await getSetting('telegram_enabled');
 
@@ -410,7 +424,7 @@ async function sendTelegramMessage(text) {
 
 // Helper: Send Telegram notification to dedicated Leave / Late Permissions Group (-5352852483)
 async function sendTelegramLeaveMessage(text, replyMarkup = null) {
-  const token = await getSetting('telegram_token');
+  const token = await getTelegramToken();
   const leaveChatId = await getSetting('telegram_leave_chat_id');
   const leaveEnabled = await getSetting('telegram_leave_enabled');
 
@@ -644,7 +658,7 @@ async function startTelegramPolling() {
 
   while (tgPollingActive) {
     try {
-      const token = await getSetting('telegram_token');
+      const token = await getTelegramToken();
       if (!token) {
         await new Promise(r => setTimeout(r, 6000));
         continue;
@@ -675,7 +689,7 @@ async function startTelegramPolling() {
 // Webhook for Telegram updates (Serverless & Direct Callback Support)
 app.post('/api/telegram-webhook', async (req, res) => {
   try {
-    const token = await getSetting('telegram_token');
+    const token = await getTelegramToken();
     const update = req.body;
     if (update && update.callback_query && token) {
       await handleTelegramCallbackQuery(update.callback_query, token);
@@ -753,8 +767,8 @@ app.get('/api/network-status', async (req, res) => {
 // Admin verify PIN
 app.post('/api/admin/verify-pin', async (req, res) => {
   const { pin } = req.body;
-  const currentPin = (await getSetting('admin_pin')) || '1234';
-  if (pin === currentPin) {
+  const currentPin = ENV_ADMIN_PIN || await getSetting('admin_pin');
+  if (safeEqualSecret(pin, currentPin)) {
     res.json({ success: true });
   } else {
     res.status(401).json({ error: 'លេខកូដសម្ងាត់ PIN មិនត្រឹមត្រូវទេ!' });
@@ -1547,8 +1561,11 @@ app.get('/api/settings', async (req, res) => {
   const rows = await db.all('SELECT * FROM settings');
   const settingsObj = {};
   for (const r of rows) {
+    if (r.key === 'telegram_token' || r.key === 'admin_pin') continue;
     settingsObj[r.key] = r.value;
   }
+  settingsObj.telegram_token_configured = Boolean(await getTelegramToken());
+  settingsObj.admin_pin_managed = Boolean(ENV_ADMIN_PIN);
   res.json(settingsObj);
 });
 
@@ -1570,14 +1587,18 @@ app.post('/api/settings', async (req, res) => {
   await saveSetting('office_lat', office_lat);
   await saveSetting('office_lng', office_lng);
   await saveSetting('allowed_radius', allowed_radius);
-  if (telegram_token !== undefined && telegram_token !== '') await saveSetting('telegram_token', telegram_token);
+  if (!ENV_TELEGRAM_BOT_TOKEN && telegram_token !== undefined && telegram_token !== '') {
+    await saveSetting('telegram_token', telegram_token);
+  }
   await saveSetting('telegram_chat_id', telegram_chat_id);
   await saveSetting('telegram_enabled', telegram_enabled);
   await saveSetting('telegram_leave_chat_id', telegram_leave_chat_id);
   await saveSetting('telegram_leave_enabled', telegram_leave_enabled);
   await saveSetting('office_qr_token', office_qr_token);
   await saveSetting('company_name', company_name);
-  await saveSetting('admin_pin', admin_pin);
+  if (!ENV_ADMIN_PIN && admin_pin !== undefined && admin_pin !== '') {
+    await saveSetting('admin_pin', admin_pin);
+  }
   await saveSetting('wifi_check_enabled', wifi_check_enabled);
   await saveSetting('company_wifi_ips', company_wifi_ips);
 
@@ -1855,7 +1876,7 @@ app.post('/api/leave-requests/:id/review', async (req, res) => {
 
     // Remove buttons and update message in the NEW GROUP if tg_message_id is known
     if (existing.tg_message_id && existing.tg_chat_id) {
-      getSetting('telegram_token').then(tok => {
+      getTelegramToken().then(tok => {
         if (tok) removeTelegramInlineButtons(tok, existing.tg_chat_id, existing.tg_message_id);
       }).catch(e => console.error(e));
     }
@@ -2035,7 +2056,7 @@ setInterval(async () => {
   // Trigger automatically at 17:30 or later if not yet sent today
   if (hours >= 17 && minutes >= 30 && lastAutoSentDate !== todayDateStr) {
     const enabled = await getSetting('telegram_enabled');
-    const token = await getSetting('telegram_token');
+    const token = await getTelegramToken();
     const chatId = await getSetting('telegram_chat_id');
 
     if (enabled === 'true' && token && chatId) {
@@ -2056,7 +2077,7 @@ setInterval(async () => {
 // Webhook endpoint (alternative to long polling for serverless/Vercel)
 app.post('/api/telegram-webhook', async (req, res) => {
   try {
-    const token = await getSetting('telegram_token');
+    const token = await getTelegramToken();
     const update = req.body;
     if (update && update.callback_query && token) {
       await handleTelegramCallbackQuery(update.callback_query, token);
