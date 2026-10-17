@@ -122,6 +122,7 @@ const translations = {
     loginPortalSubtitle: "ចូលបំពេញការងារ (Sign In)",
     tabSignIn: "ចូលប្រើ (Sign In)",
     tabRegister: "ចុះឈ្មោះ",
+    lblPhoneOrCode: "លេខទូរស័ព្ទ (Phone Number) ឬ លេខកូដសម្គាល់ ID *",
     lblSelectOrInput: "ជ្រើសរើសឈ្មោះបុគ្គលិក",
     orByCode: "ឬ វាយលេខកូដសម្គាល់ ID",
     lblPassword: "លេខកូដសម្ងាត់ (Password) *",
@@ -255,6 +256,7 @@ const translations = {
     loginPortalSubtitle: "Employee Sign-In",
     tabSignIn: "Sign In",
     tabRegister: "Registration",
+    lblPhoneOrCode: "Phone Number or Member ID *",
     lblSelectOrInput: "Select Your Name",
     orByCode: "Or Enter Member ID",
     lblPassword: "Password *",
@@ -337,6 +339,19 @@ function setLanguage(lang) {
     }
   }
 
+  // Update Drawer Language Switcher Buttons
+  const drKm = document.getElementById('drawerLangKmBtn');
+  const drEn = document.getElementById('drawerLangEnBtn');
+  if (drKm && drEn) {
+    if (lang === 'km') {
+      drKm.className = 'px-2 py-1 rounded-md text-[11px] font-bold transition flex items-center gap-1 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-xs';
+      drEn.className = 'px-2 py-1 rounded-md text-[11px] font-medium text-slate-400 hover:text-white transition flex items-center gap-1';
+    } else {
+      drEn.className = 'px-2 py-1 rounded-md text-[11px] font-bold transition flex items-center gap-1 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-xs';
+      drKm.className = 'px-2 py-1 rounded-md text-[11px] font-medium text-slate-400 hover:text-white transition flex items-center gap-1';
+    }
+  }
+
   // Update all DOM elements with data-i18n
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
@@ -415,6 +430,73 @@ function applyTheme(themeId) {
   if (window.lucide) {
     lucide.createIcons();
   }
+}
+
+// ================= APP SLIDE-OVER DRAWER MENU =================
+function openAppDrawerMenu() {
+  const drawer = document.getElementById('appDrawerMenu');
+  const backdrop = document.getElementById('appDrawerBackdrop');
+  const panel = document.getElementById('appDrawerPanel');
+  if (!drawer) return;
+
+  // Sync Current Staff Profile in Drawer
+  const pSec = document.getElementById('drawerProfileSection');
+  const dName = document.getElementById('drawerStaffName');
+  const dRole = document.getElementById('drawerStaffRole');
+  const dCode = document.getElementById('drawerStaffCode');
+  const dAvatarWrap = document.getElementById('drawerAvatarWrapper');
+  const btnLogout = document.getElementById('btnDrawerLogout');
+
+  if (currentStaff) {
+    if (dName) dName.textContent = currentStaff.name || 'សមាជិក';
+    if (dRole) dRole.textContent = currentStaff.role || 'បុគ្គលិក';
+    if (dCode) dCode.textContent = currentStaff.code || 'MEM-000';
+    if (dAvatarWrap) {
+      if (currentStaff.avatar && currentStaff.avatar.trim()) {
+        dAvatarWrap.innerHTML = `<img src="${currentStaff.avatar}" alt="${currentStaff.name}" class="w-full h-full object-cover rounded-full">`;
+      } else {
+        const initial = currentStaff.name ? currentStaff.name.trim().charAt(0) : 'U';
+        dAvatarWrap.innerHTML = `<span class="font-bold text-white text-sm">${initial}</span>`;
+      }
+    }
+    if (pSec) pSec.classList.remove('hidden');
+    if (btnLogout) btnLogout.classList.remove('hidden');
+  } else {
+    if (pSec) pSec.classList.add('hidden');
+    if (btnLogout) btnLogout.classList.add('hidden');
+  }
+
+  drawer.classList.remove('invisible', 'pointer-events-none');
+  drawer.classList.add('pointer-events-auto', 'opacity-100');
+  if (backdrop) {
+    backdrop.classList.remove('opacity-0');
+    backdrop.classList.add('opacity-100');
+  }
+  if (panel) {
+    panel.classList.remove('translate-x-full');
+    panel.classList.add('translate-x-0');
+  }
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeAppDrawerMenu() {
+  const drawer = document.getElementById('appDrawerMenu');
+  const backdrop = document.getElementById('appDrawerBackdrop');
+  const panel = document.getElementById('appDrawerPanel');
+  if (!drawer) return;
+
+  if (panel) {
+    panel.classList.remove('translate-x-0');
+    panel.classList.add('translate-x-full');
+  }
+  if (backdrop) {
+    backdrop.classList.remove('opacity-100');
+    backdrop.classList.add('opacity-0');
+  }
+  setTimeout(() => {
+    drawer.classList.remove('opacity-100', 'pointer-events-auto');
+    drawer.classList.add('invisible', 'pointer-events-none');
+  }, 280);
 }
 
 function openThemeSelectorModal() {
@@ -575,6 +657,14 @@ async function loadPublicInfo() {
 
     if (selectEl) selectEl.innerHTML = optionsHtml;
     if (loginSelect) loginSelect.innerHTML = optionsHtml;
+
+    const admHistoryMemEl = document.getElementById('adminHistoryMemberFilter');
+    if (admHistoryMemEl) {
+      const prevVal = admHistoryMemEl.value;
+      admHistoryMemEl.innerHTML = '<option value="">-- ' + (currentLang === 'km' ? 'បុគ្គលិកទាំងអស់ (All Members)' : 'All Members') + ' --</option>' +
+        publicInfo.members.map(m => `<option value="${m.code}">${m.name} (${m.code}) - ${m.role || ''}</option>`).join('');
+      if (prevVal) admHistoryMemEl.value = prevVal;
+    }
   } catch (err) {
     console.error('Failed to load public info:', err);
   }
@@ -613,7 +703,7 @@ function getSavedStaffFromStorage() {
 
 function initStaffProfile() {
   const saved = getSavedStaffFromStorage();
-  if (saved) {
+  if (saved && (saved.code || saved.id || saved.name)) {
     setStaffProfile(saved);
     showStaffView();
     return true;
@@ -621,7 +711,7 @@ function initStaffProfile() {
 
   const savedCode = localStorage.getItem('my_attendance_member_code');
   if (savedCode && publicInfo && publicInfo.members && publicInfo.members.length > 0) {
-    const found = publicInfo.members.find(m => m.code.toUpperCase() === savedCode.toUpperCase());
+    const found = publicInfo.members.find(m => m.code && m.code.toUpperCase() === savedCode.toUpperCase());
     if (found) {
       setStaffProfile(found);
       showStaffView();
@@ -629,26 +719,80 @@ function initStaffProfile() {
     }
   }
 
-  // If publicInfo loaded, default to Srean Vattana or the first member
-  if (publicInfo && publicInfo.members && publicInfo.members.length > 0) {
-    const vattana = publicInfo.members.find(m => (m.name && m.name.toLowerCase().includes('vattana')) || m.code === 'MEM-003');
-    const target = vattana || publicInfo.members[0];
-    setStaffProfile(target);
-    showStaffView();
-    return true;
-  }
+  // Strict session check: if not logged in, stay on loginView (do NOT auto-login to staff view)
+  currentStaff = null;
+  showLoginView();
+  return false;
+}
 
-  // Default: ALWAYS show staffView on refresh
-  showStaffView();
-  return true;
+function getKhCurrentDate() {
+  const now = new Date();
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  return new Date(utc + (3600000 * 7));
+}
+
+function getKhDateString(d = getKhCurrentDate()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function getKhMonthString(d = getKhCurrentDate()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+}
+
+function getKhWeekRange(d = getKhCurrentDate()) {
+  const curr = new Date(d);
+  const day = curr.getDay(); // 0: Sun, 1: Mon, ... 6: Sat
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  
+  const monday = new Date(curr);
+  monday.setDate(curr.getDate() + diffToMonday);
+  
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  
+  return {
+    startDate: getKhDateString(monday),
+    endDate: getKhDateString(sunday),
+    monday,
+    sunday
+  };
+}
+
+function toggleBottomNav(visible) {
+  const bNav = document.getElementById('acledaBottomNav');
+  const bWrap = document.getElementById('acledaBottomNavWrapper');
+  if (visible) {
+    if (bNav) bNav.classList.remove('hidden');
+    if (bWrap) bWrap.classList.remove('hidden');
+  } else {
+    if (bNav) bNav.classList.add('hidden');
+    if (bWrap) bWrap.classList.add('hidden');
+  }
+}
+
+function applyViewMotion(el) {
+  if (!el) return;
+  el.classList.remove('view-enter-motion');
+  void el.offsetWidth;
+  el.classList.add('view-enter-motion');
 }
 
 function showLoginView() {
   const loginV = document.getElementById('loginView');
   const staffV = document.getElementById('staffView');
+  const staffHistV = document.getElementById('staffHistoryView');
   const adminV = document.getElementById('adminView');
-  if (loginV) loginV.classList.remove('hidden');
+  if (loginV) {
+    loginV.classList.remove('hidden');
+    applyViewMotion(loginV);
+  }
   if (staffV) staffV.classList.add('hidden');
+  if (staffHistV) staffHistV.classList.add('hidden');
   if (adminV) adminV.classList.add('hidden');
   const btnStaff = document.getElementById('btnSwitchToStaff');
   const btnAdmin = document.getElementById('btnSwitchToAdmin');
@@ -657,16 +801,20 @@ function showLoginView() {
   if (btnAdmin) btnAdmin.classList.remove('hidden');
   if (btnLogout) btnLogout.classList.add('hidden');
 
-  const bNav = document.getElementById('acledaBottomNav');
-  if (bNav) bNav.classList.add('hidden');
+  toggleBottomNav(false);
 }
 
 function showStaffView() {
   const loginV = document.getElementById('loginView');
   const staffV = document.getElementById('staffView');
+  const staffHistV = document.getElementById('staffHistoryView');
   const adminV = document.getElementById('adminView');
   if (loginV) loginV.classList.add('hidden');
-  if (staffV) staffV.classList.remove('hidden');
+  if (staffV) {
+    staffV.classList.remove('hidden');
+    applyViewMotion(staffV);
+  }
+  if (staffHistV) staffHistV.classList.add('hidden');
   if (adminV) adminV.classList.add('hidden');
   const btnStaff = document.getElementById('btnSwitchToStaff');
   const btnAdmin = document.getElementById('btnSwitchToAdmin');
@@ -675,11 +823,253 @@ function showStaffView() {
   if (btnAdmin) btnAdmin.classList.remove('hidden');
   if (btnLogout) btnLogout.classList.remove('hidden');
 
-  const bNav = document.getElementById('acledaBottomNav');
-  if (bNav) bNav.classList.remove('hidden');
+  // Bottom dock active styles: Home active, History inactive
+  const iconHome = document.getElementById('iconBottomNavHome');
+  const textHome = document.getElementById('textBottomNavHome');
+  const iconHist = document.getElementById('iconBottomNavHistory');
+  const textHist = document.getElementById('textBottomNavHistory');
+
+  if (iconHome && textHome) {
+    iconHome.className = 'w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center text-white group-hover:scale-110 transition-transform';
+    textHome.className = 'text-[10px] font-bold mt-1 text-white';
+  }
+  if (iconHist && textHist) {
+    iconHist.className = 'w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-white group-hover:scale-110 transition-transform';
+    textHist.className = 'text-[10px] font-medium mt-1 text-slate-400';
+  }
+
+  toggleBottomNav(true);
   
   if (currentStaff) {
     loadMyAttendanceActivity();
+  }
+}
+
+let staffHistoryCurrentPeriod = 'week';
+
+function showStaffHistoryView() {
+  const loginV = document.getElementById('loginView');
+  const staffV = document.getElementById('staffView');
+  const staffHistV = document.getElementById('staffHistoryView');
+  const adminV = document.getElementById('adminView');
+
+  if (loginV) loginV.classList.add('hidden');
+  if (staffV) staffV.classList.add('hidden');
+  if (staffHistV) {
+    staffHistV.classList.remove('hidden');
+    applyViewMotion(staffHistV);
+  }
+  if (adminV) adminV.classList.add('hidden');
+
+  // Bottom dock active styles: History active, Home inactive
+  const iconHome = document.getElementById('iconBottomNavHome');
+  const textHome = document.getElementById('textBottomNavHome');
+  const iconHist = document.getElementById('iconBottomNavHistory');
+  const textHist = document.getElementById('textBottomNavHistory');
+
+  if (iconHome && textHome) {
+    iconHome.className = 'w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-white group-hover:scale-110 transition-transform';
+    textHome.className = 'text-[10px] font-medium mt-1 text-slate-400';
+  }
+  if (iconHist && textHist) {
+    iconHist.className = 'w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center text-white group-hover:scale-110 transition-transform';
+    textHist.className = 'text-[10px] font-bold mt-1 text-white';
+  }
+
+  toggleBottomNav(true);
+
+  if (currentStaff) {
+    const nameEl = document.getElementById('staffHistoryEmployeeName');
+    if (nameEl) nameEl.textContent = `${currentStaff.name} (${currentStaff.code}) • ${currentStaff.role || ''}`;
+    loadMyAttendanceHistory(staffHistoryCurrentPeriod);
+  } else {
+    showLoginView();
+  }
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function setStaffHistoryPeriod(period) {
+  staffHistoryCurrentPeriod = period;
+  const btns = {
+    week: document.getElementById('btnStaffPeriodWeek'),
+    month: document.getElementById('btnStaffPeriodMonth'),
+    all: document.getElementById('btnStaffPeriodAll')
+  };
+
+  Object.keys(btns).forEach(key => {
+    const btn = btns[key];
+    if (!btn) return;
+    if (key === period) {
+      btn.className = 'staff-period-btn flex-1 py-2 px-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/20 cursor-pointer';
+    } else {
+      btn.className = 'staff-period-btn flex-1 py-2 px-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/5 transition flex items-center justify-center gap-1.5 cursor-pointer';
+    }
+  });
+
+  loadMyAttendanceHistory(period);
+}
+
+async function loadMyAttendanceHistory(period = staffHistoryCurrentPeriod) {
+  if (!currentStaff) return;
+  const listContainer = document.getElementById('staffHistoryListContainer');
+  const periodTextEl = document.getElementById('staffHistoryPeriodText');
+  const countEl = document.getElementById('staffHistoryRecordCount');
+  const kpiTotalEl = document.getElementById('staffKpiTotalScans');
+  const kpiWorkDaysEl = document.getElementById('staffKpiWorkDays');
+  const kpiGeofenceEl = document.getElementById('staffKpiGeofencePct');
+
+  let queryUrl = `/api/attendance?code=${encodeURIComponent(currentStaff.code)}&limit=500`;
+
+  if (period === 'week') {
+    const { startDate, endDate, monday, sunday } = getKhWeekRange();
+    queryUrl += `&startDate=${startDate}&endDate=${endDate}`;
+    if (periodTextEl) {
+      const monStr = monday.toLocaleDateString(currentLang === 'km' ? 'km-KH' : 'en-US', { timeZone: 'Asia/Phnom_Penh', day: 'numeric', month: 'short' });
+      const sunStr = sunday.toLocaleDateString(currentLang === 'km' ? 'km-KH' : 'en-US', { timeZone: 'Asia/Phnom_Penh', day: 'numeric', month: 'short' });
+      periodTextEl.textContent = currentLang === 'km' ? `សប្តាហ៍នេះ (${monStr} - ${sunStr})` : `This Week (${monStr} - ${sunStr})`;
+    }
+  } else if (period === 'month') {
+    const curMonth = getKhMonthString();
+    queryUrl += `&month=${curMonth}`;
+    if (periodTextEl) {
+      const d = getKhCurrentDate();
+      const monthStr = d.toLocaleDateString(currentLang === 'km' ? 'km-KH' : 'en-US', { timeZone: 'Asia/Phnom_Penh', month: 'long', year: 'numeric' });
+      periodTextEl.textContent = currentLang === 'km' ? `ខែនេះ (${monthStr})` : `This Month (${monthStr})`;
+    }
+  } else {
+    if (periodTextEl) {
+      periodTextEl.textContent = currentLang === 'km' ? 'កំណត់ត្រាទាំងអស់ (All Time)' : 'All Records';
+    }
+  }
+
+  try {
+    if (listContainer) listContainer.innerHTML = '<div class="py-12 text-center text-xs text-slate-400">កំពុងទាញយកកំណត់ត្រា...</div>';
+    const res = await fetch(queryUrl);
+    if (!res.ok) throw new Error('Failed to load history');
+    const logs = await res.json();
+
+    if (countEl) countEl.textContent = `${logs.length} កំណត់ត្រា`;
+
+    // Calculate KPIs
+    const totalScans = logs.length;
+    const distinctDates = new Set();
+    let insideGeofenceCount = 0;
+
+    logs.forEach(l => {
+      const datePart = l.timestamp ? l.timestamp.slice(0, 10) : '';
+      if (datePart) distinctDates.add(datePart);
+      if (l.is_within_range) insideGeofenceCount++;
+    });
+
+    const geofencePct = totalScans > 0 ? Math.round((insideGeofenceCount / totalScans) * 100) : 100;
+
+    if (kpiTotalEl) kpiTotalEl.textContent = totalScans;
+    if (kpiWorkDaysEl) kpiWorkDaysEl.textContent = distinctDates.size;
+    if (kpiGeofenceEl) kpiGeofenceEl.textContent = `${geofencePct}%`;
+
+    if (!logs || logs.length === 0) {
+      if (listContainer) {
+        listContainer.innerHTML = `
+          <div class="glass-crystal p-8 rounded-3xl border border-white/10 text-center space-y-2 bg-slate-900/60">
+            <div class="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-slate-400">
+              <i data-lucide="clipboard-x" class="w-6 h-6"></i>
+            </div>
+            <h4 class="font-bold text-sm text-slate-300">មិនទាន់មានកំណត់ត្រា</h4>
+            <p class="text-xs text-slate-400 max-w-xs mx-auto">មិនមានទិន្នន័យចុះវត្តមានក្នុងកាលវេលាដែលបានជ្រើសរើសនេះទេ។</p>
+          </div>
+        `;
+        if (window.lucide) lucide.createIcons();
+      }
+      return;
+    }
+
+    // Group logs by Date
+    const grouped = {};
+    logs.forEach(l => {
+      const d = new Date(l.timestamp);
+      const dateKey = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Phnom_Penh' }); // YYYY-MM-DD
+      if (!grouped[dateKey]) grouped[dateKey] = [];
+      grouped[dateKey].push(l);
+    });
+
+    const slotLabels = {
+      morning_in: { text: '1/4 ព្រឹកចូល (08:00)', enText: '1/4 Morning In', badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+      lunch_out: { text: '2/4 សម្រាកបាយ (11:00)', enText: '2/4 Lunch Break', badge: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+      afternoon_in: { text: '3/4 ចូលវិញ (13:00)', enText: '3/4 Return In', badge: 'bg-sky-500/10 text-sky-400 border-sky-500/20' },
+      evening_out: { text: '4/4 ល្ងាចចេញ (17:00)', enText: '4/4 Evening Out', badge: 'bg-purple-500/10 text-purple-400 border-purple-500/20' },
+      check_in: { text: 'Check-In', enText: 'Check-In', badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+      check_out: { text: 'Check-Out', enText: 'Check-Out', badge: 'bg-sky-500/10 text-sky-400 border-sky-500/20' }
+    };
+
+    const loc = currentLang === 'km' ? 'km-KH' : 'en-US';
+
+    let html = '';
+    const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+
+    sortedDates.forEach(dateStr => {
+      const dateLogs = grouped[dateStr].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      const sampleDate = new Date(dateLogs[0].timestamp);
+      const formattedHeader = sampleDate.toLocaleDateString(loc, { 
+        timeZone: 'Asia/Phnom_Penh', 
+        weekday: 'long', 
+        day: 'numeric', 
+        month: 'long', 
+        year: 'numeric' 
+      });
+
+      html += `
+        <div class="glass-crystal rounded-3xl border border-white/10 bg-slate-900/60 overflow-hidden shadow-sm">
+          <!-- Date Header -->
+          <div class="p-3.5 bg-white/[0.03] border-b border-white/10 flex items-center justify-between">
+            <span class="text-xs font-bold text-white flex items-center gap-2">
+              <i data-lucide="calendar" class="w-3.5 h-3.5 text-cyan-400"></i>
+              <span>${formattedHeader}</span>
+            </span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 font-mono font-bold">
+              ${dateLogs.length}/4 ស្កេន
+            </span>
+          </div>
+
+          <!-- Day Logs List -->
+          <div class="divide-y divide-white/5 p-2 space-y-1">
+            ${dateLogs.map(l => {
+              const meta = slotLabels[l.type] || { text: l.type, enText: l.type, badge: 'bg-slate-800 text-slate-300 border-slate-700' };
+              const label = currentLang === 'km' ? meta.text : meta.enText;
+              const timeFormatted = new Date(l.timestamp).toLocaleTimeString(loc, {
+                timeZone: 'Asia/Phnom_Penh',
+                hour: '2-digit', minute: '2-digit', hour12: true
+              });
+              const distStr = l.distance_meters !== null ? `${l.distance_meters}m` : '';
+
+              return `
+                <div class="p-2.5 rounded-2xl hover:bg-white/[0.02] flex items-center justify-between gap-3 transition">
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    <span class="px-2 py-1 rounded-xl text-[10px] font-bold border ${meta.badge} whitespace-nowrap">
+                      ${label}
+                    </span>
+                    ${l.note ? `<span class="text-[10px] text-slate-400 italic truncate" title="${l.note}">"${l.note}"</span>` : ''}
+                  </div>
+                  <div class="flex items-center gap-2 flex-shrink-0">
+                    <div class="text-right">
+                      <div class="font-mono text-xs font-bold text-white">${timeFormatted}</div>
+                      ${distStr ? `<div class="text-[10px] font-mono ${l.is_within_range ? 'text-emerald-400' : 'text-rose-400'}">${distStr} (${l.is_within_range ? 'ក្នុង HQ' : 'ក្រៅ HQ'})</div>` : ''}
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    });
+
+    if (listContainer) listContainer.innerHTML = html;
+    if (window.lucide) lucide.createIcons();
+  } catch (err) {
+    if (listContainer) {
+      listContainer.innerHTML = `<div class="py-8 text-center text-xs text-rose-400">មិនអាចទាញយកទិន្នន័យបានទេ: ${err.message}</div>`;
+    }
   }
 }
 
@@ -722,8 +1112,8 @@ async function handleEmployeeLogin(e) {
   if (!codeOrPhone) {
     Swal.fire({
       icon: 'info',
-      title: currentLang === 'km' ? 'សូមជ្រើសរើសឈ្មោះ ឬវាយលេខកូដ ID' : 'Please select name or enter ID',
-      text: currentLang === 'km' ? 'ជ្រើសរើសឈ្មោះរបស់អ្នកក្នុងបញ្ជី ឬវាយលេខកូដសម្គាល់ ID' : 'Select from list or type Member ID'
+      title: currentLang === 'km' ? 'សូមបញ្ចូលលេខទូរស័ព្ទ ឬកូដ ID' : 'Phone Number or ID Required',
+      text: currentLang === 'km' ? 'សូមបញ្ចូលលេខទូរស័ព្ទរបស់អ្នក ឬលេខកូដសម្គាល់ ID ដើម្បី Login' : 'Please enter your phone number or Member ID'
     });
     return;
   }
@@ -732,7 +1122,7 @@ async function handleEmployeeLogin(e) {
     Swal.fire({
       icon: 'warning',
       title: currentLang === 'km' ? 'សូមបញ្ចូល Password' : 'Password Required',
-      text: currentLang === 'km' ? 'សូមបញ្ចូលលេខកូដសម្ងាត់ Password ដែល Admin បានកំណត់ជូន!' : 'Please enter the password provided by Admin'
+      text: currentLang === 'km' ? 'សូមបញ្ចូលលេខកូដសម្ងាត់ Password របស់អ្នក!' : 'Please enter your password'
     });
     return;
   }
@@ -1494,33 +1884,52 @@ async function onOfficeQrCodeScanned(decodedText) {
     const slotLabel = slotLabels[data.actionType] ? (currentLang === 'km' ? slotLabels[data.actionType].km : slotLabels[data.actionType].en) : data.actionType;
 
     const locNote = data.isWithinRange
-      ? `<span class="text-cyan-700 font-bold">✅ ${currentLang === 'km' ? 'នៅក្នុងការិយាល័យ' : 'At Office'} (${data.distance !== null ? data.distance + 'm' : ''})</span>`
-      : `<span class="text-amber-600 font-bold">⚠️ ${currentLang === 'km' ? 'ក្រៅបរិវេណ' : 'Outside Office'} (${data.distance}m)</span>`;
+      ? `<span class="text-cyan-400 font-bold">✅ ${currentLang === 'km' ? 'នៅក្នុងការិយាល័យ' : 'At Office'} (${data.distance !== null ? data.distance + 'm' : 'OK'})</span>`
+      : `<span class="text-amber-400 font-bold">⚠️ ${currentLang === 'km' ? 'ក្រៅបរិវេណ' : 'Outside Office'} (${data.distance}m)</span>`;
 
-    const sundayBadge = data.isSunday ? `<div class="text-[11px] text-amber-700 font-bold bg-amber-50 p-1.5 rounded-lg border border-amber-200 mt-1">🏖️ ${currentLang === 'km' ? 'ស្កេនថ្ងៃអាទិត្យ (OT / សម្រាក)' : 'Sunday Scan (Day Off / OT)'}</div>` : '';
+    const sundayBadge = data.isSunday ? `<div class="text-[11px] text-amber-300 font-bold bg-amber-500/10 p-2 rounded-xl border border-amber-500/20 mt-2">🏖️ ${currentLang === 'km' ? 'ស្កេនថ្ងៃអាទិត្យ (OT / សម្រាក)' : 'Sunday Scan (Day Off / OT)'}</div>` : '';
 
-    const reasonDisplay = data.note ? `<div class="text-xs text-amber-800 bg-amber-50/80 p-2 rounded-xl border border-amber-200/60 mt-1">📝 <b>${currentLang === 'km' ? 'មូលហេតុ' : 'Reason'}:</b> ${data.note}</div>` : '';
+    const reasonDisplay = data.note ? `<div class="text-xs text-amber-200 bg-amber-500/15 p-2 rounded-xl border border-amber-500/25 mt-2">📝 <b>${currentLang === 'km' ? 'មូលហេតុ' : 'Reason'}:</b> ${data.note}</div>` : '';
 
     Swal.fire({
       icon: 'success',
       title: currentLang === 'km' ? data.message : 'Attendance Recorded!',
       html: `
-        <div class="text-left bg-slate-50 p-4 rounded-2xl border border-slate-200 mt-2 space-y-1.5 text-xs sm:text-sm">
-          <div>👤 <b>${currentLang === 'km' ? 'សមាជិក' : 'Member'}:</b> ${data.member.name} (<code>${data.member.code}</code>)</div>
-          <div>💼 <b>${currentLang === 'km' ? 'ផ្នែក' : 'Role'}:</b> ${data.member.role || 'General'}</div>
-          <div>⏰ <b>${currentLang === 'km' ? 'វត្តមាន' : 'Slot'}:</b> <b>${slotLabel}</b></div>
-          <div>${data.statusText || ''}</div>
+        <div class="text-left bg-slate-950/80 p-4 rounded-2xl border border-white/10 mt-3 space-y-2.5 text-xs text-slate-300 shadow-inner">
+          <div class="flex items-center justify-between pb-2.5 border-b border-white/10">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-300 font-bold text-xs shadow-inner">
+                ${data.member.name ? data.member.name.trim().charAt(0).toUpperCase() : 'U'}
+              </div>
+              <div>
+                <div class="font-bold text-white text-xs sm:text-sm">${data.member.name}</div>
+                <div class="text-[10px] text-slate-400 font-mono">${data.member.code} • ${data.member.role || (currentLang === 'km' ? 'បុគ្គលិក' : 'Staff')}</div>
+              </div>
+            </div>
+            <span class="px-2.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-400/30 text-[10px] font-mono font-bold">
+              ${data.todayScansCount}/4 ស្កេន
+            </span>
+          </div>
+          <div class="grid grid-cols-2 gap-2 pt-1 text-[11px]">
+            <div class="p-2 rounded-xl bg-white/[0.03] border border-white/5">
+              <span class="text-slate-400 block text-[10px] mb-0.5">វេនវត្តមាន (Slot)</span>
+              <span class="font-bold text-white">${slotLabel}</span>
+            </div>
+            <div class="p-2 rounded-xl bg-white/[0.03] border border-white/5">
+              <span class="text-slate-400 block text-[10px] mb-0.5">ទីតាំងការិយាល័យ</span>
+              <span class="font-bold">${locNote}</span>
+            </div>
+          </div>
+          ${data.statusText ? `<div class="pt-1 text-[11px] text-slate-300">${data.statusText}</div>` : ''}
           ${reasonDisplay}
-          <div>📍 <b>${currentLang === 'km' ? 'ទីតាំង' : 'Location'}:</b> ${locNote}</div>
-          <div>📊 <b>${currentLang === 'km' ? 'សរុបថ្ងៃនេះ' : 'Today Total'}:</b> ${data.todayScansCount}/4 ដង</div>
           ${sundayBadge}
-          <div class="text-[11px] text-sky-600 mt-2 pt-2 border-t border-slate-200 flex items-center gap-1.5">
-            <i class="fa-brands fa-telegram text-sm"></i> ${currentLang === 'km' ? 'សារបានផ្ញើជូនដំណឹងទៅ Telegram Group រួចរាល់!' : 'Alert broadcasted to Telegram successfully!'}
+          <div class="text-[10px] text-sky-400 pt-2 border-t border-white/10 flex items-center gap-1.5 font-medium">
+            <i class="fa-brands fa-telegram text-sm text-sky-400"></i>
+            <span>${currentLang === 'km' ? 'សារបានផ្ញើជូនដំណឹងទៅ Telegram Group រួចរាល់!' : 'Alert broadcasted to Telegram successfully!'}</span>
           </div>
         </div>
       `,
-      confirmButtonText: translations[currentLang].confirmBtn,
-      confirmButtonColor: '#f59e0b'
+      confirmButtonText: translations[currentLang].confirmBtn
     });
 
     loadMyAttendanceActivity();
@@ -1813,54 +2222,78 @@ async function loadMyAttendanceActivity() {
 // 8. Admin Portal Authentication & Switching
 async function promptAdminPin() {
   const t = translations[currentLang];
-  const { value: pin } = await Swal.fire({
+  const result = await Swal.fire({
     title: t.pinPromptTitle,
+    text: t.pinPromptInput,
     input: 'password',
-    inputLabel: t.pinPromptInput,
-    inputPlaceholder: 'PIN (Default: 1234)',
+    inputPlaceholder: '••••',
     showCancelButton: true,
     confirmButtonText: t.confirmBtn,
     cancelButtonText: t.cancel,
-    confirmButtonColor: '#f59e0b'
+    showLoaderOnConfirm: true,
+    inputAttributes: {
+      inputmode: 'numeric',
+      pattern: '[0-9]*',
+      maxlength: '10',
+      autocomplete: 'current-password',
+      style: 'text-align: center; font-size: 1.5rem; letter-spacing: 0.35em; font-family: monospace;'
+    },
+    preConfirm: async (pin) => {
+      if (!pin) {
+        Swal.showValidationMessage(currentLang === 'km' ? 'សូមបញ្ចូលលេខកូដសម្ងាត់ Admin PIN' : 'Please enter Admin PIN');
+        return false;
+      }
+      try {
+        const res = await fetch('/api/admin/verify-pin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin: pin.trim() })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          Swal.showValidationMessage(data.error || (currentLang === 'km' ? 'លេខកូដ PIN មិនត្រឹមត្រូវទេ!' : 'Invalid Admin PIN'));
+          return false;
+        }
+        return data;
+      } catch (err) {
+        Swal.showValidationMessage(currentLang === 'km' ? 'បញ្ហាប្រព័ន្ធ / អ៊ីនធឺណិត' : 'Network error');
+        return false;
+      }
+    },
+    allowOutsideClick: () => !Swal.isLoading()
   });
 
-  if (!pin) return;
-
-  try {
-    const res = await fetch('/api/admin/verify-pin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin })
-    });
-    const data = await res.json();
-    if (res.ok) {
-      isAdminAuthenticated = true;
-      showAdminView();
-    } else {
-      Swal.fire({ icon: 'error', title: 'PIN Error', text: data.error });
-    }
-  } catch (e) {
-    Swal.fire({ icon: 'error', title: 'Error', text: e.message });
+  if (result.isConfirmed && result.value) {
+    isAdminAuthenticated = true;
+    showAdminView();
   }
 }
 
 function showAdminView() {
   const loginV = document.getElementById('loginView');
   if (loginV) loginV.classList.add('hidden');
-  document.getElementById('staffView').classList.add('hidden');
-  document.getElementById('adminView').classList.remove('hidden');
-  document.getElementById('btnSwitchToAdmin').classList.add('hidden');
-  document.getElementById('btnSwitchToStaff').classList.remove('hidden');
+  const staffV = document.getElementById('staffView');
+  if (staffV) staffV.classList.add('hidden');
+  const staffHistV = document.getElementById('staffHistoryView');
+  if (staffHistV) staffHistV.classList.add('hidden');
+  const adminV = document.getElementById('adminView');
+  if (adminV) {
+    adminV.classList.remove('hidden');
+    applyViewMotion(adminV);
+  }
+
+  const btnAdmin = document.getElementById('btnSwitchToAdmin');
+  if (btnAdmin) btnAdmin.classList.add('hidden');
+  const btnStaff = document.getElementById('btnSwitchToStaff');
+  if (btnStaff) btnStaff.classList.remove('hidden');
   const btnLogout = document.getElementById('btnStaffLogoutTop');
   if (btnLogout) btnLogout.classList.add('hidden');
 
-  // Hide bottom nav in Admin View
-  const bNav = document.getElementById('acledaBottomNav');
-  if (bNav) bNav.classList.add('hidden');
+  // Hide bottom nav in Admin View completely
+  toggleBottomNav(false);
 
   switchAdminTab('dashboard');
   loadAdminDashboard();
-  renderOfficeQrPoster();
 }
 
 // (showStaffView is defined above)
@@ -1887,18 +2320,25 @@ function switchAdminTab(tabId) {
 
   document.querySelectorAll('.adm-section').forEach(s => s.classList.add('hidden'));
   const activeSec = document.getElementById(`adm-sec-${tabId}`);
-  if (activeSec) activeSec.classList.remove('hidden');
+  if (activeSec) {
+    activeSec.classList.remove('hidden', 'adm-section-motion');
+    void activeSec.offsetWidth;
+    activeSec.classList.add('adm-section-motion');
+  }
 
   if (window.lucide) lucide.createIcons();
 
   if (tabId === 'dashboard') {
     loadAdminDashboard();
     loadPendingMembers();
+    loadAdminLeaveRequests();
   }
-  if (tabId === 'office-qr') renderOfficeQrPoster();
   if (tabId === 'members') {
     loadAdminMembers();
     loadPendingMembers();
+  }
+  if (tabId === 'leaves') {
+    loadAdminLeaveRequests();
   }
   if (tabId === 'history') loadAttendanceHistory();
   if (tabId === 'settings') loadAdminSettings();
@@ -1910,12 +2350,17 @@ async function loadAdminDashboard() {
     const res = await fetch('/api/dashboard');
     const data = await res.json();
 
-    document.getElementById('statTotalMembers').textContent = data.totalMembers;
-    document.getElementById('statTodayCheckIns').textContent = data.todayCheckIns;
-    document.getElementById('statTodayCheckOuts').textContent = data.todayCheckOuts;
-    document.getElementById('statAbsentCount').textContent = data.absentCount;
+    const statMembers = document.getElementById('statTotalMembers');
+    if (statMembers) statMembers.textContent = data.totalMembers ?? 0;
+    const statIns = document.getElementById('statTodayCheckIns');
+    if (statIns) statIns.textContent = data.todayCheckIns ?? 0;
+    const statOuts = document.getElementById('statTodayCheckOuts');
+    if (statOuts) statOuts.textContent = data.todayCheckOuts ?? 0;
+    const statAbsent = document.getElementById('statAbsentCount');
+    if (statAbsent) statAbsent.textContent = data.absentCount ?? 0;
 
     const tbody = document.getElementById('recentLogsTable');
+    if (!tbody) return;
     if (!data.recentLogs || data.recentLogs.length === 0) {
       tbody.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-slate-400">${translations[currentLang].noDataYet}</td></tr>`;
       return;
@@ -2618,19 +3063,109 @@ async function deleteMember(id, name) {
   }
 }
 
-// 12. Admin History & CSV Export
+// 12. Admin History & Period Tracking (Week / Month / Day / Member)
+let adminHistoryCurrentPeriod = 'week';
+
+function setAdminHistoryPeriod(period) {
+  adminHistoryCurrentPeriod = period;
+  const btns = {
+    'today': document.getElementById('admPeriodBtnToday'),
+    'week': document.getElementById('admPeriodBtnWeek'),
+    'month': document.getElementById('admPeriodBtnMonth'),
+    'custom-date': document.getElementById('admPeriodBtnCustomDate'),
+    'custom-month': document.getElementById('admPeriodBtnCustomMonth'),
+    'all': document.getElementById('admPeriodBtnAll')
+  };
+
+  Object.keys(btns).forEach(k => {
+    const btn = btns[k];
+    if (!btn) return;
+    if (k === period) {
+      btn.className = 'adm-history-period-btn px-2.5 py-1.5 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-cyan-500 shadow-xs transition';
+    } else {
+      btn.className = 'adm-history-period-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition';
+    }
+  });
+
+  const dateInput = document.getElementById('adminHistoryDateFilter');
+  const monthInput = document.getElementById('adminHistoryMonthFilter');
+
+  if (dateInput) {
+    if (period === 'custom-date') {
+      dateInput.classList.remove('hidden');
+      if (!dateInput.value) dateInput.value = getKhDateString();
+    } else {
+      dateInput.classList.add('hidden');
+    }
+  }
+
+  if (monthInput) {
+    if (period === 'custom-month') {
+      monthInput.classList.remove('hidden');
+      if (!monthInput.value) monthInput.value = getKhMonthString();
+    } else {
+      monthInput.classList.add('hidden');
+    }
+  }
+
+  loadAttendanceHistory();
+}
+
 async function loadAttendanceHistory() {
-  const d = document.getElementById('adminHistoryDateFilter').value;
-  let url = '/api/attendance?limit=100';
-  if (d) url += `&date=${d}`;
+  const memberCode = document.getElementById('adminHistoryMemberFilter') ? document.getElementById('adminHistoryMemberFilter').value : '';
+  const dateVal = document.getElementById('adminHistoryDateFilter') ? document.getElementById('adminHistoryDateFilter').value : '';
+  const monthVal = document.getElementById('adminHistoryMonthFilter') ? document.getElementById('adminHistoryMonthFilter').value : '';
+
+  let queryUrl = '/api/attendance?limit=1000';
+  if (memberCode) queryUrl += `&code=${encodeURIComponent(memberCode)}`;
+
+  if (adminHistoryCurrentPeriod === 'today') {
+    queryUrl += `&date=${getKhDateString()}`;
+  } else if (adminHistoryCurrentPeriod === 'week') {
+    const { startDate, endDate } = getKhWeekRange();
+    queryUrl += `&startDate=${startDate}&endDate=${endDate}`;
+  } else if (adminHistoryCurrentPeriod === 'month') {
+    queryUrl += `&month=${getKhMonthString()}`;
+  } else if (adminHistoryCurrentPeriod === 'custom-date') {
+    if (dateVal) queryUrl += `&date=${dateVal}`;
+  } else if (adminHistoryCurrentPeriod === 'custom-month') {
+    if (monthVal) queryUrl += `&month=${monthVal}`;
+  } // 'all': no date restriction
 
   try {
-    const res = await fetch(url);
+    const res = await fetch(queryUrl);
     const logs = await res.json();
     const tbody = document.getElementById('fullHistoryTable');
+    if (!tbody) return;
+
+    // Calculate KPIs
+    const totalRecords = logs.length;
+    const distinctMembers = new Set();
+    let insideCount = 0;
+    let outsideCount = 0;
+
+    logs.forEach(l => {
+      if (l.member_code || l.member_name) distinctMembers.add(l.member_code || l.member_name);
+      if (l.is_within_range) insideCount++;
+      else outsideCount++;
+    });
+
+    const inPct = totalRecords > 0 ? Math.round((insideCount / totalRecords) * 100) : 100;
+
+    const kpiTotal = document.getElementById('admKpiTotalRecords');
+    const kpiMembers = document.getElementById('admKpiActiveMembers');
+    const kpiIn = document.getElementById('admKpiInGeofence');
+    const kpiInPct = document.getElementById('admKpiInGeofencePct');
+    const kpiOut = document.getElementById('admKpiOutGeofence');
+
+    if (kpiTotal) kpiTotal.textContent = totalRecords;
+    if (kpiMembers) kpiMembers.textContent = distinctMembers.size;
+    if (kpiIn) kpiIn.textContent = insideCount;
+    if (kpiInPct) kpiInPct.textContent = `${inPct}% ក្នុងទីស្នាក់ការ`;
+    if (kpiOut) kpiOut.textContent = outsideCount;
 
     if (!logs || logs.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" class="py-6 text-center text-slate-400">${translations[currentLang].noDataYet}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-slate-400 font-medium">${translations[currentLang].noDataYet || 'មិនមានកំណត់ត្រាវត្តមានសម្រាប់កាលវេលា និងបុគ្គលិកដែលបានជ្រើសរើសនេះទេ។'}</td></tr>`;
       return;
     }
 
@@ -2648,11 +3183,11 @@ async function loadAttendanceHistory() {
     tbody.innerHTML = logs.map((l, i) => `
       <tr class="hover:bg-white/[0.03] transition-colors border-b border-slate-800/80">
         <td class="py-2.5 px-4 font-mono text-slate-500 text-xs">${i + 1}</td>
-        <td class="py-2.5 px-4 font-bold text-white">${l.member_name}</td>
-        <td class="py-2.5 px-4 font-mono text-xs text-slate-300">${l.member_code}</td>
+        <td class="py-2.5 px-4 font-bold text-white">${l.member_name || '-'}</td>
+        <td class="py-2.5 px-4 font-mono text-xs text-cyan-300 font-semibold">${l.member_code || '-'}</td>
         <td class="py-2.5 px-4 text-xs text-slate-400 font-medium">${l.member_role || '-'}</td>
         <td class="py-2.5 px-4">${slotBadgeMap[l.type] || `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-800 text-slate-300 border border-slate-700">${l.type}</span>`}</td>
-        <td class="py-2.5 px-4 font-mono text-xs text-slate-400">${new Date(l.timestamp).toLocaleString(loc)}</td>
+        <td class="py-2.5 px-4 font-mono text-xs text-slate-300">${new Date(l.timestamp).toLocaleString(loc, { timeZone: 'Asia/Phnom_Penh' })}</td>
         <td class="py-2.5 px-4 font-mono text-xs text-slate-400">${l.distance_meters !== null ? l.distance_meters + 'm' : '-'}</td>
         <td class="py-2.5 px-4">${l.is_within_range 
           ? `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>ក្នុងរង្វង់</span>` 
@@ -2667,18 +3202,39 @@ async function loadAttendanceHistory() {
 }
 
 async function exportHistoryCSV() {
-  const res = await fetch('/api/attendance?limit=1000');
-  const records = await res.json();
-  if (!records || records.length === 0) return Swal.fire({ icon: 'info', title: 'No data to export' });
+  const memberCode = document.getElementById('adminHistoryMemberFilter') ? document.getElementById('adminHistoryMemberFilter').value : '';
+  const dateVal = document.getElementById('adminHistoryDateFilter') ? document.getElementById('adminHistoryDateFilter').value : '';
+  const monthVal = document.getElementById('adminHistoryMonthFilter') ? document.getElementById('adminHistoryMonthFilter').value : '';
 
-  const csvRows = [['ID', 'Name', 'Code', 'Role', 'Type', 'DateTime', 'Distance (m)', 'Within Geofence']];
+  let queryUrl = '/api/attendance?limit=5000';
+  if (memberCode) queryUrl += `&code=${encodeURIComponent(memberCode)}`;
+
+  if (adminHistoryCurrentPeriod === 'today') {
+    queryUrl += `&date=${getKhDateString()}`;
+  } else if (adminHistoryCurrentPeriod === 'week') {
+    const { startDate, endDate } = getKhWeekRange();
+    queryUrl += `&startDate=${startDate}&endDate=${endDate}`;
+  } else if (adminHistoryCurrentPeriod === 'month') {
+    queryUrl += `&month=${getKhMonthString()}`;
+  } else if (adminHistoryCurrentPeriod === 'custom-date') {
+    if (dateVal) queryUrl += `&date=${dateVal}`;
+  } else if (adminHistoryCurrentPeriod === 'custom-month') {
+    if (monthVal) queryUrl += `&month=${monthVal}`;
+  }
+
+  const res = await fetch(queryUrl);
+  const records = await res.json();
+  if (!records || records.length === 0) return Swal.fire({ icon: 'info', title: 'គ្មានទិន្នន័យសម្រាប់ Export ទេ' });
+
+  const csvRows = [['ID', 'Name', 'Code', 'Role', 'Type', 'DateTime', 'Distance (m)', 'Within Geofence', 'Note']];
   for (const r of records) {
-    csvRows.push([r.id, `"${r.member_name}"`, r.member_code, `"${r.member_role || ''}"`, r.type, `"${r.timestamp}"`, r.distance_meters || '', r.is_within_range ? 'Yes' : 'No']);
+    csvRows.push([r.id, `"${r.member_name || ''}"`, r.member_code || '', `"${r.member_role || ''}"`, r.type, `"${r.timestamp}"`, r.distance_meters || '', r.is_within_range ? 'Yes' : 'No', `"${(r.note || '').replace(/"/g, '""')}"`]);
   }
   const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + csvRows.map(e => e.join(",")).join("\n");
   const link = document.createElement("a");
   link.setAttribute("href", encodeURI(csvContent));
-  link.setAttribute("download", `attendance_report_${new Date().toISOString().slice(0, 10)}.csv`);
+  const periodLabel = adminHistoryCurrentPeriod;
+  link.setAttribute("download", `attendance_${periodLabel}_${new Date().toISOString().slice(0, 10)}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -2704,6 +3260,14 @@ async function loadAdminSettings() {
       const el = document.getElementById('inputWifiCheckEnabled');
       if (el) el.checked = s.wifi_check_enabled === 'true';
     }
+    if (s.telegram_leave_chat_id) {
+      const el = document.getElementById('inputTelegramLeaveChatId');
+      if (el) el.value = s.telegram_leave_chat_id;
+    }
+    if (s.telegram_leave_enabled !== undefined) {
+      const el = document.getElementById('inputTelegramLeaveEnabled');
+      if (el) el.checked = s.telegram_leave_enabled === 'true';
+    }
   } catch (e) {
     console.error(e);
   }
@@ -2714,7 +3278,17 @@ async function saveTelegramSettings() {
   const chatId = document.getElementById('inputTelegramChatId').value;
   const enabled = document.getElementById('inputTelegramEnabled').checked;
 
-  const payload = { telegram_chat_id: chatId, telegram_enabled: enabled ? 'true' : 'false' };
+  const leaveChatIdEl = document.getElementById('inputTelegramLeaveChatId');
+  const leaveEnabledEl = document.getElementById('inputTelegramLeaveEnabled');
+  const leaveChatId = leaveChatIdEl ? leaveChatIdEl.value.trim() : '';
+  const leaveEnabled = leaveEnabledEl ? leaveEnabledEl.checked : true;
+
+  const payload = { 
+    telegram_chat_id: chatId, 
+    telegram_enabled: enabled ? 'true' : 'false',
+    telegram_leave_chat_id: leaveChatId,
+    telegram_leave_enabled: leaveEnabled ? 'true' : 'false'
+  };
   if (token) payload.telegram_token = token;
 
   await fetch('/api/settings', {
@@ -2731,6 +3305,18 @@ async function testTelegramConnection() {
   const d = await res.json();
   if (res.ok) Swal.fire({ icon: 'success', title: translations[currentLang].alertSuccess, text: d.message });
   else Swal.fire({ icon: 'error', title: 'Error', text: d.error });
+}
+
+async function testTelegramLeaveConnection() {
+  Swal.fire({ title: 'Testing Leave Group...', didOpen: () => Swal.showLoading() });
+  try {
+    const res = await fetch('/api/settings/test-telegram-leave', { method: 'POST' });
+    const d = await res.json();
+    if (res.ok) Swal.fire({ icon: 'success', title: translations[currentLang].alertSuccess, text: d.message });
+    else Swal.fire({ icon: 'error', title: 'Error', text: d.error });
+  } catch (err) {
+    Swal.fire({ icon: 'error', title: 'Error', text: err.message });
+  }
 }
 
 async function saveGeofenceSettings() {
@@ -3095,22 +3681,78 @@ async function executeStaffCheckIn() {
       evening_out: '🏠 4/4 ល្ងាចចេញ (17:00)'
     };
     const slotLabel = slotLabels[data.actionType] || data.actionType;
-    const reasonDisplay = data.note ? `<div class="text-xs text-amber-800 bg-amber-50/80 p-2 rounded-xl border border-amber-200/60 mt-1">📝 <b>មូលហេតុ:</b> ${data.note}</div>` : '';
+    const initial = data.member && data.member.name ? data.member.name.trim().charAt(0).toUpperCase() : 'U';
+
+    const reasonDisplay = data.note 
+      ? `<div class="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/25 space-y-1">
+          <div class="text-[10px] text-amber-300 font-bold uppercase tracking-wider">📝 មូលហេតុមកយឺត:</div>
+          <div class="text-xs text-amber-100 font-medium leading-relaxed">${escapeHtml(data.note)}</div>
+        </div>` 
+      : '';
+
+    const statusDisplay = data.statusText
+      ? `<div class="p-2.5 rounded-2xl bg-white/[0.04] border border-white/10 flex items-center justify-between text-xs">
+          <span class="text-slate-400 font-medium">ស្ថានភាពវត្តមាន:</span>
+          <span class="font-bold text-white">${data.statusText}</span>
+        </div>`
+      : '';
 
     Swal.fire({
       icon: 'success',
-      title: data.message || 'កត់ត្រាវត្តមានជោគជ័យ!',
+      title: `<span class="text-base sm:text-lg font-extrabold text-white tracking-wide">${data.message || 'កត់ត្រាវត្តមានជោគជ័យ!'}</span>`,
+      background: '#0f172a',
+      color: '#ffffff',
+      customClass: {
+        popup: 'glass-crystal rounded-3xl border border-white/20 shadow-2xl p-4 sm:p-5',
+        confirmButton: 'btn-gradient-primary py-2.5 px-6 rounded-xl text-xs font-bold text-white shadow-lg shadow-cyan-500/30'
+      },
       html: `
-        <div class="text-left bg-slate-50 p-4 rounded-2xl border border-slate-200 mt-2 space-y-1.5 text-xs sm:text-sm">
-          <div>👤 <b>សមាជិក:</b> ${data.member.name} (<code>${data.member.code}</code>)</div>
-          <div>💼 <b>ផ្នែក:</b> ${data.member.role || 'General'}</div>
-          <div>⏰ <b>វត្តមាន:</b> <b>${slotLabel}</b></div>
-          <div>${data.statusText || ''}</div>
+        <div class="text-left space-y-3 pt-2 text-white">
+          <!-- Member Profile Header -->
+          <div class="p-3 rounded-2xl bg-white/[0.04] border border-white/10 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white font-black text-sm shadow-md shadow-cyan-500/25">
+                ${initial}
+              </div>
+              <div>
+                <div class="font-extrabold text-white text-xs sm:text-sm tracking-wide">${escapeHtml(data.member.name)}</div>
+                <div class="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono mt-0.5">
+                  <span class="px-1.5 py-0.5 rounded bg-white/10 text-cyan-300">${escapeHtml(data.member.code)}</span>
+                  <span>•</span>
+                  <span>${escapeHtml(data.member.role || 'បុគ្គលិក')}</span>
+                </div>
+              </div>
+            </div>
+            <span class="px-2.5 py-1 rounded-xl bg-cyan-500/15 border border-cyan-400/30 text-cyan-300 font-mono font-bold text-xs shadow-xs">
+              ${data.todayScansCount}/4 លើក
+            </span>
+          </div>
+
+          <!-- Attendance Info Grid -->
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div class="p-2.5 rounded-2xl bg-white/[0.03] border border-white/10">
+              <span class="text-[10px] text-slate-400 block mb-0.5">វេនវត្តមាន (Slot)</span>
+              <span class="font-bold text-white text-xs">${slotLabel}</span>
+            </div>
+            <div class="p-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
+              <span class="text-[10px] text-emerald-300 block mb-0.5">វិធីសាស្ត្រកត់ត្រា</span>
+              <span class="font-bold text-emerald-400 text-xs flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>1-Click Wi-Fi</span>
+              </span>
+            </div>
+          </div>
+
+          ${statusDisplay}
           ${reasonDisplay}
-          <div>📶 <b>វិធីកត់ត្រា:</b> <span class="text-cyan-700 font-bold">1-Click Wi-Fi ក្រុមហ៊ុន</span></div>
-          <div>📊 <b>សរុបថ្ងៃនេះ:</b> ${data.todayScansCount}/4 ដង</div>
-          <div class="text-[11px] text-sky-600 mt-2 pt-2 border-t border-slate-200 flex items-center gap-1.5">
-            <i class="fa-brands fa-telegram text-sm"></i> សារបានផ្ញើជូនដំណឹងទៅ Telegram Group រួចរាល់!
+
+          <!-- Telegram broadcast status -->
+          <div class="p-2.5 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-400 text-[11px] flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i class="fa-brands fa-telegram text-base text-sky-400"></i>
+              <span class="font-medium">បានផ្ញើជូនដំណឹងទៅ Telegram Group រួចរាល់!</span>
+            </div>
+            <span class="text-[10px] font-mono text-sky-300/80 uppercase font-bold tracking-wider">OK</span>
           </div>
         </div>
       `,
@@ -3199,3 +3841,763 @@ function showAcledaNoticeModal() {
 function openTelegramNoticeGroup() {
   window.open('https://t.me/c/5037746251', '_blank');
 }
+
+// ========================================================
+// LEAVE & LATE PERMISSION REQUEST MODULE (V21.0)
+// ========================================================
+window.adminLeaveRequestsList = [];
+window.currentLeaveFilter = 'all';
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+async function parseJsonResponse(res) {
+  const contentType = (res.headers.get('content-type') || '').toLowerCase();
+  if (contentType.includes('application/json')) {
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || `Server error (${res.status})`);
+    }
+    return data;
+  }
+  const text = await res.text();
+  if (res.status === 404) {
+    throw new Error('ម៉ាស៊ីនបម្រើ (Server / Vercel) មិនទាន់បានធ្វើបច្ចុប្បន្នភាពកូដចុងក្រោយទេ។ សូម Upload ឬ Deploy កូដចុងក្រោយទៅកាន់ Server រួចសាកល្បងម្តងទៀត!');
+  }
+  if (!res.ok) {
+    throw new Error(`Server Error (${res.status}): ${text.substring(0, 100)}`);
+  }
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error('ការឆ្លើយតបពីម៉ាស៊ីនបម្រើមិនត្រឹមត្រូវ (Invalid JSON)');
+  }
+}
+
+function openLeaveRequestModal(defaultTab = 'leave') {
+  if (!currentStaff) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'សូមចូលគណនីបុគ្គលិក',
+      text: 'សូមជ្រើសរើស ឬចូលគណនីបុគ្គលិករបស់អ្នកជាមុនសិន ទើបអាចស្នើសុំច្បាប់ ឬមកយឺតបាន!',
+      confirmButtonText: 'យល់ព្រម',
+      confirmButtonColor: '#0ea5e9'
+    });
+    return;
+  }
+
+  // Populate staff profile preview
+  const initial = currentStaff.name ? currentStaff.name.trim().charAt(0).toUpperCase() : 'U';
+  const sName = currentStaff.name || '--';
+  const sCode = currentStaff.code || '--';
+
+  const leaveNameEl = document.getElementById('leaveStaffName');
+  const leaveCodeEl = document.getElementById('leaveStaffCode');
+  const leaveInitEl = document.getElementById('leaveStaffInitial');
+  if (leaveNameEl) leaveNameEl.textContent = sName;
+  if (leaveCodeEl) leaveCodeEl.textContent = sCode;
+  if (leaveInitEl) leaveInitEl.textContent = initial;
+
+  const lateNameEl = document.getElementById('lateStaffName');
+  const lateCodeEl = document.getElementById('lateStaffCode');
+  const lateInitEl = document.getElementById('lateStaffInitial');
+  if (lateNameEl) lateNameEl.textContent = sName;
+  if (lateCodeEl) lateCodeEl.textContent = sCode;
+  if (lateInitEl) lateInitEl.textContent = initial;
+
+  // Set default dates
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Phnom_Penh' });
+  const leaveStart = document.getElementById('leaveStartDate');
+  const leaveEnd = document.getElementById('leaveEndDate');
+  const lateDate = document.getElementById('lateDate');
+  if (leaveStart && !leaveStart.value) leaveStart.value = todayStr;
+  if (leaveEnd && !leaveEnd.value) leaveEnd.value = todayStr;
+  if (lateDate && !lateDate.value) lateDate.value = todayStr;
+
+  updateLeaveDurationUI();
+  switchLeaveModalTab(defaultTab);
+
+  const modal = document.getElementById('leaveRequestModal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+
+  if (window.lucide) lucide.createIcons();
+}
+
+function updateLeaveDurationUI() {
+  const select = document.getElementById('leaveDurationSelect');
+  const endDateWrap = document.getElementById('leaveEndDateWrap');
+  const startDateLabel = document.getElementById('leaveStartDateLabel');
+  if (!select) return;
+
+  const val = select.value || '';
+  const isMultiple = val.includes('2 ថ្ងៃ') || val.includes('3 ថ្ងៃ') || val.includes('ច្រើនថ្ងៃ');
+
+  if (isMultiple) {
+    if (endDateWrap) endDateWrap.classList.remove('hidden');
+    if (startDateLabel) startDateLabel.innerHTML = 'ចាប់ពីថ្ងៃ (Start Date) <span class="text-rose-400">*</span>';
+  } else {
+    if (endDateWrap) endDateWrap.classList.add('hidden');
+    if (startDateLabel) startDateLabel.innerHTML = 'កាលបរិច្ឆេទ (Date) <span class="text-rose-400">*</span>';
+  }
+}
+
+function setQuickLateTime(minutesToAdd) {
+  const now = new Date();
+  now.setMinutes(now.getMinutes() + minutesToAdd);
+  let hours = now.getHours();
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  const formattedHours = String(hours).padStart(2, '0');
+  const timeStr = `${formattedHours}:${minutes} ${ampm}`;
+  const input = document.getElementById('lateExpectedTime');
+  if (input) {
+    input.value = timeStr;
+    input.focus();
+  }
+}
+
+function setExactLateTime(timeStr) {
+  const input = document.getElementById('lateExpectedTime');
+  if (input) {
+    input.value = timeStr;
+    input.focus();
+  }
+}
+
+function closeLeaveRequestModal() {
+  const modal = document.getElementById('leaveRequestModal');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+}
+
+function switchLeaveModalTab(tab) {
+  const btnLeave = document.getElementById('leaveTabBtnLeave');
+  const btnLate = document.getElementById('leaveTabBtnLate');
+  const btnHistory = document.getElementById('leaveTabBtnHistory');
+
+  const formLeave = document.getElementById('formLeaveRequest');
+  const formLate = document.getElementById('formLateRequest');
+  const secHistory = document.getElementById('sectionLeaveHistory');
+
+  const activeClass = 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-sm font-bold';
+  const inactiveClass = 'text-slate-400 font-semibold hover:text-white bg-transparent';
+
+  [btnLeave, btnLate, btnHistory].forEach(btn => {
+    if (btn) {
+      btn.className = btn.className.replace(activeClass, '').replace(inactiveClass, '') + ' ' + inactiveClass;
+    }
+  });
+
+  if (tab === 'leave') {
+    if (btnLeave) btnLeave.className = btnLeave.className.replace(inactiveClass, '') + ' ' + activeClass;
+    if (formLeave) formLeave.classList.remove('hidden');
+    if (formLate) formLate.classList.add('hidden');
+    if (secHistory) secHistory.classList.add('hidden');
+  } else if (tab === 'late') {
+    if (btnLate) btnLate.className = btnLate.className.replace(inactiveClass, '') + ' ' + activeClass;
+    if (formLeave) formLeave.classList.add('hidden');
+    if (formLate) formLate.classList.remove('hidden');
+    if (secHistory) secHistory.classList.add('hidden');
+  } else if (tab === 'history') {
+    if (btnHistory) btnHistory.className = btnHistory.className.replace(inactiveClass, '') + ' ' + activeClass;
+    if (formLeave) formLeave.classList.add('hidden');
+    if (formLate) formLate.classList.add('hidden');
+    if (secHistory) secHistory.classList.remove('hidden');
+    loadMyLeaveRequests();
+  }
+
+  if (window.lucide) lucide.createIcons();
+}
+
+async function handleLeaveFormSubmit(e) {
+  if (e) e.preventDefault();
+  if (!currentStaff) {
+    Swal.fire({ icon: 'warning', title: 'សូមចូលគណនីបុគ្គលិកជាមុនសិន' });
+    return;
+  }
+
+  const btn = document.getElementById('btnSubmitLeave');
+  const subType = document.getElementById('leaveSubType')?.value;
+  const startDate = document.getElementById('leaveStartDate')?.value;
+  const endDate = document.getElementById('leaveEndDate')?.value || startDate;
+  const duration = document.getElementById('leaveDurationSelect')?.value;
+  const reason = document.getElementById('leaveReason')?.value;
+
+  if (!reason || !reason.trim()) {
+    Swal.fire({ icon: 'warning', title: 'សូមបំពេញមូលហេតុ', text: 'សូមបញ្ជាក់មូលហេតុនៃការសុំច្បាប់ឱ្យបានច្បាស់លាស់!' });
+    return;
+  }
+
+  const originalBtnHtml = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="inline-block animate-spin mr-2">🌀</span> កំពុងបញ្ជូនសំណើ...`;
+  }
+
+  try {
+    const payload = {
+      code: currentStaff.code,
+      member_id: currentStaff.id || null,
+      member_name: currentStaff.name,
+      member_code: currentStaff.code,
+      member_role: currentStaff.role || 'បុគ្គលិក',
+      request_type: 'leave',
+      sub_type: subType,
+      date_start: startDate,
+      date_end: endDate,
+      duration_text: duration,
+      reason: reason.trim()
+    };
+
+    const res = await fetch('/api/leave-requests', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await parseJsonResponse(res);
+
+    // Reset textarea
+    const reasonInput = document.getElementById('leaveReason');
+    if (reasonInput) reasonInput.value = '';
+
+    await Swal.fire({
+      icon: 'success',
+      title: 'បានផ្ញើសំណើដោយជោគជ័យ! 🎉',
+      html: `
+        <div class="text-xs text-slate-300 space-y-1.5 p-1">
+          <p>✅ សំណើសុំច្បាប់របស់អ្នកត្រូវបានកត់ត្រាក្នុងប្រព័ន្ធ។</p>
+          <p class="text-cyan-300 font-semibold">📲 សារជូនដំណឹងត្រូវបានបញ្ជូនទៅកាន់ Group Telegram របស់ថ្នាក់ដឹកនាំរួចរាល់។</p>
+          <p class="text-[11px] text-slate-400">អ្នកអាចតាមដានការឆ្លើយតបរបស់ថ្នាក់ដឹកនាំក្នុងផ្ទាំង "សំណើរបស់ខ្ញុំ"។</p>
+        </div>
+      `,
+      confirmButtonText: 'មើលស្ថានភាពសំណើ',
+      confirmButtonColor: '#0ea5e9'
+    });
+
+    switchLeaveModalTab('history');
+  } catch (err) {
+    console.error('Error submitting leave request:', err);
+    Swal.fire({ icon: 'error', title: 'មានបញ្ហា', text: err.message });
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalBtnHtml;
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+}
+
+async function handleLateFormSubmit(e) {
+  if (e) e.preventDefault();
+  if (!currentStaff) {
+    Swal.fire({ icon: 'warning', title: 'សូមចូលគណនីបុគ្គលិកជាមុនសិន' });
+    return;
+  }
+
+  const btn = document.getElementById('btnSubmitLate');
+  const subType = document.getElementById('lateSubType')?.value;
+  const lateDate = document.getElementById('lateDate')?.value;
+  const expectedTime = document.getElementById('lateExpectedTime')?.value;
+  const reason = document.getElementById('lateReason')?.value;
+
+  if (!expectedTime || !expectedTime.trim()) {
+    Swal.fire({ icon: 'warning', title: 'សូមបញ្ជាក់ម៉ោង', text: 'សូមបញ្ចូលម៉ោងដែលរំពឹងថានឹងមកដល់!' });
+    return;
+  }
+
+  if (!reason || !reason.trim()) {
+    Swal.fire({ icon: 'warning', title: 'សូមបញ្ជាក់មូលហេតុ', text: 'សូមបញ្ជាក់មូលហេតុ ឬបញ្ហាតាមផ្លូវឱ្យបានច្បាស់លាស់!' });
+    return;
+  }
+
+  const originalBtnHtml = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="inline-block animate-spin mr-2">🌀</span> កំពុងបញ្ជូនដំណឹង...`;
+  }
+
+  try {
+    const payload = {
+      code: currentStaff.code,
+      member_id: currentStaff.id || null,
+      member_name: currentStaff.name,
+      member_code: currentStaff.code,
+      member_role: currentStaff.role || 'បុគ្គលិក',
+      request_type: 'late',
+      sub_type: subType,
+      date_start: lateDate,
+      date_end: lateDate,
+      time_expected: expectedTime.trim(),
+      duration_text: `រំពឹងមកដល់: ${expectedTime.trim()}`,
+      reason: reason.trim()
+    };
+
+    const res = await fetch('/api/leave-requests', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await parseJsonResponse(res);
+
+    // Reset textarea
+    const reasonInput = document.getElementById('lateReason');
+    if (reasonInput) reasonInput.value = '';
+
+    await Swal.fire({
+      icon: 'success',
+      title: 'បានផ្ញើដំណឹងមកយឺតដោយជោគជ័យ! 🛵',
+      html: `
+        <div class="text-xs text-slate-300 space-y-1.5 p-1">
+          <p>✅ ដំណឹងសុំមកយឺតត្រូវបានកត់ត្រាចូលក្នុងប្រព័ន្ធ។</p>
+          <p class="text-amber-300 font-semibold">📲 សារ Alert ត្រូវបានផ្ញើជូនដំណឹងទៅ Group Telegram ថ្នាក់ដឹកនាំរួចរាល់។</p>
+          <p class="text-[11px] text-slate-400">សូមបើកបរដោយសុវត្ថិភាព!</p>
+        </div>
+      `,
+      confirmButtonText: 'យល់ព្រម',
+      confirmButtonColor: '#f59e0b'
+    });
+
+    switchLeaveModalTab('history');
+  } catch (err) {
+    console.error('Error submitting late request:', err);
+    Swal.fire({ icon: 'error', title: 'មានបញ្ហា', text: err.message });
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalBtnHtml;
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+}
+
+async function loadMyLeaveRequests() {
+  const container = document.getElementById('myLeaveRequestsContainer');
+  if (!container) return;
+
+  if (!currentStaff) {
+    container.innerHTML = `<div class="p-4 rounded-xl bg-white/5 border border-white/10 text-center text-xs text-slate-400">សូមចូលគណនីបុគ្គលិកដើម្បីមើលប្រវត្តិសំណើ</div>`;
+    return;
+  }
+
+  container.innerHTML = `<div class="py-8 text-center text-xs text-slate-400"><span class="inline-block animate-spin mr-1.5">🌀</span> កំពុងទាញយកទិន្នន័យ...</div>`;
+
+  try {
+    const res = await fetch(`/api/leave-requests/my?code=${encodeURIComponent(currentStaff.code)}`);
+    const data = await parseJsonResponse(res);
+
+    if (!data.requests || data.requests.length === 0) {
+      container.innerHTML = `
+        <div class="p-6 rounded-2xl bg-white/5 border border-white/10 text-center space-y-2">
+          <div class="w-10 h-10 mx-auto rounded-full bg-white/10 flex items-center justify-center text-slate-400">
+            <i data-lucide="clipboard-x" class="w-5 h-5"></i>
+          </div>
+          <p class="text-xs text-slate-300 font-medium">ពុំទាន់មានសំណើសុំច្បាប់ ឬមកយឺតនៅឡើយទេ</p>
+          <p class="text-[11px] text-slate-500">រាល់សំណើដែលអ្នកបានស្នើ នឹងបង្ហាញនៅទីនេះ រួមទាំងការឆ្លើយតបពី Admin ផងដែរ</p>
+        </div>
+      `;
+      if (window.lucide) lucide.createIcons();
+      return;
+    }
+
+    container.innerHTML = data.requests.map(req => {
+      const isLeave = req.request_type === 'leave';
+      const typeBadge = isLeave 
+        ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-cyan-300 border border-blue-400/30">🏖️ សុំច្បាប់</span>`
+        : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30">🛵 មកយឺត</span>`;
+
+      let statusBadge = '';
+      if (req.status === 'pending') {
+        statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">⏳ កំពុងរង់ចាំពិនិត្យ</span>`;
+      } else if (req.status === 'approved') {
+        statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">✅ បានយល់ព្រម (OK)</span>`;
+      } else if (req.status === 'rejected') {
+        statusBadge = `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1">❌ មិនអនុម័ត</span>`;
+      }
+
+      let dateInfo = '';
+      if (isLeave) {
+        dateInfo = `📅 ${escapeHtml(req.date_start)} ${req.date_end && req.date_end !== req.date_start ? '→ ' + escapeHtml(req.date_end) : ''} • ${escapeHtml(req.duration_text || '1 ថ្ងៃ')}`;
+      } else {
+        dateInfo = `📅 ${escapeHtml(req.date_start)} • ⏰ មកដល់: ${escapeHtml(req.time_expected || '--')}`;
+      }
+
+      let adminResponseHtml = '';
+      if (req.admin_response) {
+        const isOk = req.status === 'approved';
+        adminResponseHtml = `
+          <div class="mt-2.5 p-2.5 rounded-xl ${isOk ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-200' : 'bg-rose-500/10 border border-rose-500/30 text-rose-200'} text-xs space-y-1">
+            <div class="flex items-center justify-between font-bold text-[11px] ${isOk ? 'text-emerald-400' : 'text-rose-400'}">
+              <span>💬 សារឆ្លើយតបពី Admin (ថ្នាក់ដឹកនាំ):</span>
+              <span class="font-normal text-[10px] opacity-75">${req.reviewed_by || 'Admin'}</span>
+            </div>
+            <p class="font-medium">"${escapeHtml(req.admin_response)}"</p>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-2 hover:border-white/20 transition">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              ${typeBadge}
+              <span class="text-xs font-bold text-white">${escapeHtml(req.sub_type)}</span>
+            </div>
+            ${statusBadge}
+          </div>
+
+          <div class="text-[11px] text-cyan-300 font-mono font-medium">
+            ${dateInfo}
+          </div>
+
+          <div class="text-xs text-slate-300 bg-black/30 p-2.5 rounded-xl border border-white/5">
+            ${escapeHtml(req.reason)}
+          </div>
+
+          ${adminResponseHtml}
+
+          <div class="text-[10px] text-slate-500 text-right pt-0.5">
+            កាលបរិច្ឆេទស្នើ: ${new Date(req.created_at).toLocaleString('km-KH', { timeZone: 'Asia/Phnom_Penh' })}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    if (window.lucide) lucide.createIcons();
+  } catch (err) {
+    console.error('Error loading my leave requests:', err);
+    container.innerHTML = `<div class="p-4 text-center text-xs text-rose-400">បរាជ័យក្នុងការទាញយកទិន្នន័យ: ${err.message}</div>`;
+  }
+}
+
+async function loadAdminLeaveRequests(filter = window.currentLeaveFilter || 'all') {
+  const container = document.getElementById('adminLeaveRequestsContainer');
+  if (container) {
+    container.innerHTML = `<div class="col-span-full py-12 text-center text-xs text-slate-400"><span class="inline-block animate-spin mr-1.5">🌀</span> កំពុងទាញយកសំណើសុំច្បាប់ & មកយឺត...</div>`;
+  }
+
+  try {
+    const res = await fetch('/api/leave-requests');
+    const data = await parseJsonResponse(res);
+    window.adminLeaveRequestsList = data.requests || [];
+
+    // Calculate KPI stats
+    const total = window.adminLeaveRequestsList.length;
+    const pending = window.adminLeaveRequestsList.filter(r => r.status === 'pending').length;
+    const approved = window.adminLeaveRequestsList.filter(r => r.status === 'approved').length;
+    const rejected = window.adminLeaveRequestsList.filter(r => r.status === 'rejected').length;
+
+    // Update KPI UI
+    const statTotal = document.getElementById('admLeaveStatTotal');
+    const statPending = document.getElementById('admLeaveStatPending');
+    const statApproved = document.getElementById('admLeaveStatApproved');
+    const statRejected = document.getElementById('admLeaveStatRejected');
+
+    if (statTotal) statTotal.textContent = total;
+    if (statPending) statPending.textContent = pending;
+    if (statApproved) statApproved.textContent = approved;
+    if (statRejected) statRejected.textContent = rejected;
+
+    // Badges in Header & Filter
+    const navBadge = document.getElementById('admPendingLeavesBadge');
+    if (navBadge) {
+      if (pending > 0) {
+        navBadge.textContent = pending;
+        navBadge.classList.remove('hidden');
+      } else {
+        navBadge.classList.add('hidden');
+      }
+    }
+
+    const filterPendingBadge = document.getElementById('leaveFilterPendingBadge');
+    if (filterPendingBadge) {
+      if (pending > 0) filterPendingBadge.classList.remove('hidden');
+      else filterPendingBadge.classList.add('hidden');
+    }
+
+    filterAdminLeaveRequests(filter);
+  } catch (err) {
+    console.error('Error loading admin leave requests:', err);
+    if (container) {
+      container.innerHTML = `<div class="col-span-full py-8 text-center text-xs text-rose-400">មានបញ្ហាក្នុងការទាញយកសំណើ: ${err.message}</div>`;
+    }
+  }
+}
+
+function filterAdminLeaveRequests(status = 'all') {
+  window.currentLeaveFilter = status;
+
+  // Update button tabs
+  const btns = {
+    all: document.getElementById('leaveFilterBtnAll'),
+    pending: document.getElementById('leaveFilterBtnPending'),
+    approved: document.getElementById('leaveFilterBtnApproved'),
+    rejected: document.getElementById('leaveFilterBtnRejected')
+  };
+
+  const activeClass = 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-sm font-bold';
+  const inactiveClass = 'text-slate-300 font-semibold hover:text-white bg-transparent';
+
+  Object.entries(btns).forEach(([k, btn]) => {
+    if (btn) {
+      btn.className = btn.className.replace(activeClass, '').replace(inactiveClass, '') + ' ' + (k === status ? activeClass : inactiveClass);
+    }
+  });
+
+  renderAdminLeaveCards(status);
+}
+
+function renderAdminLeaveCards(status = 'all') {
+  const container = document.getElementById('adminLeaveRequestsContainer');
+  if (!container) return;
+
+  let list = window.adminLeaveRequestsList || [];
+  if (status !== 'all') {
+    list = list.filter(r => r.status === status);
+  }
+
+  if (list.length === 0) {
+    container.innerHTML = `
+      <div class="col-span-full py-16 text-center space-y-3">
+        <div class="w-12 h-12 mx-auto rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 shadow-inner">
+          <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+        </div>
+        <p class="text-sm font-semibold text-slate-300">ពុំមានសំណើក្នុងប្រភេទនេះទេ</p>
+        <p class="text-xs text-slate-500">រាល់សំណើសុំច្បាប់ និងមកយឺតថ្មីៗ នឹងបង្ហាញនៅទីនេះភ្លាមៗ</p>
+      </div>
+    `;
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+
+  container.innerHTML = list.map(req => {
+    const isLeave = req.request_type === 'leave';
+    const initial = req.member_name ? req.member_name.trim().charAt(0).toUpperCase() : 'U';
+
+    let typeBadge = isLeave
+      ? `<span class="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-blue-500/20 text-cyan-300 border border-blue-400/30 flex items-center gap-1">🏖️ សុំច្បាប់</span>`
+      : `<span class="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30 flex items-center gap-1">🛵 មកយឺត</span>`;
+
+    let statusPill = '';
+    if (req.status === 'pending') {
+      statusPill = `<span class="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1 animate-pulse">⏳ រង់ចាំពិនិត្យ</span>`;
+    } else if (req.status === 'approved') {
+      statusPill = `<span class="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">✅ បានយល់ព្រម (OK)</span>`;
+    } else if (req.status === 'rejected') {
+      statusPill = `<span class="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1">❌ មិនអនុម័ត</span>`;
+    }
+
+    let dateDetail = '';
+    if (isLeave) {
+      dateDetail = `
+        <div class="flex items-center gap-1.5 text-xs text-cyan-300">
+          <i data-lucide="calendar" class="w-3.5 h-3.5 text-cyan-400"></i>
+          <span><b>កាលបរិច្ឆេទ:</b> ${escapeHtml(req.date_start)} ${req.date_end && req.date_end !== req.date_start ? 'ដល់ ' + escapeHtml(req.date_end) : ''}</span>
+          <span class="text-slate-400">(${escapeHtml(req.duration_text || '1 ថ្ងៃ')})</span>
+        </div>
+      `;
+    } else {
+      dateDetail = `
+        <div class="flex items-center gap-1.5 text-xs text-amber-300">
+          <i data-lucide="clock" class="w-3.5 h-3.5 text-amber-400"></i>
+          <span><b>ថ្ងៃកើតហេតុ:</b> ${escapeHtml(req.date_start)}</span>
+          <span class="font-bold bg-amber-500/15 px-2 py-0.5 rounded-lg border border-amber-400/30">⏰ មកដល់: ${escapeHtml(req.time_expected || '--')}</span>
+        </div>
+      `;
+    }
+
+    let actionSection = '';
+    if (req.status === 'pending') {
+      actionSection = `
+        <div class="pt-2 border-t border-white/10 flex items-center gap-2">
+          <button type="button" onclick="promptReviewLeaveRequest(${req.id}, 'approved', '${escapeHtml(req.member_name)}', '${req.request_type}')" class="flex-1 py-2 px-3 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 shadow-md shadow-emerald-500/20 flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer">
+            <i data-lucide="check-circle" class="w-4 h-4"></i>
+            <span>យល់ព្រម (Approve / OK)</span>
+          </button>
+          <button type="button" onclick="promptReviewLeaveRequest(${req.id}, 'rejected', '${escapeHtml(req.member_name)}', '${req.request_type}')" class="flex-1 py-2 px-3 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 shadow-md shadow-rose-500/20 flex items-center justify-center gap-1.5 active:scale-95 transition cursor-pointer">
+            <i data-lucide="x-circle" class="w-4 h-4"></i>
+            <span>មិនអនុម័ត (Reject)</span>
+          </button>
+        </div>
+      `;
+    } else {
+      const isApproved = req.status === 'approved';
+      actionSection = `
+        <div class="pt-2 border-t border-white/10">
+          <div class="p-2.5 rounded-xl ${isApproved ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-200' : 'bg-rose-500/10 border border-rose-500/30 text-rose-200'} text-xs space-y-1">
+            <div class="flex items-center justify-between font-bold text-[11px] ${isApproved ? 'text-emerald-400' : 'text-rose-400'}">
+              <span>💬 សារឆ្លើយតបទៅបុគ្គលិក:</span>
+              <span class="font-normal text-[10px] opacity-75">ពិនិត្យដោយ: ${escapeHtml(req.reviewed_by || 'Admin')}</span>
+            </div>
+            <p class="font-medium">"${escapeHtml(req.admin_response || 'គ្មានកំណត់សម្គាល់')}"</p>
+          </div>
+        </div>
+      `;
+    }
+
+    const createdTimeStr = new Date(req.created_at).toLocaleString('km-KH', { timeZone: 'Asia/Phnom_Penh' });
+
+    return `
+      <div class="glass-crystal p-4 rounded-3xl border border-white/15 bg-slate-900/80 shadow-xl space-y-3 hover:border-white/25 transition">
+        
+        <!-- Header: User info + Status badge -->
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 text-white font-bold flex items-center justify-center shadow-md">
+              ${initial}
+            </div>
+            <div>
+              <div class="text-sm font-extrabold text-white flex items-center gap-1.5">
+                <span>${escapeHtml(req.member_name)}</span>
+                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-cyan-300">${escapeHtml(req.member_code)}</span>
+              </div>
+              <div class="text-xs text-slate-400">${escapeHtml(req.member_role || 'បុគ្គលិក')}</div>
+            </div>
+          </div>
+          ${statusPill}
+        </div>
+
+        <!-- Type & SubType -->
+        <div class="flex items-center gap-2 flex-wrap">
+          ${typeBadge}
+          <span class="text-xs font-bold text-slate-200">${escapeHtml(req.sub_type)}</span>
+        </div>
+
+        <!-- Date Info -->
+        ${dateDetail}
+
+        <!-- Reason -->
+        <div class="p-3 rounded-2xl bg-black/40 border border-white/5 space-y-1">
+          <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">មូលហេតុនៃការស្នើសុំ:</div>
+          <div class="text-xs text-slate-200 whitespace-pre-wrap leading-relaxed">${escapeHtml(req.reason)}</div>
+        </div>
+
+        <!-- Actions or Review Result -->
+        ${actionSection}
+
+        <!-- Footer: Creation Timestamp -->
+        <div class="text-[10px] text-slate-500 text-right pt-1">
+          កាលបរិច្ឆេទស្នើ: ${createdTimeStr}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  if (window.lucide) lucide.createIcons();
+}
+
+async function promptReviewLeaveRequest(id, status, memberName, requestType) {
+  const isApproved = status === 'approved';
+  const actionTitle = isApproved ? '✅ យល់ព្រមលើសំណើ (Approve / OK)' : '❌ មិនអនុម័តសំណើ (Reject)';
+  const confirmBtnText = isApproved ? 'យល់ព្រម (OK)' : 'បដិសេធ (Reject)';
+  const confirmBtnColor = isApproved ? '#10b981' : '#f43f5e';
+
+  // Quick preset pills
+  const presets = isApproved
+    ? [
+        'Okay! បានយល់ព្រម',
+        'ជូនពរឱ្យឆាប់ជាសះស្បើយ!',
+        'សូមបើកបរដោយប្រុងប្រយ័ត្នតាមផ្លូវ!',
+        'យល់ព្រម សម្រាកឱ្យបានស្រួលបួល'
+      ]
+    : [
+        'មិនអនុញ្ញាតព្រោះខ្វះកម្លាំងពលកម្ម',
+        'សូមមកបំពេញការងារតាមការកំណត់',
+        'មូលហេតុពុំទាន់គ្រប់គ្រាន់'
+      ];
+
+  const presetsHtml = presets.map((text) => `
+    <button type="button" onclick="document.getElementById('swalLeaveAdminResponse').value = '${text.replace(/'/g, "\\'")}'" class="text-[11px] px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/10 transition cursor-pointer">
+      ${text}
+    </button>
+  `).join('');
+
+  const defaultText = isApproved ? 'Okay! បានយល់ព្រម' : 'មិនអនុម័ត';
+
+  const result = await Swal.fire({
+    title: actionTitle,
+    html: `
+      <div class="text-left text-xs space-y-3 p-1">
+        <div class="p-3 rounded-xl bg-slate-800/80 border border-white/10 space-y-1">
+          <div class="text-slate-300"><b>បុគ្គលិក:</b> <span class="text-white font-bold">${escapeHtml(memberName)}</span></div>
+          <div class="text-slate-300"><b>ប្រភេទសំណើ:</b> <span class="text-cyan-300 font-bold">${requestType === 'leave' ? '🏖️ សុំច្បាប់ឈប់សម្រាក' : '🛵 សុំមកយឺត'}</span></div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1">
+            សារឆ្លើយតបទៅកាន់បុគ្គលិក និង Telegram:
+          </label>
+          <textarea id="swalLeaveAdminResponse" rows="2" class="w-full text-xs bg-slate-900 border border-white/20 rounded-xl p-2.5 text-white focus:outline-none focus:border-cyan-400" placeholder="បញ្ចូលសារឆ្លើយតប...">${defaultText}</textarea>
+        </div>
+
+        <div>
+          <div class="text-[11px] text-slate-400 mb-1.5 font-semibold">ចុចជ្រើសរើសសារគំរូយ៉ាងរហ័ស:</div>
+          <div class="flex flex-wrap gap-1.5">
+            ${presetsHtml}
+          </div>
+        </div>
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: confirmBtnText,
+    cancelButtonText: 'ត្រឡប់ក្រោយ',
+    confirmButtonColor: confirmBtnColor,
+    cancelButtonColor: '#64748b',
+    preConfirm: () => {
+      const input = document.getElementById('swalLeaveAdminResponse');
+      return input ? input.value.trim() : defaultText;
+    }
+  });
+
+  if (!result.isConfirmed) return;
+
+  const adminResponse = result.value || defaultText;
+
+  Swal.fire({
+    title: 'កំពុងកត់ត្រាការសម្រេច...',
+    didOpen: () => Swal.showLoading()
+  });
+
+  try {
+    const res = await fetch(`/api/leave-requests/${id}/review`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status,
+        admin_response: adminResponse,
+        reviewed_by: 'Admin'
+      })
+    });
+
+    const data = await parseJsonResponse(res);
+
+    await Swal.fire({
+      icon: 'success',
+      title: 'ជោគជ័យ! 🎉',
+      html: `
+        <div class="text-xs text-slate-300 space-y-1">
+          <p>${data.message}</p>
+          <p class="text-cyan-300 font-semibold">📲 ការសម្រេចនេះត្រូវបានផ្ញើទៅកាន់ Telegram និងឆ្លុះបញ្ចាំងលើគណនីបុគ្គលិកភ្លាមៗ!</p>
+        </div>
+      `,
+      confirmButtonText: 'យល់ព្រម',
+      confirmButtonColor: '#0ea5e9'
+    });
+
+    loadAdminLeaveRequests(window.currentLeaveFilter || 'all');
+  } catch (err) {
+    console.error('Error reviewing leave request:', err);
+    Swal.fire({ icon: 'error', title: 'មានបញ្ហា', text: err.message });
+  }
+}
+

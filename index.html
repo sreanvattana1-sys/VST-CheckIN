@@ -175,135 +175,382 @@
       100% { transform: translateY(60px); }
     }
 
-    /* Ambient animated living color waves (Linear / Vercel Low Opacity) */
+    /* Ambient animated living color waves (GPU Optimized 60FPS) */
     .aurora-blob {
       position: absolute;
       border-radius: 50%;
-      filter: blur(90px);
-      opacity: 0.15 !important;
+      filter: blur(45px);
+      opacity: 0.16 !important;
       will-change: transform;
       mix-blend-mode: screen;
-      transition: background 0.8s ease;
+      transform: translate3d(0, 0, 0);
+      contain: layout paint size;
     }
 
     .blob-1 {
-      width: 560px;
-      height: 560px;
-      background: radial-gradient(circle, rgba(37, 99, 235, 0.85) 0%, rgba(6, 182, 212, 0.5) 60%, transparent 100%);
-      top: -100px;
-      left: -80px;
-      animation: floatBlob1 13s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+      width: 520px;
+      height: 520px;
+      background: radial-gradient(circle, rgba(37, 99, 235, 0.85) 0%, rgba(6, 182, 212, 0.45) 55%, transparent 100%);
+      top: -80px;
+      left: -60px;
+      animation: floatBlob1 18s ease-in-out infinite alternate;
     }
 
     .blob-2 {
-      width: 520px;
-      height: 520px;
-      background: radial-gradient(circle, rgba(147, 51, 234, 0.8) 0%, rgba(99, 102, 241, 0.5) 60%, transparent 100%);
+      width: 480px;
+      height: 480px;
+      background: radial-gradient(circle, rgba(147, 51, 234, 0.8) 0%, rgba(99, 102, 241, 0.45) 55%, transparent 100%);
       top: 15%;
-      right: -100px;
-      animation: floatBlob2 15s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+      right: -80px;
+      animation: floatBlob2 20s ease-in-out infinite alternate;
     }
 
     .blob-3 {
-      width: 600px;
-      height: 600px;
-      background: radial-gradient(circle, rgba(6, 182, 212, 0.8) 0%, rgba(16, 185, 129, 0.5) 60%, transparent 100%);
-      bottom: -100px;
+      width: 520px;
+      height: 520px;
+      background: radial-gradient(circle, rgba(6, 182, 212, 0.8) 0%, rgba(16, 185, 129, 0.45) 55%, transparent 100%);
+      bottom: -80px;
       left: 15%;
-      animation: floatBlob3 16s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+      animation: floatBlob3 22s ease-in-out infinite alternate;
     }
 
     .blob-4 {
-      width: 480px;
-      height: 480px;
-      background: radial-gradient(circle, rgba(244, 63, 94, 0.65) 0%, rgba(245, 158, 11, 0.4) 60%, transparent 100%);
+      width: 420px;
+      height: 420px;
+      background: radial-gradient(circle, rgba(244, 63, 94, 0.65) 0%, rgba(245, 158, 11, 0.35) 55%, transparent 100%);
       top: 45%;
       left: 25%;
-      animation: floatBlob4 14s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+      animation: floatBlob4 19s ease-in-out infinite alternate;
     }
 
     .blob-5 {
-      width: 460px;
-      height: 460px;
-      background: radial-gradient(circle, rgba(14, 165, 233, 0.75) 0%, rgba(59, 130, 246, 0.4) 60%, transparent 100%);
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(14, 165, 233, 0.75) 0%, rgba(59, 130, 246, 0.35) 55%, transparent 100%);
       bottom: 25%;
       right: 10%;
-      animation: floatBlob5 17s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+      animation: floatBlob5 24s ease-in-out infinite alternate;
     }
 
-    /* Floating geometric visual accents */
+    /* Floating geometric visual accents (GPU Accelerated) */
     .geo-shape {
       position: absolute;
       pointer-events: none;
-      opacity: 0.35;
+      opacity: 0.25;
       will-change: transform;
+      transform: translate3d(0, 0, 0);
     }
 
     .shape-circle-1 {
-      width: 200px;
-      height: 200px;
+      width: 180px;
+      height: 180px;
       border-radius: 50%;
-      background: linear-gradient(135deg, rgba(37, 99, 235, 0.45), rgba(6, 182, 212, 0.25));
-      border: 1.5px solid rgba(56, 189, 248, 0.4);
-      box-shadow: 0 0 35px rgba(6, 182, 212, 0.35);
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.35), rgba(6, 182, 212, 0.2));
+      border: 1.5px solid rgba(56, 189, 248, 0.3);
       top: 15%;
       left: 10%;
-      animation: floatShape1 20s ease-in-out infinite alternate;
+      animation: floatShape1 26s ease-in-out infinite alternate;
     }
 
     .shape-pill-1 {
-      width: 240px;
-      height: 100px;
+      width: 200px;
+      height: 80px;
       border-radius: 9999px;
-      background: linear-gradient(135deg, rgba(124, 58, 237, 0.4), rgba(99, 102, 241, 0.25));
-      border: 1.5px solid rgba(167, 139, 250, 0.4);
-      box-shadow: 0 0 45px rgba(124, 58, 237, 0.3);
+      background: linear-gradient(135deg, rgba(124, 58, 237, 0.3), rgba(99, 102, 241, 0.2));
+      border: 1.5px solid rgba(167, 139, 250, 0.3);
       top: 60%;
       right: 8%;
-      transform: rotate(-25deg);
-      animation: floatShape2 24s ease-in-out infinite alternate;
+      animation: floatShape2 30s ease-in-out infinite alternate;
     }
 
+    /* Hardware-accelerated translate3d keyframes (Locked 60fps) */
     @keyframes floatBlob1 {
-      0% { transform: translate(0, 0) scale(1) rotate(0deg); }
-      50% { transform: translate(140px, 110px) scale(1.18) rotate(45deg); }
-      100% { transform: translate(60px, 180px) scale(0.92) rotate(90deg); }
+      0% { transform: translate3d(0, 0, 0); }
+      50% { transform: translate3d(80px, 60px, 0); }
+      100% { transform: translate3d(30px, 110px, 0); }
     }
 
     @keyframes floatBlob2 {
-      0% { transform: translate(0, 0) scale(1) rotate(0deg); }
-      50% { transform: translate(-140px, 120px) scale(1.15) rotate(-35deg); }
-      100% { transform: translate(-80px, -60px) scale(0.90) rotate(-70deg); }
+      0% { transform: translate3d(0, 0, 0); }
+      50% { transform: translate3d(-80px, 70px, 0); }
+      100% { transform: translate3d(-40px, -30px, 0); }
     }
 
     @keyframes floatBlob3 {
-      0% { transform: translate(0, 0) scale(1) rotate(0deg); }
-      50% { transform: translate(110px, -120px) scale(1.2) rotate(40deg); }
-      100% { transform: translate(-90px, -60px) scale(0.94) rotate(80deg); }
+      0% { transform: translate3d(0, 0, 0); }
+      50% { transform: translate3d(70px, -70px, 0); }
+      100% { transform: translate3d(-50px, -30px, 0); }
     }
 
     @keyframes floatBlob4 {
-      0% { transform: translate(0, 0) scale(1) rotate(0deg); }
-      50% { transform: translate(-100px, -80px) scale(1.15) rotate(-45deg); }
-      100% { transform: translate(70px, 100px) scale(0.9) rotate(45deg); }
+      0% { transform: translate3d(0, 0, 0); }
+      50% { transform: translate3d(-60px, -40px, 0); }
+      100% { transform: translate3d(40px, 60px, 0); }
     }
 
     @keyframes floatBlob5 {
-      0% { transform: translate(0, 0) scale(1) rotate(0deg); }
-      50% { transform: translate(-120px, -110px) scale(1.16) rotate(60deg); }
-      100% { transform: translate(80px, 60px) scale(0.95) rotate(-40deg); }
+      0% { transform: translate3d(0, 0, 0); }
+      50% { transform: translate3d(-70px, -60px, 0); }
+      100% { transform: translate3d(40px, 30px, 0); }
     }
 
     @keyframes floatShape1 {
-      0% { transform: translate(0, 0) rotate(0deg) scale(1); }
-      50% { transform: translate(60px, 50px) rotate(45deg) scale(1.08); }
-      100% { transform: translate(-40px, 80px) rotate(90deg) scale(0.95); }
+      0% { transform: translate3d(0, 0, 0); }
+      50% { transform: translate3d(40px, 30px, 0); }
+      100% { transform: translate3d(-20px, 50px, 0); }
     }
 
     @keyframes floatShape2 {
-      0% { transform: translate(0, 0) rotate(-25deg) scale(1); }
-      50% { transform: translate(-70px, -40px) rotate(-10deg) scale(1.1); }
-      100% { transform: translate(40px, -60px) rotate(-35deg) scale(0.95); }
+      0% { transform: translate3d(0, 0, 0); }
+      50% { transform: translate3d(-40px, -20px, 0); }
+      100% { transform: translate3d(25px, -35px, 0); }
+    }
+
+    /* ================= PREMIUM DARK GLASS SWEETALERT2 STYLING ================= */
+    .swal2-container {
+      background: rgba(2, 6, 23, 0.78) !important;
+      backdrop-filter: blur(16px) saturate(180%) !important;
+      -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+      z-index: 10000 !important;
+    }
+
+    .swal2-popup {
+      background: rgba(15, 23, 42, 0.95) !important;
+      backdrop-filter: blur(32px) saturate(200%) !important;
+      -webkit-backdrop-filter: blur(32px) saturate(200%) !important;
+      border: 1px solid rgba(255, 255, 255, 0.18) !important;
+      border-radius: 28px !important;
+      box-shadow: 0 35px 90px -15px rgba(0, 0, 0, 0.85), 0 0 45px rgba(6, 182, 212, 0.25) !important;
+      padding: 1.85rem !important;
+      color: #ffffff !important;
+      font-family: inherit !important;
+    }
+
+    /* iOS Native Spring Dialog Animations (Clean Show & Hide without freeze) */
+    .swal2-popup.swal2-show {
+      animation: iosPopupIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.15) forwards !important;
+    }
+
+    .swal2-popup.swal2-hide {
+      animation: iosPopupOut 0.22s cubic-bezier(0.36, 0, 0.66, -0.56) forwards !important;
+    }
+
+    @keyframes iosPopupIn {
+      0% {
+        opacity: 0;
+        transform: scale(0.88) translateY(24px);
+        filter: blur(8px);
+      }
+      70% {
+        filter: blur(0);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+        filter: blur(0);
+      }
+    }
+
+    @keyframes iosPopupOut {
+      0% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+        filter: blur(0);
+      }
+      100% {
+        opacity: 0;
+        transform: scale(0.9) translateY(18px);
+        filter: blur(6px);
+      }
+    }
+
+    .swal2-title {
+      color: #ffffff !important;
+      font-weight: 800 !important;
+      font-size: 1.2rem !important;
+      letter-spacing: -0.01em !important;
+      padding-top: 0.5rem !important;
+    }
+
+    .swal2-html-container {
+      color: #cbd5e1 !important;
+      font-size: 0.85rem !important;
+      line-height: 1.6 !important;
+      margin: 0.75rem 0 0 0 !important;
+    }
+
+    /* Success Icon Glow */
+    .swal2-icon.swal2-success {
+      border-color: #10b981 !important;
+      color: #10b981 !important;
+      box-shadow: 0 0 30px rgba(16, 185, 129, 0.4) !important;
+      margin-top: 0.5rem !important;
+    }
+    .swal2-icon.swal2-success [class^='swal2-success-line'] {
+      background-color: #10b981 !important;
+    }
+    .swal2-icon.swal2-success .swal2-success-ring {
+      border-color: rgba(16, 185, 129, 0.4) !important;
+    }
+
+    /* Error Icon Glow */
+    .swal2-icon.swal2-error {
+      border-color: #f43f5e !important;
+      color: #f43f5e !important;
+      box-shadow: 0 0 30px rgba(244, 63, 94, 0.4) !important;
+      margin-top: 0.5rem !important;
+    }
+    .swal2-icon.swal2-error [class^='swal2-x-mark-line'] {
+      background-color: #f43f5e !important;
+    }
+
+    /* Warning Icon Glow */
+    .swal2-icon.swal2-warning {
+      border-color: #f59e0b !important;
+      color: #f59e0b !important;
+      box-shadow: 0 0 30px rgba(245, 158, 11, 0.4) !important;
+      margin-top: 0.5rem !important;
+    }
+
+    /* Question Icon Glow */
+    .swal2-icon.swal2-question {
+      border-color: #38bdf8 !important;
+      color: #38bdf8 !important;
+      box-shadow: 0 0 30px rgba(56, 189, 248, 0.4) !important;
+      margin-top: 0.5rem !important;
+    }
+
+    /* Confirm Button Styling */
+    .swal2-confirm {
+      background: linear-gradient(135deg, #06b6d4, #2563eb, #4f46e5) !important;
+      border: 1px solid rgba(255, 255, 255, 0.25) !important;
+      box-shadow: 0 10px 25px rgba(6, 182, 212, 0.4) !important;
+      border-radius: 14px !important;
+      font-weight: 700 !important;
+      padding: 0.7rem 2.2rem !important;
+      font-size: 0.85rem !important;
+      color: #ffffff !important;
+      cursor: pointer !important;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+    .swal2-confirm:hover {
+      transform: translateY(-2px) scale(1.02) !important;
+      box-shadow: 0 14px 30px rgba(6, 182, 212, 0.55) !important;
+    }
+
+    /* Cancel Button Styling */
+    .swal2-cancel {
+      background: rgba(255, 255, 255, 0.08) !important;
+      border: 1px solid rgba(255, 255, 255, 0.15) !important;
+      border-radius: 14px !important;
+      color: #94a3b8 !important;
+      font-weight: 600 !important;
+      padding: 0.7rem 1.8rem !important;
+      font-size: 0.85rem !important;
+      cursor: pointer !important;
+      transition: all 0.2s ease !important;
+    }
+    .swal2-cancel:hover {
+      background: rgba(255, 255, 255, 0.14) !important;
+      color: #ffffff !important;
+    }
+
+    /* Input & Select in SweetAlert */
+    .swal2-input, .swal2-select {
+      background: rgba(2, 6, 23, 0.8) !important;
+      border: 1px solid rgba(255, 255, 255, 0.18) !important;
+      color: #ffffff !important;
+      border-radius: 14px !important;
+      font-size: 0.85rem !important;
+      padding: 0.75rem 1rem !important;
+    }
+    .swal2-input:focus, .swal2-select:focus {
+      border-color: #06b6d4 !important;
+      box-shadow: 0 0 18px rgba(6, 182, 212, 0.35) !important;
+      outline: none !important;
+    }
+
+    /* iOS Native App View & Tab Transitions */
+    .view-enter-motion {
+      animation: iosAppViewEnter 0.38s cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
+      will-change: transform, opacity, filter;
+    }
+
+    @keyframes iosAppViewEnter {
+      0% {
+        opacity: 0;
+        transform: scale(0.96) translateY(18px);
+        filter: blur(6px);
+      }
+      70% {
+        filter: blur(0);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+        filter: blur(0);
+      }
+    }
+
+    .adm-section-motion {
+      animation: iosSectionGlide 0.32s cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
+      will-change: transform, opacity;
+    }
+
+    @keyframes iosSectionGlide {
+      0% {
+        opacity: 0;
+        transform: translateY(12px) scale(0.985);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* Living Motion Animations for Sign In Card */
+    @keyframes livingCardFloat {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-7px); }
+    }
+
+    @keyframes livingGlowPulse {
+      0%, 100% { opacity: 0.45; transform: scale(0.96); filter: blur(30px); }
+      50% { opacity: 0.85; transform: scale(1.05); filter: blur(38px); }
+    }
+
+    @keyframes logoPulseGlow {
+      0%, 100% { box-shadow: 0 0 16px rgba(6, 182, 212, 0.3), 0 0 32px rgba(99, 102, 241, 0.2); transform: scale(1); }
+      50% { box-shadow: 0 0 28px rgba(6, 182, 212, 0.65), 0 0 50px rgba(99, 102, 241, 0.45); transform: scale(1.04); }
+    }
+
+    @keyframes beamSweep {
+      0% { transform: translateX(-150%) skewX(-20deg); }
+      50%, 100% { transform: translateX(250%) skewX(-20deg); }
+    }
+
+    .living-float-card {
+      animation: livingCardFloat 5s ease-in-out infinite;
+    }
+
+    .living-glow-bg {
+      animation: livingGlowPulse 6s ease-in-out infinite;
+    }
+
+    .living-logo-glow {
+      animation: logoPulseGlow 3.5s ease-in-out infinite;
+    }
+
+    .beam-shimmer {
+      position: relative;
+      overflow: hidden;
+    }
+    .beam-shimmer::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; width: 45%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+      animation: beamSweep 3.5s infinite;
     }
 
     /* ================= GLASSMORPHISM SYSTEM ================= */
@@ -616,9 +863,10 @@
       }
     }
 
-    /* ================= ENTRANCE & STAGGER ANIMATIONS ================= */
+    /* ================= ENTRANCE & STAGGER ANIMATIONS (iOS Spring) ================= */
     .animate-entrance {
-      animation: entranceFade 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation: iosModalEntrance 0.36s cubic-bezier(0.175, 0.885, 0.32, 1.15) both;
+      will-change: transform, opacity, filter;
     }
 
     .stagger-1 { animation-delay: 0ms; }
@@ -626,14 +874,19 @@
     .stagger-3 { animation-delay: 120ms; }
     .stagger-4 { animation-delay: 180ms; }
 
-    @keyframes entranceFade {
+    @keyframes iosModalEntrance {
       0% {
         opacity: 0;
-        transform: translateY(10px);
+        transform: scale(0.92) translateY(20px);
+        filter: blur(8px);
+      }
+      70% {
+        filter: blur(0);
       }
       100% {
         opacity: 1;
-        transform: translateY(0);
+        transform: scale(1) translateY(0);
+        filter: blur(0);
       }
     }
 
@@ -713,80 +966,44 @@
 
     <!-- ================= GLOBAL APP HEADER ================= -->
     <header class="glass-nav sticky top-0 z-40 transition-all">
-      <div class="max-w-[1440px] mx-auto px-3.5 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between">
+      <div class="max-w-[1440px] mx-auto px-3.5 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-3">
         
-        <!-- Left: Logo & Company Name with Translucent Crystal Identity -->
-        <div class="flex items-center gap-2.5 sm:gap-3.5">
+        <!-- Left: Logo & Company Name (Clean & Truncated, 1 line only) -->
+        <div class="flex items-center gap-2.5 min-w-0">
           <div class="relative group flex-shrink-0">
             <div class="absolute -inset-1 rounded-xl bg-gradient-to-r from-blue-500 via-cyan-400 to-indigo-500 opacity-60 blur-sm group-hover:opacity-90 transition duration-300"></div>
-            <div class="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/95 border border-white/60 p-1 flex items-center justify-center shadow-md">
+            <div class="relative w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/95 border border-white/60 p-1 flex items-center justify-center shadow-md">
               <img src="/logo.png" alt="VST Logo" class="w-full h-full object-contain">
             </div>
           </div>
-          <div>
-            <h1 id="headerCompanyName" class="font-extrabold text-xs sm:text-sm text-white tracking-tight leading-snug flex items-center gap-1.5">
-              <span>វ៉ាន់ ស៊ីថា ត្រេឌីង</span>
-              <span class="px-1.5 py-0.2 rounded-md text-[9px] font-mono font-bold bg-cyan-400/20 text-cyan-300 border border-cyan-400/30">VST</span>
+          <div class="min-w-0">
+            <h1 id="headerCompanyName" class="font-extrabold text-xs sm:text-sm text-white tracking-tight leading-none truncate flex items-center gap-1.5">
+              <span class="truncate">វ៉ាន់ ស៊ីថា ត្រេឌីង</span>
+              <span class="hidden sm:inline-block px-1.5 py-0.5 rounded-md text-[9px] font-mono font-bold bg-cyan-400/20 text-cyan-300 border border-cyan-400/30 flex-shrink-0">VST</span>
             </h1>
-            <div class="flex items-center gap-1.5 text-[10px] text-cyan-200/80 font-medium">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span data-i18n="appSubtitle">ប្រព័ន្ធវត្តមានឆ្លាតវៃ</span>
-            </div>
+            <p class="text-[10px] text-cyan-200/80 font-medium truncate mt-0.5" data-i18n="appSubtitle">ប្រព័ន្ធវត្តមានឆ្លាតវៃ</p>
           </div>
         </div>
 
-        <!-- Right: Language Switcher, Theme Switcher, Live Clock, Admin/Staff Toggles -->
-        <div class="flex items-center gap-1.5 sm:gap-2.5">
-          
-          <!-- Language Switcher Glass Container -->
-          <div class="flex items-center p-0.5 rounded-xl bg-white/10 border border-white/15 text-xs font-semibold shadow-xs notranslate" translate="no">
-            <button id="langKmBtn" onclick="setLanguage('km')" class="px-2 py-1 rounded-lg transition-all flex items-center gap-1 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-xs font-bold notranslate" translate="no">
-              <span class="text-[11px]">🇰🇭</span>
-              <span class="text-[11px]">ខ្មែរ</span>
-            </button>
-            <button id="langEnBtn" onclick="setLanguage('en')" class="px-2 py-1 rounded-lg transition-all flex items-center gap-1 text-slate-300 hover:text-white font-medium notranslate" translate="no">
-              <span class="text-[11px]">🇬🇧</span>
-              <span class="text-[11px]">EN</span>
-            </button>
-          </div>
-
-          <!-- Theme Switcher Button -->
-          <button onclick="openThemeSelectorModal()" class="p-1.5 sm:px-2.5 sm:py-1 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-semibold flex items-center gap-1.5 transition text-cyan-300 shadow-xs active:scale-95" title="ប្តូរស្បែកកញ្ចក់ (Theme)">
-            <span class="w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-cyan-400 via-purple-500 to-pink-500 animate-pulse"></span>
-            <span class="hidden md:inline font-bold text-slate-200">Theme</span>
-            <i data-lucide="palette" class="w-3.5 h-3.5 text-cyan-400"></i>
-          </button>
-
-          <!-- Font Switcher Button -->
-          <button onclick="openFontSelectorModal()" class="p-1.5 sm:px-2.5 sm:py-1 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-semibold flex items-center gap-1.5 transition text-cyan-300 shadow-xs active:scale-95" title="ប្តូរពុម្ពអក្សរខ្មែរ (Khmer Fonts)">
-            <span class="text-xs font-bold text-cyan-300">Aa</span>
-            <span class="hidden md:inline font-bold text-slate-200">Font</span>
-            <i data-lucide="type" class="w-3.5 h-3.5 text-cyan-400"></i>
-          </button>
-
+        <!-- Right: Just the Hamburger Menu Drawer Toggle & Desktop Live Clock -->
+        <div class="flex items-center gap-2 flex-shrink-0">
           <!-- Live Clock Pill (Desktop Only) -->
           <div class="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 border border-white/15 text-xs text-slate-300 shadow-xs">
             <i data-lucide="clock" class="w-3.5 h-3.5 text-cyan-400"></i>
             <span id="liveClock" class="font-mono font-bold text-white">00:00:00</span>
           </div>
 
-          <!-- Staff Logout Button (Top Header) -->
-          <button id="btnStaffLogoutTop" onclick="logoutStaffAccount()" class="hidden px-2.5 sm:px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 shadow-sm" title="ចាកចេញ (Log Out)">
-            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
-            <span class="hidden sm:inline">ចាកចេញ</span>
-          </button>
-
-          <!-- Admin / Staff Action Buttons -->
-          <button id="btnSwitchToAdmin" onclick="promptAdminPin()" class="px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600/90 to-cyan-600/90 hover:from-blue-600 hover:to-cyan-500 border border-cyan-400/40 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-cyan-500/20 active:scale-95">
-            <i data-lucide="shield" class="w-3.5 h-3.5 text-cyan-200"></i>
-            <span class="hidden sm:inline" data-i18n="adminPortal">Admin</span>
-          </button>
-          
-          <button id="btnSwitchToStaff" onclick="showStaffView()" class="hidden px-3.5 py-1.5 rounded-xl btn-gradient-primary border border-cyan-400/40 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-cyan-500/25 active:scale-95">
+          <!-- Switch to Staff Button (Admin View Only) -->
+          <button id="btnSwitchToStaff" onclick="showStaffView()" class="hidden px-3 py-1.5 rounded-xl btn-gradient-primary border border-cyan-400/40 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-cyan-500/25 active:scale-95">
             <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
             <span data-i18n="staffView">ទំព័របុគ្គលិក</span>
           </button>
 
+          <!-- Modern App Menu Button -->
+          <button type="button" onclick="openAppDrawerMenu()" class="px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-cyan-300 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 shadow-sm" title="ម៉ឺនុយ (Menu)">
+            <i data-lucide="menu" class="w-4 h-4 text-cyan-400"></i>
+            <span class="text-xs font-bold text-slate-200">Menu</span>
+          </button>
         </div>
 
       </div>
@@ -795,81 +1012,73 @@
     <!-- ================= VIEW 0: PREMIUM GLASS LOGIN ================= -->
     <main id="loginView" class="hidden flex-1 flex flex-col justify-center items-center px-4 py-12">
       
-      <!-- Ambient Glow Behind Login Card -->
+      <!-- Ambient Glow Behind Login Card with living pulse -->
       <div class="relative w-full max-w-[460px]">
-        <div class="absolute -inset-3 bg-gradient-to-r from-brand-blue/30 via-brand-cyan/25 to-brand-purple/30 rounded-3xl blur-2xl opacity-75"></div>
+        <div class="absolute -inset-4 bg-gradient-to-r from-cyan-500/35 via-blue-600/30 to-purple-600/35 rounded-3xl blur-2xl opacity-75 living-glow-bg pointer-events-none"></div>
 
-        <div class="relative glass-card p-8 sm:p-9 space-y-6 animate-entrance border border-white/80">
+        <div class="relative bg-slate-900/85 backdrop-blur-2xl p-8 sm:p-9 space-y-6 animate-entrance border border-white/15 rounded-3xl shadow-[0_25px_65px_rgba(0,0,0,0.65)] living-float-card overflow-hidden">
           
-          <!-- Brand & Title -->
-          <div class="text-center space-y-2.5">
-            <div class="relative inline-block">
-              <div class="w-16 h-16 mx-auto rounded-2xl bg-white p-2.5 border border-white/90 shadow-glass flex items-center justify-center">
-                <img src="/logo.png" alt="Vann Sitha Trading" class="w-full h-full object-contain">
+          <!-- Animated Top Edge Light Beam -->
+          <div class="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent opacity-80"></div>
+          
+          <!-- Brand & Title with Living Glowing Logo -->
+          <div class="text-center space-y-3">
+            <div class="relative inline-block living-logo-glow rounded-2xl p-1 bg-gradient-to-br from-cyan-400/40 via-blue-500/20 to-purple-500/40 border border-white/20">
+              <div class="w-16 h-16 rounded-xl bg-slate-950/80 p-2.5 flex items-center justify-center backdrop-blur-md">
+                <img src="/logo.png" alt="Vann Sitha Trading" class="w-full h-full object-contain filter drop-shadow">
               </div>
             </div>
             <div>
-              <h2 class="font-extrabold text-xl text-txt-primary tracking-tight">VANN SITHA TRADING</h2>
-              <p class="text-xs text-txt-secondary font-medium mt-1" data-i18n="loginPortalSubtitle">ចូលបំពេញការងារ (Employee Sign In)</p>
+              <h2 class="font-extrabold text-xl text-white tracking-wider">VANN SITHA TRADING</h2>
+              <div class="inline-flex items-center gap-2 mt-1.5 px-3 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20">
+                <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping"></span>
+                <p class="text-xs text-cyan-300 font-medium" data-i18n="loginPortalSubtitle">ចូលបំពេញការងារ (Employee Sign In)</p>
+              </div>
             </div>
           </div>
 
           <!-- Sign In Form -->
           <form id="employeeLoginForm" onsubmit="handleEmployeeLogin(event)" class="space-y-4">
             
-            <!-- Select Staff Name -->
+            <!-- Phone Number or Member ID -->
             <div>
-              <label class="block text-xs font-semibold text-txt-primary mb-1.5" data-i18n="lblSelectOrInput">
-                ជ្រើសរើសឈ្មោះបុគ្គលិក
+              <label class="block text-xs font-semibold text-slate-200 mb-1.5" data-i18n="lblPhoneOrCode">
+                លេខទូរស័ព្ទ (Phone Number) ឬ លេខកូដសម្គាល់ ID *
               </label>
-              <div class="relative">
-                <select id="loginSelectStaff" onchange="onLoginSelectStaffChange()" class="w-full text-xs font-medium bg-white/80 border border-app-border rounded-xl px-3.5 py-3 text-txt-primary focus:outline-none focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 transition">
-                  <option value="">-- ជ្រើសរើសឈ្មោះរបស់អ្នក --</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="relative flex items-center justify-center my-1.5">
-              <span class="bg-white/80 backdrop-blur-xs px-3 text-[11px] text-txt-muted font-semibold uppercase relative z-10" data-i18n="orByCode">ឬ វាយលេខកូដសម្គាល់ ID</span>
-              <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-app-border"></div></div>
-            </div>
-
-            <!-- Or Type ID -->
-            <div>
-              <div class="relative">
-                <i data-lucide="badge-info" class="w-4 h-4 text-txt-muted absolute left-3.5 top-3.5"></i>
-                <input type="text" id="loginInputCode" placeholder="ឧ. MEM-001 ឬ MEM-002" class="w-full text-xs font-mono font-semibold bg-white/80 border border-app-border rounded-xl pl-10 pr-3.5 py-3 uppercase text-txt-primary focus:outline-none focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 transition">
+              <div class="relative group">
+                <i data-lucide="phone" class="w-4 h-4 text-slate-400 group-focus-within:text-cyan-400 absolute left-3.5 top-3.5 transition"></i>
+                <input type="text" id="loginInputCode" required placeholder="បញ្ចូលលេខទូរស័ព្ទ (ឧ. 012345678) ឬកូដ ID" class="w-full text-xs font-semibold bg-slate-950/70 border border-white/15 rounded-xl pl-10 pr-3.5 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-500/15 transition shadow-inner">
               </div>
             </div>
 
             <!-- Password -->
             <div>
               <div class="flex items-center justify-between mb-1.5">
-                <label class="text-xs font-semibold text-txt-primary" data-i18n="lblPassword">
+                <label class="text-xs font-semibold text-slate-200" data-i18n="lblPassword">
                   លេខកូដសម្ងាត់ (Password) *
                 </label>
               </div>
-              <div class="relative">
-                <i data-lucide="lock" class="w-4 h-4 text-txt-muted absolute left-3.5 top-3.5"></i>
-                <input type="password" id="loginInputPassword" required placeholder="បញ្ចូល Password ដែល Admin បានដាក់ជូន (Default: 1234)" class="w-full text-xs bg-white/80 border border-app-border rounded-xl pl-10 pr-10 py-3 text-txt-primary focus:outline-none focus:border-brand-blue focus:ring-4 focus:ring-brand-blue/10 transition">
-                <button type="button" onclick="togglePasswordVisibility('loginInputPassword', 'togglePwdIcon')" class="absolute right-3.5 top-3 text-txt-muted hover:text-txt-primary transition">
+              <div class="relative group">
+                <i data-lucide="lock" class="w-4 h-4 text-slate-400 group-focus-within:text-cyan-400 absolute left-3.5 top-3.5 transition"></i>
+                <input type="password" id="loginInputPassword" required placeholder="បញ្ចូល Password របស់អ្នក (Default: 1234)" class="w-full text-xs font-semibold bg-slate-950/70 border border-white/15 rounded-xl pl-10 pr-10 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-500/15 transition shadow-inner">
+                <button type="button" onclick="togglePasswordVisibility('loginInputPassword', 'togglePwdIcon')" class="absolute right-3.5 top-3 text-slate-400 hover:text-white transition">
                   <i data-lucide="eye" id="togglePwdIcon" class="w-4 h-4"></i>
                 </button>
               </div>
-              <p class="text-[11px] text-txt-secondary mt-1.5" data-i18n="pwdNotice">
-                * Password គឺកំណត់ដោយ Admin ពេលចុះឈ្មោះក្នុងបញ្ជីសមាជិក (Default: <code class="font-mono text-brand-blue font-bold">1234</code>)
+              <p class="text-[11px] text-slate-400 mt-1.5" data-i18n="pwdNotice">
+                * បញ្ចូល Password ដែលបានកំណត់ពេលចុះឈ្មោះ (Default: <code class="font-mono text-cyan-400 font-bold">1234</code>)
               </p>
             </div>
 
-            <!-- Gradient Sign In Button with subtle shine -->
-            <button type="submit" class="w-full btn-gradient-primary btn-shine font-semibold py-3 px-4 text-xs shadow-btnGlow flex items-center justify-center gap-2 mt-2">
-              <i data-lucide="log-in" class="w-4 h-4"></i>
+            <!-- Gradient Sign In Button with beam shimmer -->
+            <button type="submit" class="w-full beam-shimmer relative rounded-xl font-bold py-3.5 px-4 text-xs text-white shadow-[0_10px_25px_rgba(6,182,212,0.35)] bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:via-blue-500 hover:to-indigo-500 active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-2 cursor-pointer">
+              <i data-lucide="log-in" class="w-4 h-4 text-cyan-200"></i>
               <span data-i18n="btnSignIn">ចូលបំពេញការងារ (Sign In)</span>
             </button>
           </form>
 
           <!-- Staff Self Registration CTA -->
-          <div class="p-3.5 rounded-2xl bg-slate-900/60 backdrop-blur-md border border-white/10 text-left space-y-2.5">
+          <div class="p-3.5 rounded-2xl bg-slate-950/60 backdrop-blur-md border border-white/10 text-left space-y-2.5 hover:border-cyan-500/30 transition">
             <div class="flex items-center justify-between">
               <div class="font-semibold text-xs text-white flex items-center gap-1.5">
                 <i data-lucide="user-plus" class="w-3.5 h-3.5 text-cyan-400"></i>
@@ -882,7 +1091,7 @@
             <p class="text-[11px] text-slate-400 leading-relaxed" data-i18n="selfRegDesc">
               ចុះឈ្មោះដោយខ្លួនឯងនៅលើទូរស័ព្ទនេះ។ បន្ទាប់ពី Admin ពិនិត្យនិងអនុម័ត (Approve) អ្នកអាចចូលបំពេញការងារបានភ្លាមៗ។
             </p>
-            <button type="button" onclick="openSelfRegisterModal()" class="w-full py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-cyan-300 hover:text-white border border-cyan-400/30 text-xs font-bold transition flex items-center justify-center gap-2 active:scale-95 shadow-sm">
+            <button type="button" onclick="openSelfRegisterModal()" class="w-full py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-cyan-300 hover:text-white border border-cyan-400/30 text-xs font-bold transition flex items-center justify-center gap-2 active:scale-95 shadow-sm cursor-pointer">
               <i data-lucide="user-check" class="w-4 h-4 text-cyan-400"></i>
               <span data-i18n="btnSelfRegister">ចុះឈ្មោះគណនីថ្មី (Self Register)</span>
             </button>
@@ -893,10 +1102,10 @@
     </main>
 
     <!-- ================= VIEW 1: STAFF WORKSPACE (ACLEDA BANKING STYLE MOBILE INTERFACE) ================= -->
-    <main id="staffView" class="max-w-xl mx-auto w-full px-3.5 sm:px-5 py-3 pb-28 flex-1 flex flex-col justify-start">
+    <main id="staffView" class="max-w-xl mx-auto w-full px-3.5 sm:px-5 py-3 pb-36 flex-1 flex flex-col justify-start">
       
       <!-- ACLEDA Staff Profile Header -->
-      <div id="staffProfileSet" onclick="openStaffProfileModal()" class="glass-crystal p-3.5 sm:p-4 rounded-3xl border border-white/20 shadow-[0_10px_30px_rgba(0,0,0,0.3)] flex items-center justify-between mb-3.5 mt-1 cursor-pointer hover:border-cyan-400/50 transition-all group" title="ចុចដើម្បីមើលព័ត៌មាន & ប្តូររូបថត Profile">
+      <div id="staffProfileSet" onclick="openStaffProfileModal()" class="glass-crystal p-3.5 sm:p-4 rounded-3xl border border-white/20 shadow-[0_10px_30px_rgba(0,0,0,0.3)] flex items-center justify-between mb-3.5 mt-2 sm:mt-3 cursor-pointer hover:border-cyan-400/50 transition-all group" title="ចុចដើម្បីមើលព័ត៌មាន & ប្តូររូបថត Profile">
         <div class="flex items-center gap-3">
           <!-- Circular Avatar with glowing border & online indicator -->
           <div class="relative flex-shrink-0" style="width: 48px; height: 48px;">
@@ -907,29 +1116,24 @@
           </div>
 
           <!-- Greeting & Name -->
-          <div>
-            <div class="flex items-center gap-1.5">
-              <span class="text-xs text-cyan-200/90 font-medium" id="greetingTimeText">សួស្តី</span>,
-              <h2 id="staffDisplayName" class="font-extrabold text-white text-sm sm:text-base tracking-tight notranslate" translate="no">សមាជិក</h2>
-              <span id="greetingStaffName" class="hidden"></span>
+          <div class="min-w-0 flex-1">
+            <div class="text-[11px] text-cyan-200/80 font-medium truncate" id="greetingTimeText">ទិវាសួស្តី</div>
+            <h2 id="staffDisplayName" class="font-extrabold text-white text-sm sm:text-base tracking-tight truncate notranslate" translate="no">សមាជិក</h2>
+            <div class="text-[10px] text-cyan-300 group-hover:text-cyan-100 font-medium flex items-center gap-1.5 mt-0.5 transition">
+              <span id="staffDisplayCode" class="font-mono font-bold bg-white/10 px-1.5 py-0.5 rounded text-cyan-200 border border-cyan-400/20">MEM-003</span>
+              <span class="text-slate-400">•</span>
+              <span class="flex items-center gap-0.5"><i data-lucide="camera" class="w-3 h-3 text-cyan-400"></i> ប្តូររូប</span>
             </div>
-            <div class="text-[11px] text-cyan-300 group-hover:text-cyan-100 font-medium flex items-center gap-1 mt-0.5 transition">
-              <i data-lucide="camera" class="w-3 h-3 text-cyan-400"></i>
-              <span>ព័ត៌មានគណនី / ប្តូររូបថត</span>
-              <i data-lucide="chevron-right" class="w-3 h-3"></i>
-            </div>
+            <span id="greetingStaffName" class="hidden"></span>
           </div>
         </div>
 
-        <div class="flex items-center gap-2" onclick="event.stopPropagation()">
+        <div class="flex items-center gap-2 flex-shrink-0" onclick="event.stopPropagation()">
           <!-- Notification Bell -->
           <button type="button" onclick="showAcledaNoticeModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition border border-white/15 relative" title="Notifications">
             <i data-lucide="bell" class="w-3.5 h-3.5 text-cyan-200"></i>
             <span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400"></span>
           </button>
-          <span id="staffDisplayCode" onclick="openStaffProfileModal()" class="font-mono text-[11px] font-bold bg-white/10 text-cyan-200 border border-cyan-400/20 px-2.5 py-1 rounded-xl cursor-pointer hover:bg-cyan-500/20 transition">
-            MEM-003
-          </span>
           <!-- Staff Quick Log Out Button -->
           <button type="button" onclick="logoutStaffAccount()" class="w-8 h-8 rounded-full bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 hover:text-white flex items-center justify-center transition border border-rose-500/30 active:scale-95 shadow-sm" title="ចាកចេញ (Log Out)">
             <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
@@ -1043,6 +1247,35 @@
             <i data-lucide="chevron-right" class="w-5 h-5 text-white"></i>
           </div>
         </button>
+
+        <!-- Secondary Quick Actions: Request Leave / Late & View History -->
+        <div class="grid grid-cols-2 gap-2 mt-2.5">
+          <button type="button" onclick="openLeaveRequestModal()" class="p-3 rounded-2xl bg-gradient-to-r from-amber-500/15 via-orange-500/15 to-rose-500/15 hover:from-amber-500/25 hover:to-rose-500/25 border border-amber-400/30 text-left transition-all active:scale-95 group shadow-sm flex items-center justify-between cursor-pointer">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-400/30 flex items-center justify-center group-hover:scale-110 transition-transform flex-shrink-0">
+                <i data-lucide="file-plus-2" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <span class="text-xs font-bold text-white block leading-tight">សុំច្បាប់ / មកយឺត</span>
+                <span class="text-[10px] text-amber-300/90 font-medium block mt-0.5">ផ្ញើសំណើ & Telegram</span>
+              </div>
+            </div>
+            <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-amber-400/60 group-hover:translate-x-0.5 transition-transform"></i>
+          </button>
+
+          <button type="button" onclick="showStaffHistoryView()" class="p-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/15 text-left transition-all active:scale-95 group shadow-sm flex items-center justify-between cursor-pointer">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 flex items-center justify-center group-hover:scale-110 transition-transform flex-shrink-0">
+                <i data-lucide="clipboard-list" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <span class="text-xs font-bold text-white block leading-tight">កំណត់ត្រាវត្តមាន</span>
+                <span class="text-[10px] text-cyan-300/90 font-medium block mt-0.5">ប្រវត្តិ ៤ វេនស្កេន</span>
+              </div>
+            </div>
+            <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-cyan-400/60 group-hover:translate-x-0.5 transition-transform"></i>
+          </button>
+        </div>
       </div>
 
       <!-- Essential Status Capsules (3 Clean Pills: Hours, Wi-Fi, GPS - Zero Clutter) -->
@@ -1167,48 +1400,128 @@
             <i data-lucide="history" class="w-4 h-4 text-cyan-300"></i>
             <h4 class="text-xs sm:text-sm font-bold text-white">ប្រវត្តិកត់ត្រាថ្មីៗ</h4>
           </div>
-          <span class="text-[10px] text-slate-400">៥ ដងចុងក្រោយ</span>
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] text-slate-400">៥ ដងចុងក្រោយ</span>
+            <button type="button" onclick="showStaffHistoryView()" class="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 hover:underline transition">
+              <span>មើលទាំងអស់</span>
+              <i data-lucide="arrow-right" class="w-3 h-3"></i>
+            </button>
+          </div>
         </div>
         <div id="myRecentScansList" class="space-y-2">
           <div class="py-4 text-center text-xs text-slate-400">កំពុងទាញយកទិន្នន័យ...</div>
         </div>
       </div>
 
+      <!-- Bottom Spacer Cushion so content is never covered by floating bottom dock -->
+      <div class="h-28 w-full pointer-events-none" aria-hidden="true"></div>
+    </main>
+
+    <!-- ================= VIEW 1.5: STAFF ATTENDANCE HISTORY (DEDICATED CLEAN VIEW) ================= -->
+    <main id="staffHistoryView" class="hidden max-w-xl mx-auto w-full px-3.5 sm:px-5 py-3 pb-36 flex-1 flex flex-col justify-start space-y-4">
+      
+      <!-- Top Navigation & Return Header -->
+      <div class="glass-crystal p-3.5 sm:p-4 rounded-3xl border border-white/20 shadow-[0_10px_30px_rgba(0,0,0,0.3)] flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <button type="button" onclick="showStaffView()" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-cyan-300 hover:text-white transition active:scale-95 cursor-pointer" title="ត្រឡប់ទៅផ្ទាំងស្កេនវិញ">
+            <i data-lucide="chevron-left" class="w-5 h-5"></i>
+          </button>
+          <div>
+            <h3 class="font-bold text-sm sm:text-base text-white flex items-center gap-2">
+              <span>កំណត់ត្រាវត្តមានផ្ទាល់ខ្លួន</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-400/30">My History</span>
+            </h3>
+            <p class="text-[11px] text-slate-400" id="staffHistoryEmployeeName">ទិន្នន័យចុះវត្តមានរបស់អ្នក</p>
+          </div>
+        </div>
+        <button type="button" onclick="loadMyAttendanceHistory()" class="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/15 flex items-center justify-center text-slate-300 transition cursor-pointer" title="Refresh">
+          <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Period Filter Pills (Week / Month / All) -->
+      <div class="glass-crystal p-1.5 rounded-2xl border border-white/10 flex items-center gap-1.5 bg-slate-900/60 backdrop-blur-md">
+        <button type="button" onclick="setStaffHistoryPeriod('week')" id="btnStaffPeriodWeek" class="staff-period-btn flex-1 py-2 px-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/20 cursor-pointer">
+          <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+          <span>សប្តាហ៍នេះ</span>
+        </button>
+        <button type="button" onclick="setStaffHistoryPeriod('month')" id="btnStaffPeriodMonth" class="staff-period-btn flex-1 py-2 px-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/5 transition flex items-center justify-center gap-1.5 cursor-pointer">
+          <i data-lucide="calendar-days" class="w-3.5 h-3.5"></i>
+          <span>ខែនេះ</span>
+        </button>
+        <button type="button" onclick="setStaffHistoryPeriod('all')" id="btnStaffPeriodAll" class="staff-period-btn flex-1 py-2 px-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/5 transition flex items-center justify-center gap-1.5 cursor-pointer">
+          <i data-lucide="list-filter" class="w-3.5 h-3.5"></i>
+          <span>ទាំងអស់</span>
+        </button>
+      </div>
+
+      <!-- Date Range / Sub-filter indicator -->
+      <div class="flex items-center justify-between px-2 text-xs text-slate-400">
+        <span id="staffHistoryPeriodText" class="font-medium text-slate-300">សប្តាហ៍នេះ (ចន្ទ - អាទិត្យ)</span>
+        <span id="staffHistoryRecordCount" class="text-cyan-400 font-bold font-mono">0 កំណត់ត្រា</span>
+      </div>
+
+      <!-- Summary KPI Cards -->
+      <div class="grid grid-cols-3 gap-2.5">
+        <div class="glass-crystal p-3 rounded-2xl border border-white/10 bg-slate-900/60 text-center">
+          <div class="text-[10px] text-slate-400 mb-0.5">វត្តមានសរុប</div>
+          <div id="staffKpiTotalScans" class="text-lg font-black text-white font-mono">0</div>
+          <div class="text-[9px] text-cyan-400">ដង (Clock-ins)</div>
+        </div>
+        <div class="glass-crystal p-3 rounded-2xl border border-white/10 bg-slate-900/60 text-center">
+          <div class="text-[10px] text-slate-400 mb-0.5">ថ្ងៃធ្វើការ</div>
+          <div id="staffKpiWorkDays" class="text-lg font-black text-emerald-400 font-mono">0</div>
+          <div class="text-[9px] text-slate-400">ថ្ងៃ (Days)</div>
+        </div>
+        <div class="glass-crystal p-3 rounded-2xl border border-white/10 bg-slate-900/60 text-center">
+          <div class="text-[10px] text-slate-400 mb-0.5">ក្នុងរង្វង់ GPS</div>
+          <div id="staffKpiGeofencePct" class="text-lg font-black text-cyan-300 font-mono">100%</div>
+          <div class="text-[9px] text-slate-400">ក្នុងទីស្នាក់ការ</div>
+        </div>
+      </div>
+
+      <!-- Detailed Timeline List Grouped by Date -->
+      <div id="staffHistoryListContainer" class="space-y-3">
+        <div class="py-12 text-center text-xs text-slate-400">កំពុងទាញយកកំណត់ត្រា...</div>
+      </div>
+
+      <!-- Bottom Spacer Cushion so content is never covered by floating bottom dock -->
+      <div class="h-28 w-full pointer-events-none" aria-hidden="true"></div>
     </main>
 
     <!-- Centered Floating Dock Navigation Bar (Linear / SaaS Style) -->
-    <div class="fixed bottom-3 sm:bottom-4 inset-x-0 z-40 flex justify-center px-4 pointer-events-none">
+    <div id="acledaBottomNavWrapper" class="fixed bottom-3 sm:bottom-4 inset-x-0 z-40 flex justify-center px-4 pointer-events-none">
       <nav id="acledaBottomNav" class="pointer-events-auto w-full max-w-md bg-slate-900/90 backdrop-blur-xl border border-white/10 shadow-[0_15px_35px_rgba(0,0,0,0.6)] py-2.5 px-4 rounded-2xl flex justify-around items-center text-center">
-        <!-- Tab 1: Home -->
-        <button type="button" onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="flex flex-col items-center text-white group">
-          <div class="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center text-white group-hover:scale-110 transition-transform">
+        <!-- Tab 1: Home (Scan) -->
+        <button type="button" id="btnBottomNavHome" onclick="showStaffView()" class="flex flex-col items-center text-white group cursor-pointer">
+          <div id="iconBottomNavHome" class="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center text-white group-hover:scale-110 transition-transform">
             <i data-lucide="home" class="w-4 h-4"></i>
           </div>
-          <span class="text-[10px] font-bold mt-1 text-white">ទំព័រដើម</span>
+          <span id="textBottomNavHome" class="text-[10px] font-bold mt-1 text-white">ទំព័រដើម</span>
         </button>
 
-        <!-- Tab 2: Records -->
-        <button type="button" onclick="scrollToTodayTimeline()" class="flex flex-col items-center text-slate-400 hover:text-white group">
-          <div class="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-white group-hover:scale-110 transition-transform">
+        <!-- Tab 2: Records (Dedicated History) -->
+        <button type="button" id="btnBottomNavHistory" onclick="showStaffHistoryView()" class="flex flex-col items-center text-slate-400 hover:text-white group cursor-pointer">
+          <div id="iconBottomNavHistory" class="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-white group-hover:scale-110 transition-transform">
             <i data-lucide="clipboard-check" class="w-4 h-4"></i>
           </div>
-          <span class="text-[10px] font-medium mt-1">កំណត់ត្រា</span>
+          <span id="textBottomNavHistory" class="text-[10px] font-medium mt-1">កំណត់ត្រា</span>
         </button>
 
         <!-- Tab 3: Telegram -->
-        <button type="button" onclick="openTelegramNoticeGroup()" class="flex flex-col items-center text-slate-400 hover:text-white group">
-          <div class="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-sky-400 group-hover:scale-110 transition-transform">
+        <button type="button" onclick="openTelegramNoticeGroup()" class="flex flex-col items-center text-slate-400 hover:text-white group cursor-pointer">
+          <div id="iconBottomNavHistory_telegram" class="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-sky-400 group-hover:scale-110 transition-transform">
             <i data-lucide="send" class="w-4 h-4"></i>
           </div>
           <span class="text-[10px] font-medium mt-1">តេឡេក្រាម</span>
         </button>
 
-        <!-- Tab 4: Profile -->
-        <button type="button" onclick="openStaffProfileModal()" class="flex flex-col items-center text-slate-400 hover:text-white group">
-          <div class="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-white group-hover:scale-110 transition-transform">
-            <i data-lucide="user" class="w-4 h-4"></i>
+        <!-- Tab 4: App Menu -->
+        <button type="button" onclick="openAppDrawerMenu()" class="flex flex-col items-center text-slate-400 hover:text-white group cursor-pointer">
+          <div id="iconBottomNavHistory_menu" class="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-white group-hover:scale-110 transition-transform">
+            <i data-lucide="menu" class="w-4 h-4"></i>
           </div>
-          <span class="text-[10px] font-medium mt-1">គណនី</span>
+          <span class="text-[10px] font-medium mt-1">ម៉ឺនុយ</span>
         </button>
       </nav>
     </div>
@@ -1219,35 +1532,41 @@
       <!-- Admin Header & Horizontal Navigation Bar with Glass & Gradient Indicators -->
       <div class="glass-crystal p-3 sm:p-4 rounded-3xl border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col lg:flex-row lg:items-center justify-between gap-3.5">
         
-        <!-- Navigation Tabs: Dashboard, QR, Members, History, Settings -->
+        <!-- Navigation Tabs: Dashboard, Members, History, Settings (QR Removed) -->
         <nav class="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none" aria-label="Admin Navigation">
-          <button onclick="switchAdminTab('dashboard')" id="adm-tab-dashboard" class="adm-tab px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-blue-600 via-cyan-500 to-teal-400 transition-all flex items-center gap-1.5 sm:gap-2 border border-cyan-300/40 shadow-lg shadow-cyan-500/25 flex-shrink-0">
+          <button onclick="switchAdminTab('dashboard')" id="adm-tab-dashboard" class="adm-tab px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-blue-600 via-cyan-500 to-teal-400 transition-all flex items-center gap-1.5 sm:gap-2 border border-cyan-300/40 shadow-lg shadow-cyan-500/25 flex-shrink-0 cursor-pointer">
             <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
             <span>Dashboard</span>
           </button>
-          <button onclick="switchAdminTab('office-qr')" id="adm-tab-office-qr" class="adm-tab px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/10 transition-all flex items-center gap-1.5 sm:gap-2 border border-transparent flex-shrink-0">
-            <i data-lucide="qr-code" class="w-4 h-4"></i>
-            <span>QR ការិយាល័យ</span>
-          </button>
-          <button onclick="switchAdminTab('members')" id="adm-tab-members" class="adm-tab px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/10 transition-all flex items-center gap-1.5 sm:gap-2 border border-transparent flex-shrink-0">
+          <button onclick="switchAdminTab('members')" id="adm-tab-members" class="adm-tab px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/10 transition-all flex items-center gap-1.5 sm:gap-2 border border-transparent flex-shrink-0 cursor-pointer">
             <i data-lucide="users" class="w-4 h-4"></i>
             <span>បញ្ជីសមាជិក</span>
             <span id="admPendingNavBadge" class="hidden px-1.5 py-0.5 text-[10px] font-black rounded-full bg-amber-400 text-slate-950 leading-none shadow-sm">0</span>
           </button>
-          <button onclick="switchAdminTab('history')" id="adm-tab-history" class="adm-tab px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/10 transition-all flex items-center gap-1.5 sm:gap-2 border border-transparent flex-shrink-0">
+          <button onclick="switchAdminTab('history')" id="adm-tab-history" class="adm-tab px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/10 transition-all flex items-center gap-1.5 sm:gap-2 border border-transparent flex-shrink-0 cursor-pointer">
             <i data-lucide="calendar-days" class="w-4 h-4"></i>
             <span>ប្រវត្តិវត្តមាន</span>
           </button>
-          <button onclick="switchAdminTab('settings')" id="adm-tab-settings" class="adm-tab px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/10 transition-all flex items-center gap-1.5 sm:gap-2 border border-transparent flex-shrink-0">
+          <button onclick="switchAdminTab('leaves')" id="adm-tab-leaves" class="adm-tab px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/10 transition-all flex items-center gap-1.5 sm:gap-2 border border-transparent flex-shrink-0 cursor-pointer">
+            <i data-lucide="file-text" class="w-4 h-4"></i>
+            <span>សំណើសុំច្បាប់ & មកយឺត</span>
+            <span id="admPendingLeavesBadge" class="hidden px-1.5 py-0.5 text-[10px] font-black rounded-full bg-amber-400 text-slate-950 leading-none shadow-sm">0</span>
+          </button>
+          <button onclick="switchAdminTab('settings')" id="adm-tab-settings" class="adm-tab px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/10 transition-all flex items-center gap-1.5 sm:gap-2 border border-transparent flex-shrink-0 cursor-pointer">
             <i data-lucide="settings" class="w-4 h-4"></i>
             <span>Telegram & GPS</span>
           </button>
         </nav>
 
-        <!-- Right Side: Lock Button (Duplicate controls removed) -->
+        <!-- Right Side: Return to Staff View & Lock Button -->
         <div class="flex items-center gap-2 self-end sm:self-auto">
+          <!-- Back to Staff View -->
+          <button type="button" onclick="showStaffView()" class="text-xs font-bold text-cyan-300 hover:text-white bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-400/30 px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer">
+            <i data-lucide="arrow-left" class="w-3.5 h-3.5 text-cyan-400"></i>
+            <span>ផ្ទាំងបុគ្គលិក</span>
+          </button>
           <!-- Lock / Exit Button -->
-          <button onclick="lockAdmin()" class="text-xs font-semibold text-rose-300 hover:text-white bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 shadow-sm active:scale-95">
+          <button onclick="lockAdmin()" class="text-xs font-semibold text-rose-300 hover:text-white bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer">
             <i data-lucide="lock" class="w-3.5 h-3.5 text-rose-400"></i>
             <span data-i18n="lock">ចាកចេញ (Lock)</span>
           </button>
@@ -1381,38 +1700,6 @@
 
       </section>
 
-      <!-- Admin Section 2: Office QR Poster -->
-      <section id="adm-sec-office-qr" class="adm-section hidden space-y-6">
-        <div class="glass-crystal p-6 sm:p-8 border border-white/20 rounded-3xl max-w-xl mx-auto text-center space-y-5 shadow-2xl">
-          <div>
-            <h3 class="font-extrabold text-white text-xl tracking-tight" data-i18n="posterTitle">បោះពុម្ព QR Code ការិយាល័យ (Office QR)</h3>
-            <p class="text-xs text-slate-300 mt-1" data-i18n="posterDesc">បោះពុម្ពសន្លឹក QR នេះបិទលើជញ្ជាំង ឬតុ Reception ដើម្បីឱ្យបុគ្គលិកយកទូរស័ព្ទស្កេន</p>
-          </div>
-
-          <!-- Printable Poster Card with Clean Border -->
-          <div id="printArea" class="bg-white border-2 border-slate-200 rounded-3xl p-8 flex flex-col items-center shadow-glass">
-            <div class="w-16 h-16 mb-3 flex items-center justify-center p-1.5 rounded-2xl bg-white border border-slate-200 shadow-xs">
-              <img src="/logo.png" alt="Vann Sitha Trading" class="w-full h-full object-contain">
-            </div>
-            <h2 id="posterCompanyName" class="text-xl font-extrabold text-txt-primary tracking-tight">VANN SITHA TRADING CO.,LTD</h2>
-            <p class="text-xs font-bold text-brand-blue uppercase tracking-widest mt-1">OFFICIAL ATTENDANCE QR CODE</p>
-
-            <div class="my-6 p-4 bg-white rounded-2xl border border-slate-200 flex items-center justify-center shadow-xs">
-              <div id="officeQrCodeDisplay"></div>
-            </div>
-
-            <div class="btn-gradient-primary px-6 py-2 rounded-xl text-xs font-bold mb-2 flex items-center gap-2">
-              <i data-lucide="smartphone" class="w-4 h-4"></i> <span data-i18n="posterScanText">សូមបើកទូរស័ព្ទដៃ រួចស្កេន QR នេះ</span>
-            </div>
-            <p class="text-xs text-txt-muted font-mono">Link: <span id="posterUrlDisplay" class="font-bold text-brand-blue">http://192.168.1.17:3000</span></p>
-          </div>
-
-          <button onclick="window.print()" class="w-full btn-gradient-primary btn-shine font-bold py-3.5 rounded-xl text-xs flex items-center justify-center gap-2">
-            <i data-lucide="printer" class="w-4 h-4"></i> <span data-i18n="printPoster">បោះពុម្ពសន្លឹក QR នេះ (Print Poster)</span>
-          </button>
-        </div>
-      </section>
-
       <!-- Admin Section 3: Members -->
       <section id="adm-sec-members" class="adm-section hidden space-y-4">
         <!-- Search & Add Member Action Bar (No extra outer wrapper box) -->
@@ -1447,33 +1734,86 @@
         <div id="adminMembersContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5"></div>
       </section>
 
-      <!-- Admin Section 4: History -->
+      <!-- Admin Section 4: History & Period Tracking -->
       <section id="adm-sec-history" class="adm-section hidden space-y-4">
         <div class="glass-crystal p-5 sm:p-6 rounded-3xl border border-white/20 shadow-2xl space-y-4">
-          <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div class="flex items-center gap-2.5">
-              <span class="text-xs font-bold text-white" data-i18n="filterDate">កាលបរិច្ឆេទ:</span>
-              <input type="date" id="adminHistoryDateFilter" onchange="loadAttendanceHistory()" class="text-xs bg-black/40 border border-white/20 rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-cyan-400">
+          
+          <!-- Top Controls Bar -->
+          <div class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3.5 pb-3 border-b border-white/10">
+            
+            <!-- Member & Period Selectors -->
+            <div class="flex items-center gap-3 flex-wrap">
+              <!-- Member Filter -->
+              <div class="flex items-center gap-2">
+                <i data-lucide="users" class="w-4 h-4 text-cyan-400"></i>
+                <label for="adminHistoryMemberFilter" class="text-xs font-bold text-white whitespace-nowrap">បុគ្គលិក:</label>
+                <select id="adminHistoryMemberFilter" onchange="loadAttendanceHistory()" class="text-xs bg-slate-900/90 border border-white/20 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-400 font-medium">
+                  <option value="">-- បុគ្គលិកទាំងអស់ (All Members) --</option>
+                </select>
+              </div>
+
+              <!-- Period Pills -->
+              <div class="flex items-center p-1 rounded-xl bg-slate-900/80 border border-white/15 gap-1 flex-wrap">
+                <button type="button" onclick="setAdminHistoryPeriod('today')" id="admPeriodBtnToday" class="adm-history-period-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition">ថ្ងៃនេះ</button>
+                <button type="button" onclick="setAdminHistoryPeriod('week')" id="admPeriodBtnWeek" class="adm-history-period-btn px-2.5 py-1.5 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-cyan-500 shadow-xs transition">សប្តាហ៍នេះ</button>
+                <button type="button" onclick="setAdminHistoryPeriod('month')" id="admPeriodBtnMonth" class="adm-history-period-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition">ខែនេះ</button>
+                <button type="button" onclick="setAdminHistoryPeriod('custom-date')" id="admPeriodBtnCustomDate" class="adm-history-period-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition">តាមថ្ងៃ</button>
+                <button type="button" onclick="setAdminHistoryPeriod('custom-month')" id="admPeriodBtnCustomMonth" class="adm-history-period-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition">តាមខែ</button>
+                <button type="button" onclick="setAdminHistoryPeriod('all')" id="admPeriodBtnAll" class="adm-history-period-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition">ទាំងអស់</button>
+              </div>
+
+              <!-- Custom Pickers -->
+              <input type="date" id="adminHistoryDateFilter" onchange="loadAttendanceHistory()" class="hidden text-xs bg-slate-900 border border-white/20 rounded-xl px-3 py-1.5 text-white focus:outline-none focus:border-cyan-400">
+              <input type="month" id="adminHistoryMonthFilter" onchange="loadAttendanceHistory()" class="hidden text-xs bg-slate-900 border border-white/20 rounded-xl px-3 py-1.5 text-white focus:outline-none focus:border-cyan-400">
             </div>
-            <div class="flex items-center gap-2.5 flex-wrap">
-              <button onclick="sendDailyTelegramSummaryNow()" class="hover:bg-white/10 text-cyan-300 font-bold px-4 py-2 rounded-xl text-xs border border-cyan-400/40 flex items-center gap-2 shadow-xs transition active:scale-95">
-                <i data-lucide="send" class="w-4 h-4 text-cyan-400"></i> <span>ផ្ញើសរុបទៅ Telegram</span>
+
+            <!-- Action Buttons: Telegram & Export -->
+            <div class="flex items-center gap-2 flex-wrap self-end lg:self-auto">
+              <button type="button" onclick="sendDailyTelegramSummaryNow()" class="hover:bg-white/10 text-cyan-300 font-bold px-3.5 py-2 rounded-xl text-xs border border-cyan-400/40 flex items-center gap-1.5 shadow-xs transition active:scale-95 cursor-pointer">
+                <i data-lucide="send" class="w-3.5 h-3.5 text-cyan-400"></i> <span>ផ្ញើសរុប Telegram</span>
               </button>
-              <button onclick="exportHistoryCSV()" class="btn-gradient-primary px-5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-cyan-500/25 active:scale-95">
-                <i data-lucide="download" class="w-4 h-4"></i> <span data-i18n="exportExcel">Export Excel/CSV</span>
+              <button type="button" onclick="exportHistoryCSV()" class="btn-gradient-primary px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-cyan-500/25 active:scale-95 cursor-pointer">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i> <span data-i18n="exportExcel">Export CSV</span>
               </button>
+            </div>
+
+          </div>
+
+          <!-- Summary KPI Cards for Selected Period -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="p-3 rounded-2xl bg-slate-900/60 border border-white/10">
+              <span class="text-[11px] text-slate-400 block mb-0.5">កំណត់ត្រាសរុប</span>
+              <span id="admKpiTotalRecords" class="text-lg font-black text-white font-mono">0</span>
+              <span class="text-[10px] text-cyan-400 block">ដង (Clock-ins)</span>
+            </div>
+            <div class="p-3 rounded-2xl bg-slate-900/60 border border-white/10">
+              <span class="text-[11px] text-slate-400 block mb-0.5">បុគ្គលិកមានវត្តមាន</span>
+              <span id="admKpiActiveMembers" class="text-lg font-black text-emerald-400 font-mono">0</span>
+              <span class="text-[10px] text-slate-400 block">នាក់ (Members)</span>
+            </div>
+            <div class="p-3 rounded-2xl bg-slate-900/60 border border-white/10">
+              <span class="text-[11px] text-slate-400 block mb-0.5">ក្នុងរង្វង់ GPS</span>
+              <span id="admKpiInGeofence" class="text-lg font-black text-cyan-300 font-mono">0</span>
+              <span id="admKpiInGeofencePct" class="text-[10px] text-emerald-400 block">100% ក្នុងទីស្នាក់ការ</span>
+            </div>
+            <div class="p-3 rounded-2xl bg-slate-900/60 border border-white/10">
+              <span class="text-[11px] text-slate-400 block mb-0.5">ក្រៅរង្វង់ GPS</span>
+              <span id="admKpiOutGeofence" class="text-lg font-black text-rose-400 font-mono">0</span>
+              <span class="text-[10px] text-rose-400 block">ដង ក្រៅទីស្នាក់ការ</span>
             </div>
           </div>
+
+          <!-- History Records Table -->
           <div class="overflow-x-auto rounded-2xl border border-white/10">
             <table class="w-full text-left text-xs text-slate-300">
-              <thead class="bg-white/10 text-cyan-300 font-bold uppercase tracking-wider border-b border-white/15 sticky top-0 backdrop-blur-md">
+              <thead class="bg-slate-900/90 text-cyan-300 font-bold uppercase tracking-wider border-b border-white/15 sticky top-0 backdrop-blur-md">
                 <tr>
                   <th class="py-3 px-4">#</th>
                   <th class="py-3 px-4" data-i18n="colName">ឈ្មោះ</th>
                   <th class="py-3 px-4" data-i18n="colCode">កូដ</th>
                   <th class="py-3 px-4" data-i18n="colRole">តួនាទី</th>
                   <th class="py-3 px-4" data-i18n="colAction">សកម្មភាព</th>
-                  <th class="py-3 px-4" data-i18n="colTime">ម៉ោង</th>
+                  <th class="py-3 px-4" data-i18n="colTime">កាលបរិច្ឆេទ & ម៉ោង</th>
                   <th class="py-3 px-4" data-i18n="colDistance">ចម្ងាយ GPS</th>
                   <th class="py-3 px-4" data-i18n="colGeofence">Geofence</th>
                 </tr>
@@ -1481,6 +1821,75 @@
               <tbody id="fullHistoryTable" class="divide-y divide-white/10"></tbody>
             </table>
           </div>
+
+        </div>
+      </section>
+
+      <!-- Admin Section: Leave & Late Permissions Management -->
+      <section id="adm-sec-leaves" class="adm-section hidden space-y-6">
+        <div class="glass-crystal p-5 sm:p-6 rounded-3xl border border-white/20 shadow-2xl space-y-5">
+          
+          <!-- Header & Filter Bar -->
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/10">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-lg shadow-amber-500/25">
+                <i data-lucide="file-text" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h3 class="text-base font-extrabold text-white flex items-center gap-2">
+                  <span>សំណើសុំច្បាប់ & មកយឺត (Leave & Late Requests)</span>
+                </h3>
+                <p class="text-xs text-slate-300">ពិនិត្យ និងចុចយល់ព្រម (OK) ឬបដិសេធ ដើម្បីផ្ញើសារឆ្លើយតបទៅកាន់បុគ្គលិក & Telegram</p>
+              </div>
+            </div>
+
+            <!-- Filter Status Pills -->
+            <div class="flex items-center gap-1.5 p-1 rounded-2xl bg-black/40 border border-white/10 self-start md:self-auto overflow-x-auto scrollbar-none">
+              <button type="button" onclick="filterAdminLeaveRequests('all')" id="leaveFilterBtnAll" class="admin-leave-filter-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-sm transition cursor-pointer">
+                ទាំងអស់
+              </button>
+              <button type="button" onclick="filterAdminLeaveRequests('pending')" id="leaveFilterBtnPending" class="admin-leave-filter-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white transition cursor-pointer flex items-center gap-1">
+                <span>រង់ចាំ (Pending)</span>
+                <span id="leaveFilterPendingBadge" class="hidden w-2 h-2 rounded-full bg-amber-400"></span>
+              </button>
+              <button type="button" onclick="filterAdminLeaveRequests('approved')" id="leaveFilterBtnApproved" class="admin-leave-filter-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white transition cursor-pointer">
+                យល់ព្រម (OK)
+              </button>
+              <button type="button" onclick="filterAdminLeaveRequests('rejected')" id="leaveFilterBtnRejected" class="admin-leave-filter-btn px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white transition cursor-pointer">
+                មិនអនុម័ត
+              </button>
+            </div>
+          </div>
+
+          <!-- Quick Stats Summary -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="p-3 rounded-2xl bg-slate-900/60 border border-white/10">
+              <span class="text-[11px] text-slate-400 block mb-0.5">សំណើសរុប</span>
+              <span id="admLeaveStatTotal" class="text-lg font-black text-white font-mono">0</span>
+              <span class="text-[10px] text-slate-400 block">សំណើទាំងអស់</span>
+            </div>
+            <div class="p-3 rounded-2xl bg-slate-900/60 border border-amber-500/25 bg-amber-500/5">
+              <span class="text-[11px] text-amber-300 block mb-0.5">រង់ចាំការពិនិត្យ</span>
+              <span id="admLeaveStatPending" class="text-lg font-black text-amber-400 font-mono">0</span>
+              <span class="text-[10px] text-amber-300/80 block">ត្រូវការឆ្លើយតប</span>
+            </div>
+            <div class="p-3 rounded-2xl bg-slate-900/60 border border-emerald-500/25 bg-emerald-500/5">
+              <span class="text-[11px] text-emerald-300 block mb-0.5">បានយល់ព្រម (OK)</span>
+              <span id="admLeaveStatApproved" class="text-lg font-black text-emerald-400 font-mono">0</span>
+              <span class="text-[10px] text-emerald-300/80 block">អនុម័តជោគជ័យ</span>
+            </div>
+            <div class="p-3 rounded-2xl bg-slate-900/60 border border-rose-500/25 bg-rose-500/5">
+              <span class="text-[11px] text-rose-300 block mb-0.5">បានបដិសេធ</span>
+              <span id="admLeaveStatRejected" class="text-lg font-black text-rose-400 font-mono">0</span>
+              <span class="text-[10px] text-rose-300/80 block">មិនអនុញ្ញាត</span>
+            </div>
+          </div>
+
+          <!-- Leave Cards List Container -->
+          <div id="adminLeaveRequestsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+            <div class="col-span-full py-12 text-center text-xs text-slate-400">កំពុងទាញយកសំណើ...</div>
+          </div>
+
         </div>
       </section>
 
@@ -1533,6 +1942,32 @@
               <button onclick="sendDailyTelegramSummaryNow()" class="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 text-cyan-300 border border-cyan-400/40 shadow-xs flex items-center justify-center gap-2 transition active:scale-98">
                 <i data-lucide="send" class="w-3.5 h-3.5 text-cyan-400"></i>
                 <span>ផ្ញើរបាយការណ៍សរុបទៅ Telegram ឥឡូវនេះ (Send Summary)</span>
+              </button>
+            </div>
+
+            <!-- Dedicated Leave & Late Permissions Telegram Group Card -->
+            <div class="mt-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-400/30 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                  <i data-lucide="bell-ring" class="w-4 h-4 text-amber-400"></i>
+                  <span>Telegram Group សុំច្បាប់ & មកយឺត (New Group)</span>
+                </span>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/40">New</span>
+              </div>
+              <p class="text-[11px] text-slate-300 leading-relaxed">
+                ដាក់ Chat ID នៃ Group Telegram ថ្មីសម្រាប់ទទួលដំណឹងសុំច្បាប់ និងមកយឺតដោយឡែកពី Group វត្តមានទូទៅ៖
+              </p>
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-200 mb-1">Telegram Leave Chat ID (Group ID)</label>
+                <input type="text" id="inputTelegramLeaveChatId" placeholder="ឧ. -1001234567890 ឬ -50..." class="w-full text-xs bg-black/50 border border-amber-400/30 rounded-xl px-3.5 py-2 font-mono text-white placeholder-slate-500 focus:outline-none focus:border-amber-400">
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="checkbox" id="inputTelegramLeaveEnabled" class="w-4 h-4 text-amber-500 rounded border-white/20 bg-black/40 focus:ring-amber-500">
+                <label for="inputTelegramLeaveEnabled" class="text-xs text-slate-200 font-medium">បើកផ្ញើសារ Alert ពេលបុគ្គលិកសុំច្បាប់ ឬមកយឺត</label>
+              </div>
+              <button type="button" onclick="testTelegramLeaveConnection()" class="w-full py-2 px-3 rounded-xl text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-400/40 flex items-center justify-center gap-1.5 transition active:scale-98 cursor-pointer">
+                <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                <span>តេស្តផ្ញើសារសុំច្បាប់ទៅ Telegram Group ថ្មី (Test Alert)</span>
               </button>
             </div>
           </div>
@@ -2246,6 +2681,381 @@
     </div>
   </div>
 
-  <script src="/app.js?v=13.0"></script>
+  <!-- ================= MODAL: LEAVE & LATE PERMISSION REQUEST ================= -->
+  <div id="leaveRequestModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-xl overflow-y-auto">
+    <div class="glass-crystal relative w-full max-w-lg bg-slate-900/95 border border-white/20 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 my-6 text-white animate-entrance max-h-[92vh] flex flex-col">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between pb-3 border-b border-white/10 flex-shrink-0">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center shadow-md shadow-amber-500/25">
+            <i data-lucide="file-plus-2" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-sm sm:text-base font-extrabold text-white">ស្នើសុំច្បាប់ ឬសុំមកយឺត</h3>
+            <p class="text-[11px] text-slate-300">Leave & Late Arrival Permission</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeLeaveRequestModal()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Segmented Tab Switcher (iOS Style) -->
+      <div class="flex p-1 rounded-2xl bg-black/40 border border-white/10 flex-shrink-0">
+        <button type="button" onclick="switchLeaveModalTab('leave')" id="leaveTabBtnLeave" class="flex-1 py-2 px-1 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center justify-center gap-1 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-sm cursor-pointer whitespace-nowrap">
+          <i data-lucide="calendar-off" class="w-3.5 h-3.5 flex-shrink-0"></i>
+          <span>សុំច្បាប់</span>
+        </button>
+        <button type="button" onclick="switchLeaveModalTab('late')" id="leaveTabBtnLate" class="flex-1 py-2 px-1 rounded-xl text-[11px] sm:text-xs font-semibold text-slate-400 hover:text-white transition flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap">
+          <i data-lucide="clock" class="w-3.5 h-3.5 flex-shrink-0"></i>
+          <span>សុំមកយឺត</span>
+        </button>
+        <button type="button" onclick="switchLeaveModalTab('history')" id="leaveTabBtnHistory" class="flex-1 py-2 px-1 rounded-xl text-[11px] sm:text-xs font-semibold text-slate-400 hover:text-white transition flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap">
+          <i data-lucide="clipboard-list" class="w-3.5 h-3.5 flex-shrink-0"></i>
+          <span>សំណើខ្ញុំ</span>
+        </button>
+      </div>
+
+      <!-- Modal Body (Scrollable) -->
+      <div class="overflow-y-auto space-y-4 pr-1 custom-scroll flex-1">
+        
+        <!-- Form 1: Leave Request (សុំច្បាប់) -->
+        <form id="formLeaveRequest" onsubmit="handleLeaveFormSubmit(event)" class="space-y-3.5">
+          <!-- Guide Banner -->
+          <div class="text-[11px] text-cyan-300 flex items-center gap-2 p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
+            <i data-lucide="info" class="w-4 h-4 text-cyan-400 flex-shrink-0"></i>
+            <span>សម្រាប់សុំច្បាប់ឈប់សម្រាក (ច្បាប់ឈឺ, ធុរៈផ្ទាល់ខ្លួន, សម្រាកប្រចាំឆ្នាំ...)</span>
+          </div>
+
+          <!-- Staff Profile Mini Card -->
+          <div class="p-3 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center font-bold text-xs" id="leaveStaffInitial">
+                U
+              </div>
+              <div>
+                <div class="text-xs font-bold text-white" id="leaveStaffName">--</div>
+                <div class="text-[10px] text-slate-400 font-mono" id="leaveStaffCode">--</div>
+              </div>
+            </div>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-400/30">គណនីរបស់អ្នក</span>
+          </div>
+
+          <!-- Leave Sub-type -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">
+              ប្រភេទនៃការសុំច្បាប់ (Leave Type) <span class="text-rose-400">*</span>
+            </label>
+            <select id="leaveSubType" required class="w-full text-xs bg-slate-800/90 border border-white/15 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-cyan-400">
+              <option value="ច្បាប់ឈឺ (Sick Leave)">🤒 ច្បាប់ឈឺ (Sick Leave - ផ្តាសាយ, មិនស្រួលខ្លួន)</option>
+              <option value="ធុរៈផ្ទាល់ខ្លួន (Personal Leave)">💼 ធុរៈផ្ទាល់ខ្លួនបន្ទាន់ (Personal Emergency)</option>
+              <option value="ច្បាប់ប្រចាំឆ្នាំ (Annual Leave)">🏖️ ច្បាប់ប្រចាំឆ្នាំ (Annual Leave / Vacation)</option>
+              <option value="ធុរៈគ្រួសារ (Family Leave)">👨‍👩‍👦 ធុរៈគ្រួសារ / មង្គលការ / បុណ្យ (Family Event)</option>
+              <option value="ផ្សេងៗ (Other)">📝 ផ្សេងៗ (Other)</option>
+            </select>
+          </div>
+
+          <!-- Duration Segment (Above Dates) -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">
+              ចំនួនពេលសុំសម្រាក (Duration) <span class="text-rose-400">*</span>
+            </label>
+            <select id="leaveDurationSelect" onchange="updateLeaveDurationUI()" class="w-full text-xs bg-slate-800/90 border border-white/15 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-400">
+              <option value="1 ថ្ងៃពេញ (Full Day)" selected>1 ថ្ងៃពេញ (Full Day)</option>
+              <option value="កន្លះថ្ងៃព្រឹក (Morning 08:00 - 11:00)">កន្លះថ្ងៃព្រឹក (Morning 08:00 - 11:00)</option>
+              <option value="កន្លះថ្ងៃរសៀល (Afternoon 13:00 - 17:00)">កន្លះថ្ងៃរសៀល (Afternoon 13:00 - 17:00)</option>
+              <option value="2 ថ្ងៃ">2 ថ្ងៃ</option>
+              <option value="3 ថ្ងៃ">3 ថ្ងៃ</option>
+              <option value="ច្រើនថ្ងៃ (តាមកាលបរិច្ឆេទ)">ច្រើនថ្ងៃ (តាមកាលបរិច្ឆេទ)</option>
+            </select>
+          </div>
+
+          <!-- Date Range (Dynamically Adjusted) -->
+          <div id="leaveDateContainer" class="space-y-2.5">
+            <div id="leaveStartDateWrap">
+              <label id="leaveStartDateLabel" class="block text-xs font-semibold text-slate-300 mb-1">
+                កាលបរិច្ឆេទ (Date) <span class="text-rose-400">*</span>
+              </label>
+              <input type="date" id="leaveStartDate" required class="w-full text-xs bg-slate-800/90 border border-white/15 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-400">
+            </div>
+            <div id="leaveEndDateWrap" class="hidden">
+              <label class="block text-xs font-semibold text-slate-300 mb-1">
+                ដល់ថ្ងៃ (End Date) <span class="text-rose-400">*</span>
+              </label>
+              <input type="date" id="leaveEndDate" class="w-full text-xs bg-slate-800/90 border border-white/15 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-400">
+            </div>
+          </div>
+
+          <!-- Reason -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">
+              មូលហេតុលម្អិត (Reason) <span class="text-rose-400">*</span>
+            </label>
+            <textarea id="leaveReason" required rows="2" placeholder="សូមបញ្ជាក់មូលហេតុឱ្យបានច្បាស់លាស់ដើម្បី Admin ពិនិត្យសម្រេច..." class="w-full text-xs bg-slate-800/90 border border-white/15 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400"></textarea>
+          </div>
+
+          <!-- Telegram broadcast notice -->
+          <div class="text-[11px] text-sky-400 flex items-center gap-1.5 p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/20">
+            <i data-lucide="send" class="w-3.5 h-3.5 text-sky-400 flex-shrink-0"></i>
+            <span>សំណើនេះនឹងផ្ញើជូនដំណឹងភ្លាមៗទៅកាន់ Group Telegram របស់ថ្នាក់ដឹកនាំ!</span>
+          </div>
+
+          <button type="submit" id="btnSubmitLeave" class="w-full btn-gradient-primary btn-shine py-3 px-4 rounded-xl text-xs font-bold text-white shadow-lg shadow-cyan-500/25 flex items-center justify-center gap-2 active:scale-95 cursor-pointer">
+            <i data-lucide="send" class="w-4 h-4"></i>
+            <span>ផ្ញើសំណើសុំច្បាប់ (Submit Leave)</span>
+          </button>
+        </form>
+
+        <!-- Form 2: Late Arrival Request (សុំមកយឺត) -->
+        <form id="formLateRequest" onsubmit="handleLateFormSubmit(event)" class="hidden space-y-3.5">
+          <!-- Guide Banner -->
+          <div class="text-[11px] text-amber-300 flex items-center gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-400 flex-shrink-0"></i>
+            <span>សម្រាប់អ្នកមកធ្វើការធម្មតា តែមានបញ្ហាតាមផ្លូវមកយឺតបន្តិច</span>
+          </div>
+
+          <!-- Staff Profile Mini Card -->
+          <div class="p-3 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center font-bold text-xs" id="lateStaffInitial">
+                U
+              </div>
+              <div>
+                <div class="text-xs font-bold text-white" id="lateStaffName">--</div>
+                <div class="text-[10px] text-slate-400 font-mono" id="lateStaffCode">--</div>
+              </div>
+            </div>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-400/30">សុំមកយឺត</span>
+          </div>
+
+          <!-- Late Issue Sub-type -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">
+              បញ្ហាជួបប្រទះតាមផ្លូវ (Late Reason) <span class="text-rose-400">*</span>
+            </label>
+            <select id="lateSubType" required class="w-full text-xs bg-slate-800/90 border border-white/15 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-400">
+              <option value="ស្ទះចរាចរណ៍ខ្លាំង (Traffic Jam)">🚗 ស្ទះចរាចរណ៍ខ្លាំង (Heavy Traffic)</option>
+              <option value="ខូចម៉ូតូ/ឡាន ឬបែកកង់ (Breakdown)">🛵 ខូចម៉ូតូ / ឡាន ឬបែកកង់ (Breakdown)</option>
+              <option value="ភ្លៀងធ្លាក់ខ្លាំង (Heavy Rain)">🌧️ ភ្លៀងធ្លាក់ខ្លាំង (Heavy Rain)</option>
+              <option value="ធុរៈផ្ទាល់ខ្លួនបន្ទាន់ (Emergency)">⚠️ ធុរៈផ្ទាល់ខ្លួនបន្ទាន់ពេលព្រឹក (Emergency)</option>
+              <option value="បញ្ហាផ្សេងៗ (Other)">📝 បញ្ហាផ្សេងៗទៀត (Other)</option>
+            </select>
+          </div>
+
+          <!-- Date and Estimated Arrival Time with Quick Chips -->
+          <div class="space-y-2.5">
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">
+                ថ្ងៃកើតហេតុ (Date) <span class="text-rose-400">*</span>
+              </label>
+              <input type="date" id="lateDate" required class="w-full text-xs bg-slate-800/90 border border-white/15 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-400">
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="block text-xs font-semibold text-slate-300">
+                  រំពឹងមកដល់ម៉ោង (Time) <span class="text-rose-400">*</span>
+                </label>
+                <span class="text-[10px] text-amber-400 font-semibold flex items-center gap-1">
+                  <span>ចុចជ្រើសរើសរហ័ស ⚡</span>
+                </span>
+              </div>
+              <input type="text" id="lateExpectedTime" required placeholder="ឧ. 08:30 AM ឬ 09:00 AM" class="w-full text-xs bg-slate-800/90 border border-white/15 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 font-mono">
+              <!-- Quick Tap Chips for Instant Filling -->
+              <div class="flex flex-wrap gap-1.5 mt-2">
+                <button type="button" onclick="setQuickLateTime(15)" class="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-amber-500/20 text-amber-300 border border-white/10 text-[10px] font-bold transition active:scale-95 cursor-pointer">+15 នាទី</button>
+                <button type="button" onclick="setQuickLateTime(30)" class="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-amber-500/20 text-amber-300 border border-white/10 text-[10px] font-bold transition active:scale-95 cursor-pointer">+30 នាទី</button>
+                <button type="button" onclick="setQuickLateTime(45)" class="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-amber-500/20 text-amber-300 border border-white/10 text-[10px] font-bold transition active:scale-95 cursor-pointer">+45 នាទី</button>
+                <button type="button" onclick="setExactLateTime('08:30 AM')" class="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-amber-500/20 text-slate-200 border border-white/10 text-[10px] font-bold transition active:scale-95 cursor-pointer">08:30 AM</button>
+                <button type="button" onclick="setExactLateTime('09:00 AM')" class="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-amber-500/20 text-slate-200 border border-white/10 text-[10px] font-bold transition active:scale-95 cursor-pointer">09:00 AM</button>
+                <button type="button" onclick="setExactLateTime('01:30 PM')" class="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-amber-500/20 text-slate-200 border border-white/10 text-[10px] font-bold transition active:scale-95 cursor-pointer">01:30 PM</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Reason & Details -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">
+              ពិពណ៌នាលម្អិតពីបញ្ហា (Details) <span class="text-rose-400">*</span>
+            </label>
+            <textarea id="lateReason" required rows="2" placeholder="ឧ. កំពុងស្ទះនៅម្តុំស្ពានជ្រោយចង្វារ ឬកំពុងរង់ចាំជាងប៉ះកង់..." class="w-full text-xs bg-slate-800/90 border border-white/15 rounded-xl px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"></textarea>
+          </div>
+
+          <!-- Telegram Notice -->
+          <div class="text-[11px] text-amber-300 flex items-center gap-1.5 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
+            <i data-lucide="send" class="w-3.5 h-3.5 text-amber-400 flex-shrink-0"></i>
+            <span>ដំណឹងសុំមកយឺតនេះនឹងលោត Alert ចូល Group Telegram ថ្នាក់ដឹកនាំភ្លាមៗ!</span>
+          </div>
+
+          <button type="submit" id="btnSubmitLate" class="w-full py-3 px-4 rounded-xl text-xs font-bold text-white shadow-lg shadow-amber-500/20 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 flex items-center justify-center gap-2 active:scale-95 cursor-pointer">
+            <i data-lucide="send" class="w-4 h-4"></i>
+            <span>ផ្ញើសំណើសុំមកយឺត (Submit Late Notice)</span>
+          </button>
+        </form>
+
+        <!-- Section 3: My Requests History (សំណើរបស់ខ្ញុំ) -->
+        <div id="sectionLeaveHistory" class="hidden space-y-3">
+          <div class="flex items-center justify-between pb-2 border-b border-white/10">
+            <span class="text-xs font-bold text-slate-300">ប្រវត្តិសំណើសុំច្បាប់ និងមកយឺតរបស់អ្នក</span>
+            <button type="button" onclick="loadMyLeaveRequests()" class="text-xs text-cyan-400 hover:text-white flex items-center gap-1">
+              <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+              <span>Refresh</span>
+            </button>
+          </div>
+
+          <div id="myLeaveRequestsContainer" class="space-y-2.5">
+            <div class="py-8 text-center text-xs text-slate-400">កំពុងទាញយកទិន្នន័យ...</div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ================= SLIDE-OVER APP DRAWER MENU ================= -->
+  <div id="appDrawerMenu" class="fixed inset-0 z-50 overflow-hidden pointer-events-none transition-all duration-300 opacity-0 invisible" aria-modal="true" role="dialog">
+    <!-- Backdrop Blur Overlay -->
+    <div id="appDrawerBackdrop" onclick="closeAppDrawerMenu()" class="fixed inset-0 bg-slate-950/75 backdrop-blur-xl transition-opacity duration-300 opacity-0 cursor-pointer"></div>
+
+    <div class="fixed inset-y-0 right-0 max-w-full flex pl-10 pointer-events-none">
+      <div id="appDrawerPanel" class="pointer-events-auto w-screen max-w-xs sm:max-w-sm bg-slate-900/95 backdrop-blur-2xl border-l border-white/15 shadow-2xl flex flex-col justify-between p-5 sm:p-6 overflow-y-auto transform translate-x-full transition-transform duration-350 ease-[cubic-bezier(0.32,0.72,0,1)]">
+        
+        <!-- Drawer Header -->
+        <div class="space-y-4">
+          <div class="flex items-center justify-between pb-3 border-b border-white/10">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-white p-1 border border-white/80 flex items-center justify-center shadow-xs">
+                <img src="/logo.png" alt="VST Logo" class="w-full h-full object-contain">
+              </div>
+              <div>
+                <h3 class="text-xs font-extrabold text-white">VANN SITHA TRADING</h3>
+                <p class="text-[10px] text-cyan-300">Smart Attendance App</p>
+              </div>
+            </div>
+            <button type="button" onclick="closeAppDrawerMenu()" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center transition">
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <!-- Staff Profile Card in Drawer (Dynamic) -->
+          <div id="drawerProfileSection" onclick="closeAppDrawerMenu(); openStaffProfileModal();" class="p-3.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center gap-3 cursor-pointer transition">
+            <div id="drawerAvatarWrapper" class="w-11 h-11 rounded-full bg-gradient-to-tr from-brand-blue to-brand-cyan text-white font-extrabold flex items-center justify-center text-sm border border-cyan-400/50 shadow-sm flex-shrink-0">
+              <span id="drawerAvatarText">U</span>
+            </div>
+            <div class="min-w-0 flex-1">
+              <h4 id="drawerStaffName" class="font-bold text-white text-xs truncate">សមាជិក</h4>
+              <p id="drawerStaffRole" class="text-[11px] text-slate-400 truncate mt-0.5">បុគ្គលិក</p>
+              <span id="drawerStaffCode" class="inline-block text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/25 mt-1 font-bold">MEM-000</span>
+            </div>
+            <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500"></i>
+          </div>
+
+          <!-- Navigation / Action Items -->
+          <div class="space-y-1.5 pt-1">
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 block">សកម្មភាពផ្ទាល់ខ្លួន (My Workspace)</span>
+
+            <!-- Request Leave / Late Button in Drawer -->
+            <button type="button" onclick="closeAppDrawerMenu(); openLeaveRequestModal();" class="w-full p-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 to-orange-500/15 hover:from-amber-500/25 hover:to-orange-500/25 border border-amber-400/30 flex items-center justify-between transition text-left group cursor-pointer shadow-xs">
+              <span class="text-xs font-bold text-amber-300 flex items-center gap-2">
+                <i data-lucide="file-plus-2" class="w-4 h-4 text-amber-400"></i>
+                <span>សុំច្បាប់ ឬសុំមកយឺត (Request)</span>
+              </span>
+              <span class="text-[10px] px-2 py-0.5 rounded-md bg-amber-400/20 text-amber-200 font-bold">New</span>
+            </button>
+
+            <!-- My Requests Status Button in Drawer -->
+            <button type="button" onclick="closeAppDrawerMenu(); openLeaveRequestModal('history');" class="w-full p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-between transition text-left group cursor-pointer">
+              <span class="text-xs font-semibold text-slate-200 flex items-center gap-2">
+                <i data-lucide="bell" class="w-4 h-4 text-cyan-400"></i>
+                <span>ស្ថានភាពសំណើរបស់ខ្ញុំ</span>
+              </span>
+              <span id="drawerMyRequestsStatusBadge" class="hidden text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold">OK</span>
+            </button>
+
+            <!-- My Attendance History View in Drawer -->
+            <button type="button" onclick="closeAppDrawerMenu(); showStaffHistoryView();" class="w-full p-2.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-400/20 flex items-center justify-between transition text-left group cursor-pointer">
+              <span class="text-xs font-bold text-cyan-300 flex items-center gap-2">
+                <i data-lucide="clipboard-list" class="w-4 h-4 text-cyan-400"></i>
+                <span>កំណត់ត្រាវត្តមានរបស់ខ្ញុំ</span>
+              </span>
+              <span class="text-[10px] px-2 py-0.5 rounded-md bg-cyan-500/20 text-cyan-200 font-mono">Week / Month</span>
+            </button>
+
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 block pt-2">ការកំណត់ទូទៅ (General Settings)</span>
+
+            <!-- Language Switcher in Drawer -->
+            <div class="p-2.5 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between">
+              <span class="text-xs font-semibold text-slate-200 flex items-center gap-2">
+                <i data-lucide="globe" class="w-4 h-4 text-cyan-400"></i>
+                <span>ភាសា (Language)</span>
+              </span>
+              <div class="flex items-center p-0.5 rounded-lg bg-black/40 border border-white/10 notranslate" translate="no">
+                <button type="button" id="drawerLangKmBtn" onclick="setLanguage('km')" class="px-2 py-1 rounded-md text-[11px] font-bold transition flex items-center gap-1 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-xs">
+                  <span>🇰🇭 ខ្មែរ</span>
+                </button>
+                <button type="button" id="drawerLangEnBtn" onclick="setLanguage('en')" class="px-2 py-1 rounded-md text-[11px] font-medium text-slate-400 hover:text-white transition flex items-center gap-1">
+                  <span>🇬🇧 EN</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Theme Selector -->
+            <button type="button" onclick="closeAppDrawerMenu(); openThemeSelectorModal();" class="w-full p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-between transition text-left group">
+              <span class="text-xs font-semibold text-slate-200 flex items-center gap-2">
+                <i data-lucide="palette" class="w-4 h-4 text-purple-400"></i>
+                <span>ប្តូរពណ៌ស្បែក (Themes)</span>
+              </span>
+              <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500 group-hover:text-white transition"></i>
+            </button>
+
+            <!-- Khmer Font Selector -->
+            <button type="button" onclick="closeAppDrawerMenu(); openFontSelectorModal();" class="w-full p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-between transition text-left group">
+              <span class="text-xs font-semibold text-slate-200 flex items-center gap-2">
+                <i data-lucide="type" class="w-4 h-4 text-pink-400"></i>
+                <span>ពុម្ពអក្សរខ្មែរ (Khmer Fonts)</span>
+              </span>
+              <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500 group-hover:text-white transition"></i>
+            </button>
+
+            <div class="pt-2">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 block">ប្រព័ន្ធគ្រប់គ្រង (Admin & System)</span>
+            </div>
+
+            <!-- Admin Portal PIN Access -->
+            <button type="button" onclick="closeAppDrawerMenu(); promptAdminPin();" class="w-full p-2.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-400/30 flex items-center justify-between transition text-left group">
+              <span class="text-xs font-bold text-cyan-300 flex items-center gap-2">
+                <i data-lucide="shield" class="w-4 h-4 text-cyan-400"></i>
+                <span>ចូលផ្នែក Admin (Admin Portal)</span>
+              </span>
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-400/20 text-cyan-200 font-bold">PIN</span>
+            </button>
+
+            <!-- Telegram Channel / Group -->
+            <button type="button" onclick="closeAppDrawerMenu(); openTelegramNoticeGroup();" class="w-full p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-between transition text-left group">
+              <span class="text-xs font-semibold text-slate-200 flex items-center gap-2">
+                <i data-lucide="send" class="w-4 h-4 text-sky-400"></i>
+                <span>Telegram ក្រុមហ៊ុន</span>
+              </span>
+              <i data-lucide="external-link" class="w-3.5 h-3.5 text-slate-500"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Drawer Footer: Logout Button -->
+        <div class="pt-4 border-t border-white/10 space-y-3">
+          <button type="button" id="btnDrawerLogout" onclick="closeAppDrawerMenu(); logoutStaffAccount();" class="w-full py-2.5 px-3 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 hover:text-white text-xs font-bold transition flex items-center justify-center gap-2 active:scale-95 shadow-sm">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+            <span>ចាកចេញពីគណនី (Log Out)</span>
+          </button>
+          <p class="text-[10px] text-slate-500 text-center font-mono">VST Attendance App • Version 23.0</p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js?v=23.0"></script>
 </body>
 </html>
