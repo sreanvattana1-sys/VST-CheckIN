@@ -383,13 +383,13 @@ function updateGreeting() {
   if (!greetingEl) return;
 
   if (currentLang === 'km') {
-    if (hour < 12) greetingEl.textContent = 'អរុណសួស្តី';
-    else if (hour < 17) greetingEl.textContent = 'ទិវាសួស្តី';
-    else greetingEl.textContent = 'សាយណ្ហសួស្តី';
+    if (hour < 12) greetingEl.textContent = 'អរុណសួស្តី ☀️';
+    else if (hour < 17) greetingEl.textContent = 'ទិវាសួស្តី 🌤️';
+    else greetingEl.textContent = 'សាយណ្ហសួស្តី 🌙';
   } else {
-    if (hour < 12) greetingEl.textContent = 'Good morning';
-    else if (hour < 17) greetingEl.textContent = 'Good afternoon';
-    else greetingEl.textContent = 'Good evening';
+    if (hour < 12) greetingEl.textContent = 'Good morning ☀️';
+    else if (hour < 17) greetingEl.textContent = 'Good afternoon 🌤️';
+    else greetingEl.textContent = 'Good evening 🌙';
   }
 }
 
@@ -1235,12 +1235,31 @@ function setStaffProfile(member) {
   const wrapper = document.getElementById('staffAvatarWrapper');
   if (wrapper) {
     if (member.avatar && member.avatar.trim()) {
-      wrapper.innerHTML = `<img src="${member.avatar}" alt="${member.name}" class="w-full h-full object-cover rounded-2xl block">`;
+      wrapper.innerHTML = `<img src="${member.avatar}" alt="${member.name}" class="w-full h-full object-cover rounded-full block">`;
     } else {
-      const initial = member.name ? member.name.trim().charAt(0) : 'U';
+      const initial = member.name ? member.name.trim().charAt(0).toUpperCase() : 'U';
       wrapper.innerHTML = `<span id="staffAvatar" class="font-extrabold text-lg text-white">${initial}</span>`;
     }
   }
+
+  // Update Drawer menu profile
+  const drawerName = document.getElementById('drawerStaffName');
+  const drawerCode = document.getElementById('drawerStaffCode');
+  const drawerRole = document.getElementById('drawerStaffRole');
+  const drawerAvatar = document.getElementById('drawerAvatarWrapper');
+  if (drawerName) drawerName.textContent = member.name;
+  if (drawerCode) drawerCode.textContent = member.code;
+  if (drawerRole) drawerRole.textContent = member.role || (currentLang === 'km' ? 'បុគ្គលិក' : 'Staff');
+  if (drawerAvatar) {
+    if (member.avatar && member.avatar.trim()) {
+      drawerAvatar.innerHTML = `<img src="${member.avatar}" alt="${member.name}" class="w-full h-full object-cover rounded-full block">`;
+    } else {
+      const initial = member.name ? member.name.trim().charAt(0).toUpperCase() : 'U';
+      drawerAvatar.innerHTML = `<span id="drawerAvatarText">${initial}</span>`;
+    }
+  }
+
+  updateGreeting();
   
   const greetEl = document.getElementById('greetingStaffName');
   if (greetEl) greetEl.textContent = member.name;
@@ -1408,7 +1427,11 @@ async function saveStaffSelfAvatar() {
 
   const wrapper = document.getElementById('staffAvatarWrapper');
   if (wrapper) {
-    wrapper.innerHTML = `<img src="${currentStaff.avatar}" alt="${currentStaff.name}" class="w-full h-full object-cover rounded-2xl block">`;
+    wrapper.innerHTML = `<img src="${currentStaff.avatar}" alt="${currentStaff.name}" class="w-full h-full object-cover rounded-full block">`;
+  }
+  const drawerAvatar = document.getElementById('drawerAvatarWrapper');
+  if (drawerAvatar) {
+    drawerAvatar.innerHTML = `<img src="${currentStaff.avatar}" alt="${currentStaff.name}" class="w-full h-full object-cover rounded-full block">`;
   }
 
   if (publicInfo && publicInfo.members) {
@@ -3916,6 +3939,7 @@ function openLeaveRequestModal(defaultTab = 'leave') {
   if (leaveEnd && !leaveEnd.value) leaveEnd.value = todayStr;
   if (lateDate && !lateDate.value) lateDate.value = todayStr;
 
+  updateLeaveDurationUI();
   switchLeaveModalTab(defaultTab);
 
   const modal = document.getElementById('leaveRequestModal');
@@ -3925,6 +3949,49 @@ function openLeaveRequestModal(defaultTab = 'leave') {
   }
 
   if (window.lucide) lucide.createIcons();
+}
+
+function updateLeaveDurationUI() {
+  const select = document.getElementById('leaveDurationSelect');
+  const endDateWrap = document.getElementById('leaveEndDateWrap');
+  const startDateLabel = document.getElementById('leaveStartDateLabel');
+  if (!select) return;
+
+  const val = select.value || '';
+  const isMultiple = val.includes('2 ថ្ងៃ') || val.includes('3 ថ្ងៃ') || val.includes('ច្រើនថ្ងៃ');
+
+  if (isMultiple) {
+    if (endDateWrap) endDateWrap.classList.remove('hidden');
+    if (startDateLabel) startDateLabel.innerHTML = 'ចាប់ពីថ្ងៃ (Start Date) <span class="text-rose-400">*</span>';
+  } else {
+    if (endDateWrap) endDateWrap.classList.add('hidden');
+    if (startDateLabel) startDateLabel.innerHTML = 'កាលបរិច្ឆេទ (Date) <span class="text-rose-400">*</span>';
+  }
+}
+
+function setQuickLateTime(minutesToAdd) {
+  const now = new Date();
+  now.setMinutes(now.getMinutes() + minutesToAdd);
+  let hours = now.getHours();
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  const formattedHours = String(hours).padStart(2, '0');
+  const timeStr = `${formattedHours}:${minutes} ${ampm}`;
+  const input = document.getElementById('lateExpectedTime');
+  if (input) {
+    input.value = timeStr;
+    input.focus();
+  }
+}
+
+function setExactLateTime(timeStr) {
+  const input = document.getElementById('lateExpectedTime');
+  if (input) {
+    input.value = timeStr;
+    input.focus();
+  }
 }
 
 function closeLeaveRequestModal() {
