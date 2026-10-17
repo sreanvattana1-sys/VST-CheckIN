@@ -631,6 +631,14 @@ async function loadPublicInfo() {
 
     if (selectEl) selectEl.innerHTML = optionsHtml;
     if (loginSelect) loginSelect.innerHTML = optionsHtml;
+
+    const admHistoryMemEl = document.getElementById('adminHistoryMemberFilter');
+    if (admHistoryMemEl) {
+      const prevVal = admHistoryMemEl.value;
+      admHistoryMemEl.innerHTML = '<option value="">-- ' + (currentLang === 'km' ? 'បុគ្គលិកទាំងអស់ (All Members)' : 'All Members') + ' --</option>' +
+        publicInfo.members.map(m => `<option value="${m.code}">${m.name} (${m.code}) - ${m.role || ''}</option>`).join('');
+      if (prevVal) admHistoryMemEl.value = prevVal;
+    }
   } catch (err) {
     console.error('Failed to load public info:', err);
   }
@@ -691,12 +699,52 @@ function initStaffProfile() {
   return false;
 }
 
+function getKhCurrentDate() {
+  const now = new Date();
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  return new Date(utc + (3600000 * 7));
+}
+
+function getKhDateString(d = getKhCurrentDate()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function getKhMonthString(d = getKhCurrentDate()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+}
+
+function getKhWeekRange(d = getKhCurrentDate()) {
+  const curr = new Date(d);
+  const day = curr.getDay(); // 0: Sun, 1: Mon, ... 6: Sat
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  
+  const monday = new Date(curr);
+  monday.setDate(curr.getDate() + diffToMonday);
+  
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  
+  return {
+    startDate: getKhDateString(monday),
+    endDate: getKhDateString(sunday),
+    monday,
+    sunday
+  };
+}
+
 function showLoginView() {
   const loginV = document.getElementById('loginView');
   const staffV = document.getElementById('staffView');
+  const staffHistV = document.getElementById('staffHistoryView');
   const adminV = document.getElementById('adminView');
   if (loginV) loginV.classList.remove('hidden');
   if (staffV) staffV.classList.add('hidden');
+  if (staffHistV) staffHistV.classList.add('hidden');
   if (adminV) adminV.classList.add('hidden');
   const btnStaff = document.getElementById('btnSwitchToStaff');
   const btnAdmin = document.getElementById('btnSwitchToAdmin');
@@ -712,9 +760,11 @@ function showLoginView() {
 function showStaffView() {
   const loginV = document.getElementById('loginView');
   const staffV = document.getElementById('staffView');
+  const staffHistV = document.getElementById('staffHistoryView');
   const adminV = document.getElementById('adminView');
   if (loginV) loginV.classList.add('hidden');
   if (staffV) staffV.classList.remove('hidden');
+  if (staffHistV) staffHistV.classList.add('hidden');
   if (adminV) adminV.classList.add('hidden');
   const btnStaff = document.getElementById('btnSwitchToStaff');
   const btnAdmin = document.getElementById('btnSwitchToAdmin');
@@ -723,11 +773,252 @@ function showStaffView() {
   if (btnAdmin) btnAdmin.classList.remove('hidden');
   if (btnLogout) btnLogout.classList.remove('hidden');
 
+  // Bottom dock active styles: Home active, History inactive
+  const iconHome = document.getElementById('iconBottomNavHome');
+  const textHome = document.getElementById('textBottomNavHome');
+  const iconHist = document.getElementById('iconBottomNavHistory');
+  const textHist = document.getElementById('textBottomNavHistory');
+
+  if (iconHome && textHome) {
+    iconHome.className = 'w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center text-white group-hover:scale-110 transition-transform';
+    textHome.className = 'text-[10px] font-bold mt-1 text-white';
+  }
+  if (iconHist && textHist) {
+    iconHist.className = 'w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-white group-hover:scale-110 transition-transform';
+    textHist.className = 'text-[10px] font-medium mt-1 text-slate-400';
+  }
+
   const bNav = document.getElementById('acledaBottomNav');
   if (bNav) bNav.classList.remove('hidden');
   
   if (currentStaff) {
     loadMyAttendanceActivity();
+  }
+}
+
+let staffHistoryCurrentPeriod = 'week';
+
+function showStaffHistoryView() {
+  const loginV = document.getElementById('loginView');
+  const staffV = document.getElementById('staffView');
+  const staffHistV = document.getElementById('staffHistoryView');
+  const adminV = document.getElementById('adminView');
+
+  if (loginV) loginV.classList.add('hidden');
+  if (staffV) staffV.classList.add('hidden');
+  if (staffHistV) staffHistV.classList.remove('hidden');
+  if (adminV) adminV.classList.add('hidden');
+
+  // Bottom dock active styles: History active, Home inactive
+  const iconHome = document.getElementById('iconBottomNavHome');
+  const textHome = document.getElementById('textBottomNavHome');
+  const iconHist = document.getElementById('iconBottomNavHistory');
+  const textHist = document.getElementById('textBottomNavHistory');
+
+  if (iconHome && textHome) {
+    iconHome.className = 'w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-white group-hover:scale-110 transition-transform';
+    textHome.className = 'text-[10px] font-medium mt-1 text-slate-400';
+  }
+  if (iconHist && textHist) {
+    iconHist.className = 'w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center text-white group-hover:scale-110 transition-transform';
+    textHist.className = 'text-[10px] font-bold mt-1 text-white';
+  }
+
+  const bNav = document.getElementById('acledaBottomNav');
+  if (bNav) bNav.classList.remove('hidden');
+
+  if (currentStaff) {
+    const nameEl = document.getElementById('staffHistoryEmployeeName');
+    if (nameEl) nameEl.textContent = `${currentStaff.name} (${currentStaff.code}) • ${currentStaff.role || ''}`;
+    loadMyAttendanceHistory(staffHistoryCurrentPeriod);
+  } else {
+    showLoginView();
+  }
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function setStaffHistoryPeriod(period) {
+  staffHistoryCurrentPeriod = period;
+  const btns = {
+    week: document.getElementById('btnStaffPeriodWeek'),
+    month: document.getElementById('btnStaffPeriodMonth'),
+    all: document.getElementById('btnStaffPeriodAll')
+  };
+
+  Object.keys(btns).forEach(key => {
+    const btn = btns[key];
+    if (!btn) return;
+    if (key === period) {
+      btn.className = 'staff-period-btn flex-1 py-2 px-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md shadow-cyan-500/20 cursor-pointer';
+    } else {
+      btn.className = 'staff-period-btn flex-1 py-2 px-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/5 transition flex items-center justify-center gap-1.5 cursor-pointer';
+    }
+  });
+
+  loadMyAttendanceHistory(period);
+}
+
+async function loadMyAttendanceHistory(period = staffHistoryCurrentPeriod) {
+  if (!currentStaff) return;
+  const listContainer = document.getElementById('staffHistoryListContainer');
+  const periodTextEl = document.getElementById('staffHistoryPeriodText');
+  const countEl = document.getElementById('staffHistoryRecordCount');
+  const kpiTotalEl = document.getElementById('staffKpiTotalScans');
+  const kpiWorkDaysEl = document.getElementById('staffKpiWorkDays');
+  const kpiGeofenceEl = document.getElementById('staffKpiGeofencePct');
+
+  let queryUrl = `/api/attendance?code=${encodeURIComponent(currentStaff.code)}&limit=500`;
+
+  if (period === 'week') {
+    const { startDate, endDate, monday, sunday } = getKhWeekRange();
+    queryUrl += `&startDate=${startDate}&endDate=${endDate}`;
+    if (periodTextEl) {
+      const monStr = monday.toLocaleDateString(currentLang === 'km' ? 'km-KH' : 'en-US', { timeZone: 'Asia/Phnom_Penh', day: 'numeric', month: 'short' });
+      const sunStr = sunday.toLocaleDateString(currentLang === 'km' ? 'km-KH' : 'en-US', { timeZone: 'Asia/Phnom_Penh', day: 'numeric', month: 'short' });
+      periodTextEl.textContent = currentLang === 'km' ? `សប្តាហ៍នេះ (${monStr} - ${sunStr})` : `This Week (${monStr} - ${sunStr})`;
+    }
+  } else if (period === 'month') {
+    const curMonth = getKhMonthString();
+    queryUrl += `&month=${curMonth}`;
+    if (periodTextEl) {
+      const d = getKhCurrentDate();
+      const monthStr = d.toLocaleDateString(currentLang === 'km' ? 'km-KH' : 'en-US', { timeZone: 'Asia/Phnom_Penh', month: 'long', year: 'numeric' });
+      periodTextEl.textContent = currentLang === 'km' ? `ខែនេះ (${monthStr})` : `This Month (${monthStr})`;
+    }
+  } else {
+    if (periodTextEl) {
+      periodTextEl.textContent = currentLang === 'km' ? 'កំណត់ត្រាទាំងអស់ (All Time)' : 'All Records';
+    }
+  }
+
+  try {
+    if (listContainer) listContainer.innerHTML = '<div class="py-12 text-center text-xs text-slate-400">កំពុងទាញយកកំណត់ត្រា...</div>';
+    const res = await fetch(queryUrl);
+    if (!res.ok) throw new Error('Failed to load history');
+    const logs = await res.json();
+
+    if (countEl) countEl.textContent = `${logs.length} កំណត់ត្រា`;
+
+    // Calculate KPIs
+    const totalScans = logs.length;
+    const distinctDates = new Set();
+    let insideGeofenceCount = 0;
+
+    logs.forEach(l => {
+      const datePart = l.timestamp ? l.timestamp.slice(0, 10) : '';
+      if (datePart) distinctDates.add(datePart);
+      if (l.is_within_range) insideGeofenceCount++;
+    });
+
+    const geofencePct = totalScans > 0 ? Math.round((insideGeofenceCount / totalScans) * 100) : 100;
+
+    if (kpiTotalEl) kpiTotalEl.textContent = totalScans;
+    if (kpiWorkDaysEl) kpiWorkDaysEl.textContent = distinctDates.size;
+    if (kpiGeofenceEl) kpiGeofenceEl.textContent = `${geofencePct}%`;
+
+    if (!logs || logs.length === 0) {
+      if (listContainer) {
+        listContainer.innerHTML = `
+          <div class="glass-crystal p-8 rounded-3xl border border-white/10 text-center space-y-2 bg-slate-900/60">
+            <div class="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-slate-400">
+              <i data-lucide="clipboard-x" class="w-6 h-6"></i>
+            </div>
+            <h4 class="font-bold text-sm text-slate-300">មិនទាន់មានកំណត់ត្រា</h4>
+            <p class="text-xs text-slate-400 max-w-xs mx-auto">មិនមានទិន្នន័យចុះវត្តមានក្នុងកាលវេលាដែលបានជ្រើសរើសនេះទេ។</p>
+          </div>
+        `;
+        if (window.lucide) lucide.createIcons();
+      }
+      return;
+    }
+
+    // Group logs by Date
+    const grouped = {};
+    logs.forEach(l => {
+      const d = new Date(l.timestamp);
+      const dateKey = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Phnom_Penh' }); // YYYY-MM-DD
+      if (!grouped[dateKey]) grouped[dateKey] = [];
+      grouped[dateKey].push(l);
+    });
+
+    const slotLabels = {
+      morning_in: { text: '1/4 ព្រឹកចូល (08:00)', enText: '1/4 Morning In', badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+      lunch_out: { text: '2/4 សម្រាកបាយ (11:00)', enText: '2/4 Lunch Break', badge: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+      afternoon_in: { text: '3/4 ចូលវិញ (13:00)', enText: '3/4 Return In', badge: 'bg-sky-500/10 text-sky-400 border-sky-500/20' },
+      evening_out: { text: '4/4 ល្ងាចចេញ (17:00)', enText: '4/4 Evening Out', badge: 'bg-purple-500/10 text-purple-400 border-purple-500/20' },
+      check_in: { text: 'Check-In', enText: 'Check-In', badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+      check_out: { text: 'Check-Out', enText: 'Check-Out', badge: 'bg-sky-500/10 text-sky-400 border-sky-500/20' }
+    };
+
+    const loc = currentLang === 'km' ? 'km-KH' : 'en-US';
+
+    let html = '';
+    const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+
+    sortedDates.forEach(dateStr => {
+      const dateLogs = grouped[dateStr].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      const sampleDate = new Date(dateLogs[0].timestamp);
+      const formattedHeader = sampleDate.toLocaleDateString(loc, { 
+        timeZone: 'Asia/Phnom_Penh', 
+        weekday: 'long', 
+        day: 'numeric', 
+        month: 'long', 
+        year: 'numeric' 
+      });
+
+      html += `
+        <div class="glass-crystal rounded-3xl border border-white/10 bg-slate-900/60 overflow-hidden shadow-sm">
+          <!-- Date Header -->
+          <div class="p-3.5 bg-white/[0.03] border-b border-white/10 flex items-center justify-between">
+            <span class="text-xs font-bold text-white flex items-center gap-2">
+              <i data-lucide="calendar" class="w-3.5 h-3.5 text-cyan-400"></i>
+              <span>${formattedHeader}</span>
+            </span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 font-mono font-bold">
+              ${dateLogs.length}/4 ស្កេន
+            </span>
+          </div>
+
+          <!-- Day Logs List -->
+          <div class="divide-y divide-white/5 p-2 space-y-1">
+            ${dateLogs.map(l => {
+              const meta = slotLabels[l.type] || { text: l.type, enText: l.type, badge: 'bg-slate-800 text-slate-300 border-slate-700' };
+              const label = currentLang === 'km' ? meta.text : meta.enText;
+              const timeFormatted = new Date(l.timestamp).toLocaleTimeString(loc, {
+                timeZone: 'Asia/Phnom_Penh',
+                hour: '2-digit', minute: '2-digit', hour12: true
+              });
+              const distStr = l.distance_meters !== null ? `${l.distance_meters}m` : '';
+
+              return `
+                <div class="p-2.5 rounded-2xl hover:bg-white/[0.02] flex items-center justify-between gap-3 transition">
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    <span class="px-2 py-1 rounded-xl text-[10px] font-bold border ${meta.badge} whitespace-nowrap">
+                      ${label}
+                    </span>
+                    ${l.note ? `<span class="text-[10px] text-slate-400 italic truncate" title="${l.note}">"${l.note}"</span>` : ''}
+                  </div>
+                  <div class="flex items-center gap-2 flex-shrink-0">
+                    <div class="text-right">
+                      <div class="font-mono text-xs font-bold text-white">${timeFormatted}</div>
+                      ${distStr ? `<div class="text-[10px] font-mono ${l.is_within_range ? 'text-emerald-400' : 'text-rose-400'}">${distStr} (${l.is_within_range ? 'ក្នុង HQ' : 'ក្រៅ HQ'})</div>` : ''}
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    });
+
+    if (listContainer) listContainer.innerHTML = html;
+    if (window.lucide) lucide.createIcons();
+  } catch (err) {
+    if (listContainer) {
+      listContainer.innerHTML = `<div class="py-8 text-center text-xs text-rose-400">មិនអាចទាញយកទិន្នន័យបានទេ: ${err.message}</div>`;
+    }
   }
 }
 
@@ -1895,7 +2186,10 @@ async function promptAdminPin() {
 function showAdminView() {
   const loginV = document.getElementById('loginView');
   if (loginV) loginV.classList.add('hidden');
-  document.getElementById('staffView').classList.add('hidden');
+  const staffV = document.getElementById('staffView');
+  if (staffV) staffV.classList.add('hidden');
+  const staffHistV = document.getElementById('staffHistoryView');
+  if (staffHistV) staffHistV.classList.add('hidden');
   document.getElementById('adminView').classList.remove('hidden');
   document.getElementById('btnSwitchToAdmin').classList.add('hidden');
   document.getElementById('btnSwitchToStaff').classList.remove('hidden');
@@ -2666,19 +2960,109 @@ async function deleteMember(id, name) {
   }
 }
 
-// 12. Admin History & CSV Export
+// 12. Admin History & Period Tracking (Week / Month / Day / Member)
+let adminHistoryCurrentPeriod = 'week';
+
+function setAdminHistoryPeriod(period) {
+  adminHistoryCurrentPeriod = period;
+  const btns = {
+    'today': document.getElementById('admPeriodBtnToday'),
+    'week': document.getElementById('admPeriodBtnWeek'),
+    'month': document.getElementById('admPeriodBtnMonth'),
+    'custom-date': document.getElementById('admPeriodBtnCustomDate'),
+    'custom-month': document.getElementById('admPeriodBtnCustomMonth'),
+    'all': document.getElementById('admPeriodBtnAll')
+  };
+
+  Object.keys(btns).forEach(k => {
+    const btn = btns[k];
+    if (!btn) return;
+    if (k === period) {
+      btn.className = 'adm-history-period-btn px-2.5 py-1.5 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-cyan-500 shadow-xs transition';
+    } else {
+      btn.className = 'adm-history-period-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition';
+    }
+  });
+
+  const dateInput = document.getElementById('adminHistoryDateFilter');
+  const monthInput = document.getElementById('adminHistoryMonthFilter');
+
+  if (dateInput) {
+    if (period === 'custom-date') {
+      dateInput.classList.remove('hidden');
+      if (!dateInput.value) dateInput.value = getKhDateString();
+    } else {
+      dateInput.classList.add('hidden');
+    }
+  }
+
+  if (monthInput) {
+    if (period === 'custom-month') {
+      monthInput.classList.remove('hidden');
+      if (!monthInput.value) monthInput.value = getKhMonthString();
+    } else {
+      monthInput.classList.add('hidden');
+    }
+  }
+
+  loadAttendanceHistory();
+}
+
 async function loadAttendanceHistory() {
-  const d = document.getElementById('adminHistoryDateFilter').value;
-  let url = '/api/attendance?limit=100';
-  if (d) url += `&date=${d}`;
+  const memberCode = document.getElementById('adminHistoryMemberFilter') ? document.getElementById('adminHistoryMemberFilter').value : '';
+  const dateVal = document.getElementById('adminHistoryDateFilter') ? document.getElementById('adminHistoryDateFilter').value : '';
+  const monthVal = document.getElementById('adminHistoryMonthFilter') ? document.getElementById('adminHistoryMonthFilter').value : '';
+
+  let queryUrl = '/api/attendance?limit=1000';
+  if (memberCode) queryUrl += `&code=${encodeURIComponent(memberCode)}`;
+
+  if (adminHistoryCurrentPeriod === 'today') {
+    queryUrl += `&date=${getKhDateString()}`;
+  } else if (adminHistoryCurrentPeriod === 'week') {
+    const { startDate, endDate } = getKhWeekRange();
+    queryUrl += `&startDate=${startDate}&endDate=${endDate}`;
+  } else if (adminHistoryCurrentPeriod === 'month') {
+    queryUrl += `&month=${getKhMonthString()}`;
+  } else if (adminHistoryCurrentPeriod === 'custom-date') {
+    if (dateVal) queryUrl += `&date=${dateVal}`;
+  } else if (adminHistoryCurrentPeriod === 'custom-month') {
+    if (monthVal) queryUrl += `&month=${monthVal}`;
+  } // 'all': no date restriction
 
   try {
-    const res = await fetch(url);
+    const res = await fetch(queryUrl);
     const logs = await res.json();
     const tbody = document.getElementById('fullHistoryTable');
+    if (!tbody) return;
+
+    // Calculate KPIs
+    const totalRecords = logs.length;
+    const distinctMembers = new Set();
+    let insideCount = 0;
+    let outsideCount = 0;
+
+    logs.forEach(l => {
+      if (l.member_code || l.member_name) distinctMembers.add(l.member_code || l.member_name);
+      if (l.is_within_range) insideCount++;
+      else outsideCount++;
+    });
+
+    const inPct = totalRecords > 0 ? Math.round((insideCount / totalRecords) * 100) : 100;
+
+    const kpiTotal = document.getElementById('admKpiTotalRecords');
+    const kpiMembers = document.getElementById('admKpiActiveMembers');
+    const kpiIn = document.getElementById('admKpiInGeofence');
+    const kpiInPct = document.getElementById('admKpiInGeofencePct');
+    const kpiOut = document.getElementById('admKpiOutGeofence');
+
+    if (kpiTotal) kpiTotal.textContent = totalRecords;
+    if (kpiMembers) kpiMembers.textContent = distinctMembers.size;
+    if (kpiIn) kpiIn.textContent = insideCount;
+    if (kpiInPct) kpiInPct.textContent = `${inPct}% ក្នុងទីស្នាក់ការ`;
+    if (kpiOut) kpiOut.textContent = outsideCount;
 
     if (!logs || logs.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" class="py-6 text-center text-slate-400">${translations[currentLang].noDataYet}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-slate-400 font-medium">${translations[currentLang].noDataYet || 'មិនមានកំណត់ត្រាវត្តមានសម្រាប់កាលវេលា និងបុគ្គលិកដែលបានជ្រើសរើសនេះទេ។'}</td></tr>`;
       return;
     }
 
@@ -2696,11 +3080,11 @@ async function loadAttendanceHistory() {
     tbody.innerHTML = logs.map((l, i) => `
       <tr class="hover:bg-white/[0.03] transition-colors border-b border-slate-800/80">
         <td class="py-2.5 px-4 font-mono text-slate-500 text-xs">${i + 1}</td>
-        <td class="py-2.5 px-4 font-bold text-white">${l.member_name}</td>
-        <td class="py-2.5 px-4 font-mono text-xs text-slate-300">${l.member_code}</td>
+        <td class="py-2.5 px-4 font-bold text-white">${l.member_name || '-'}</td>
+        <td class="py-2.5 px-4 font-mono text-xs text-cyan-300 font-semibold">${l.member_code || '-'}</td>
         <td class="py-2.5 px-4 text-xs text-slate-400 font-medium">${l.member_role || '-'}</td>
         <td class="py-2.5 px-4">${slotBadgeMap[l.type] || `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-800 text-slate-300 border border-slate-700">${l.type}</span>`}</td>
-        <td class="py-2.5 px-4 font-mono text-xs text-slate-400">${new Date(l.timestamp).toLocaleString(loc)}</td>
+        <td class="py-2.5 px-4 font-mono text-xs text-slate-300">${new Date(l.timestamp).toLocaleString(loc, { timeZone: 'Asia/Phnom_Penh' })}</td>
         <td class="py-2.5 px-4 font-mono text-xs text-slate-400">${l.distance_meters !== null ? l.distance_meters + 'm' : '-'}</td>
         <td class="py-2.5 px-4">${l.is_within_range 
           ? `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>ក្នុងរង្វង់</span>` 
@@ -2715,18 +3099,39 @@ async function loadAttendanceHistory() {
 }
 
 async function exportHistoryCSV() {
-  const res = await fetch('/api/attendance?limit=1000');
-  const records = await res.json();
-  if (!records || records.length === 0) return Swal.fire({ icon: 'info', title: 'No data to export' });
+  const memberCode = document.getElementById('adminHistoryMemberFilter') ? document.getElementById('adminHistoryMemberFilter').value : '';
+  const dateVal = document.getElementById('adminHistoryDateFilter') ? document.getElementById('adminHistoryDateFilter').value : '';
+  const monthVal = document.getElementById('adminHistoryMonthFilter') ? document.getElementById('adminHistoryMonthFilter').value : '';
 
-  const csvRows = [['ID', 'Name', 'Code', 'Role', 'Type', 'DateTime', 'Distance (m)', 'Within Geofence']];
+  let queryUrl = '/api/attendance?limit=5000';
+  if (memberCode) queryUrl += `&code=${encodeURIComponent(memberCode)}`;
+
+  if (adminHistoryCurrentPeriod === 'today') {
+    queryUrl += `&date=${getKhDateString()}`;
+  } else if (adminHistoryCurrentPeriod === 'week') {
+    const { startDate, endDate } = getKhWeekRange();
+    queryUrl += `&startDate=${startDate}&endDate=${endDate}`;
+  } else if (adminHistoryCurrentPeriod === 'month') {
+    queryUrl += `&month=${getKhMonthString()}`;
+  } else if (adminHistoryCurrentPeriod === 'custom-date') {
+    if (dateVal) queryUrl += `&date=${dateVal}`;
+  } else if (adminHistoryCurrentPeriod === 'custom-month') {
+    if (monthVal) queryUrl += `&month=${monthVal}`;
+  }
+
+  const res = await fetch(queryUrl);
+  const records = await res.json();
+  if (!records || records.length === 0) return Swal.fire({ icon: 'info', title: 'គ្មានទិន្នន័យសម្រាប់ Export ទេ' });
+
+  const csvRows = [['ID', 'Name', 'Code', 'Role', 'Type', 'DateTime', 'Distance (m)', 'Within Geofence', 'Note']];
   for (const r of records) {
-    csvRows.push([r.id, `"${r.member_name}"`, r.member_code, `"${r.member_role || ''}"`, r.type, `"${r.timestamp}"`, r.distance_meters || '', r.is_within_range ? 'Yes' : 'No']);
+    csvRows.push([r.id, `"${r.member_name || ''}"`, r.member_code || '', `"${r.member_role || ''}"`, r.type, `"${r.timestamp}"`, r.distance_meters || '', r.is_within_range ? 'Yes' : 'No', `"${(r.note || '').replace(/"/g, '""')}"`]);
   }
   const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + csvRows.map(e => e.join(",")).join("\n");
   const link = document.createElement("a");
   link.setAttribute("href", encodeURI(csvContent));
-  link.setAttribute("download", `attendance_report_${new Date().toISOString().slice(0, 10)}.csv`);
+  const periodLabel = adminHistoryCurrentPeriod;
+  link.setAttribute("download", `attendance_${periodLabel}_${new Date().toISOString().slice(0, 10)}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
