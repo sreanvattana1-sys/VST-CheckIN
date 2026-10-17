@@ -435,6 +435,8 @@ function applyTheme(themeId) {
 // ================= APP SLIDE-OVER DRAWER MENU =================
 function openAppDrawerMenu() {
   const drawer = document.getElementById('appDrawerMenu');
+  const backdrop = document.getElementById('appDrawerBackdrop');
+  const panel = document.getElementById('appDrawerPanel');
   if (!drawer) return;
 
   // Sync Current Staff Profile in Drawer
@@ -464,13 +466,37 @@ function openAppDrawerMenu() {
     if (btnLogout) btnLogout.classList.add('hidden');
   }
 
-  drawer.classList.remove('hidden');
+  drawer.classList.remove('invisible', 'pointer-events-none');
+  drawer.classList.add('pointer-events-auto', 'opacity-100');
+  if (backdrop) {
+    backdrop.classList.remove('opacity-0');
+    backdrop.classList.add('opacity-100');
+  }
+  if (panel) {
+    panel.classList.remove('translate-x-full');
+    panel.classList.add('translate-x-0');
+  }
   if (window.lucide) lucide.createIcons();
 }
 
 function closeAppDrawerMenu() {
   const drawer = document.getElementById('appDrawerMenu');
-  if (drawer) drawer.classList.add('hidden');
+  const backdrop = document.getElementById('appDrawerBackdrop');
+  const panel = document.getElementById('appDrawerPanel');
+  if (!drawer) return;
+
+  if (panel) {
+    panel.classList.remove('translate-x-0');
+    panel.classList.add('translate-x-full');
+  }
+  if (backdrop) {
+    backdrop.classList.remove('opacity-100');
+    backdrop.classList.add('opacity-0');
+  }
+  setTimeout(() => {
+    drawer.classList.remove('opacity-100', 'pointer-events-auto');
+    drawer.classList.add('invisible', 'pointer-events-none');
+  }, 280);
 }
 
 function openThemeSelectorModal() {
@@ -749,12 +775,22 @@ function toggleBottomNav(visible) {
   }
 }
 
+function applyViewMotion(el) {
+  if (!el) return;
+  el.classList.remove('view-enter-motion');
+  void el.offsetWidth;
+  el.classList.add('view-enter-motion');
+}
+
 function showLoginView() {
   const loginV = document.getElementById('loginView');
   const staffV = document.getElementById('staffView');
   const staffHistV = document.getElementById('staffHistoryView');
   const adminV = document.getElementById('adminView');
-  if (loginV) loginV.classList.remove('hidden');
+  if (loginV) {
+    loginV.classList.remove('hidden');
+    applyViewMotion(loginV);
+  }
   if (staffV) staffV.classList.add('hidden');
   if (staffHistV) staffHistV.classList.add('hidden');
   if (adminV) adminV.classList.add('hidden');
@@ -774,7 +810,10 @@ function showStaffView() {
   const staffHistV = document.getElementById('staffHistoryView');
   const adminV = document.getElementById('adminView');
   if (loginV) loginV.classList.add('hidden');
-  if (staffV) staffV.classList.remove('hidden');
+  if (staffV) {
+    staffV.classList.remove('hidden');
+    applyViewMotion(staffV);
+  }
   if (staffHistV) staffHistV.classList.add('hidden');
   if (adminV) adminV.classList.add('hidden');
   const btnStaff = document.getElementById('btnSwitchToStaff');
@@ -816,7 +855,10 @@ function showStaffHistoryView() {
 
   if (loginV) loginV.classList.add('hidden');
   if (staffV) staffV.classList.add('hidden');
-  if (staffHistV) staffHistV.classList.remove('hidden');
+  if (staffHistV) {
+    staffHistV.classList.remove('hidden');
+    applyViewMotion(staffHistV);
+  }
   if (adminV) adminV.classList.add('hidden');
 
   // Bottom dock active styles: History active, Home inactive
@@ -1842,33 +1884,52 @@ async function onOfficeQrCodeScanned(decodedText) {
     const slotLabel = slotLabels[data.actionType] ? (currentLang === 'km' ? slotLabels[data.actionType].km : slotLabels[data.actionType].en) : data.actionType;
 
     const locNote = data.isWithinRange
-      ? `<span class="text-cyan-700 font-bold">✅ ${currentLang === 'km' ? 'នៅក្នុងការិយាល័យ' : 'At Office'} (${data.distance !== null ? data.distance + 'm' : ''})</span>`
-      : `<span class="text-amber-600 font-bold">⚠️ ${currentLang === 'km' ? 'ក្រៅបរិវេណ' : 'Outside Office'} (${data.distance}m)</span>`;
+      ? `<span class="text-cyan-400 font-bold">✅ ${currentLang === 'km' ? 'នៅក្នុងការិយាល័យ' : 'At Office'} (${data.distance !== null ? data.distance + 'm' : 'OK'})</span>`
+      : `<span class="text-amber-400 font-bold">⚠️ ${currentLang === 'km' ? 'ក្រៅបរិវេណ' : 'Outside Office'} (${data.distance}m)</span>`;
 
-    const sundayBadge = data.isSunday ? `<div class="text-[11px] text-amber-700 font-bold bg-amber-50 p-1.5 rounded-lg border border-amber-200 mt-1">🏖️ ${currentLang === 'km' ? 'ស្កេនថ្ងៃអាទិត្យ (OT / សម្រាក)' : 'Sunday Scan (Day Off / OT)'}</div>` : '';
+    const sundayBadge = data.isSunday ? `<div class="text-[11px] text-amber-300 font-bold bg-amber-500/10 p-2 rounded-xl border border-amber-500/20 mt-2">🏖️ ${currentLang === 'km' ? 'ស្កេនថ្ងៃអាទិត្យ (OT / សម្រាក)' : 'Sunday Scan (Day Off / OT)'}</div>` : '';
 
-    const reasonDisplay = data.note ? `<div class="text-xs text-amber-800 bg-amber-50/80 p-2 rounded-xl border border-amber-200/60 mt-1">📝 <b>${currentLang === 'km' ? 'មូលហេតុ' : 'Reason'}:</b> ${data.note}</div>` : '';
+    const reasonDisplay = data.note ? `<div class="text-xs text-amber-200 bg-amber-500/15 p-2 rounded-xl border border-amber-500/25 mt-2">📝 <b>${currentLang === 'km' ? 'មូលហេតុ' : 'Reason'}:</b> ${data.note}</div>` : '';
 
     Swal.fire({
       icon: 'success',
       title: currentLang === 'km' ? data.message : 'Attendance Recorded!',
       html: `
-        <div class="text-left bg-slate-50 p-4 rounded-2xl border border-slate-200 mt-2 space-y-1.5 text-xs sm:text-sm">
-          <div>👤 <b>${currentLang === 'km' ? 'សមាជិក' : 'Member'}:</b> ${data.member.name} (<code>${data.member.code}</code>)</div>
-          <div>💼 <b>${currentLang === 'km' ? 'ផ្នែក' : 'Role'}:</b> ${data.member.role || 'General'}</div>
-          <div>⏰ <b>${currentLang === 'km' ? 'វត្តមាន' : 'Slot'}:</b> <b>${slotLabel}</b></div>
-          <div>${data.statusText || ''}</div>
+        <div class="text-left bg-slate-950/80 p-4 rounded-2xl border border-white/10 mt-3 space-y-2.5 text-xs text-slate-300 shadow-inner">
+          <div class="flex items-center justify-between pb-2.5 border-b border-white/10">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-300 font-bold text-xs shadow-inner">
+                ${data.member.name ? data.member.name.trim().charAt(0).toUpperCase() : 'U'}
+              </div>
+              <div>
+                <div class="font-bold text-white text-xs sm:text-sm">${data.member.name}</div>
+                <div class="text-[10px] text-slate-400 font-mono">${data.member.code} • ${data.member.role || (currentLang === 'km' ? 'បុគ្គលិក' : 'Staff')}</div>
+              </div>
+            </div>
+            <span class="px-2.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-400/30 text-[10px] font-mono font-bold">
+              ${data.todayScansCount}/4 ស្កេន
+            </span>
+          </div>
+          <div class="grid grid-cols-2 gap-2 pt-1 text-[11px]">
+            <div class="p-2 rounded-xl bg-white/[0.03] border border-white/5">
+              <span class="text-slate-400 block text-[10px] mb-0.5">វេនវត្តមាន (Slot)</span>
+              <span class="font-bold text-white">${slotLabel}</span>
+            </div>
+            <div class="p-2 rounded-xl bg-white/[0.03] border border-white/5">
+              <span class="text-slate-400 block text-[10px] mb-0.5">ទីតាំងការិយាល័យ</span>
+              <span class="font-bold">${locNote}</span>
+            </div>
+          </div>
+          ${data.statusText ? `<div class="pt-1 text-[11px] text-slate-300">${data.statusText}</div>` : ''}
           ${reasonDisplay}
-          <div>📍 <b>${currentLang === 'km' ? 'ទីតាំង' : 'Location'}:</b> ${locNote}</div>
-          <div>📊 <b>${currentLang === 'km' ? 'សរុបថ្ងៃនេះ' : 'Today Total'}:</b> ${data.todayScansCount}/4 ដង</div>
           ${sundayBadge}
-          <div class="text-[11px] text-sky-600 mt-2 pt-2 border-t border-slate-200 flex items-center gap-1.5">
-            <i class="fa-brands fa-telegram text-sm"></i> ${currentLang === 'km' ? 'សារបានផ្ញើជូនដំណឹងទៅ Telegram Group រួចរាល់!' : 'Alert broadcasted to Telegram successfully!'}
+          <div class="text-[10px] text-sky-400 pt-2 border-t border-white/10 flex items-center gap-1.5 font-medium">
+            <i class="fa-brands fa-telegram text-sm text-sky-400"></i>
+            <span>${currentLang === 'km' ? 'សារបានផ្ញើជូនដំណឹងទៅ Telegram Group រួចរាល់!' : 'Alert broadcasted to Telegram successfully!'}</span>
           </div>
         </div>
       `,
-      confirmButtonText: translations[currentLang].confirmBtn,
-      confirmButtonColor: '#f59e0b'
+      confirmButtonText: translations[currentLang].confirmBtn
     });
 
     loadMyAttendanceActivity();
@@ -2200,7 +2261,10 @@ function showAdminView() {
   const staffHistV = document.getElementById('staffHistoryView');
   if (staffHistV) staffHistV.classList.add('hidden');
   const adminV = document.getElementById('adminView');
-  if (adminV) adminV.classList.remove('hidden');
+  if (adminV) {
+    adminV.classList.remove('hidden');
+    applyViewMotion(adminV);
+  }
 
   const btnAdmin = document.getElementById('btnSwitchToAdmin');
   if (btnAdmin) btnAdmin.classList.add('hidden');
@@ -2240,7 +2304,10 @@ function switchAdminTab(tabId) {
 
   document.querySelectorAll('.adm-section').forEach(s => s.classList.add('hidden'));
   const activeSec = document.getElementById(`adm-sec-${tabId}`);
-  if (activeSec) activeSec.classList.remove('hidden');
+  if (activeSec) {
+    activeSec.classList.remove('hidden');
+    applyViewMotion(activeSec);
+  }
 
   if (window.lucide) lucide.createIcons();
 

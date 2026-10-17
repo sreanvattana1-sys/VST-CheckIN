@@ -175,135 +175,290 @@
       100% { transform: translateY(60px); }
     }
 
-    /* Ambient animated living color waves (Linear / Vercel Low Opacity) */
+    /* Ambient animated living color waves (GPU Optimized 60FPS) */
     .aurora-blob {
       position: absolute;
       border-radius: 50%;
-      filter: blur(90px);
-      opacity: 0.15 !important;
+      filter: blur(45px);
+      opacity: 0.16 !important;
       will-change: transform;
       mix-blend-mode: screen;
-      transition: background 0.8s ease;
+      transform: translate3d(0, 0, 0);
+      contain: layout paint size;
     }
 
     .blob-1 {
-      width: 560px;
-      height: 560px;
-      background: radial-gradient(circle, rgba(37, 99, 235, 0.85) 0%, rgba(6, 182, 212, 0.5) 60%, transparent 100%);
-      top: -100px;
-      left: -80px;
-      animation: floatBlob1 13s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+      width: 520px;
+      height: 520px;
+      background: radial-gradient(circle, rgba(37, 99, 235, 0.85) 0%, rgba(6, 182, 212, 0.45) 55%, transparent 100%);
+      top: -80px;
+      left: -60px;
+      animation: floatBlob1 18s ease-in-out infinite alternate;
     }
 
     .blob-2 {
-      width: 520px;
-      height: 520px;
-      background: radial-gradient(circle, rgba(147, 51, 234, 0.8) 0%, rgba(99, 102, 241, 0.5) 60%, transparent 100%);
+      width: 480px;
+      height: 480px;
+      background: radial-gradient(circle, rgba(147, 51, 234, 0.8) 0%, rgba(99, 102, 241, 0.45) 55%, transparent 100%);
       top: 15%;
-      right: -100px;
-      animation: floatBlob2 15s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+      right: -80px;
+      animation: floatBlob2 20s ease-in-out infinite alternate;
     }
 
     .blob-3 {
-      width: 600px;
-      height: 600px;
-      background: radial-gradient(circle, rgba(6, 182, 212, 0.8) 0%, rgba(16, 185, 129, 0.5) 60%, transparent 100%);
-      bottom: -100px;
+      width: 520px;
+      height: 520px;
+      background: radial-gradient(circle, rgba(6, 182, 212, 0.8) 0%, rgba(16, 185, 129, 0.45) 55%, transparent 100%);
+      bottom: -80px;
       left: 15%;
-      animation: floatBlob3 16s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+      animation: floatBlob3 22s ease-in-out infinite alternate;
     }
 
     .blob-4 {
-      width: 480px;
-      height: 480px;
-      background: radial-gradient(circle, rgba(244, 63, 94, 0.65) 0%, rgba(245, 158, 11, 0.4) 60%, transparent 100%);
+      width: 420px;
+      height: 420px;
+      background: radial-gradient(circle, rgba(244, 63, 94, 0.65) 0%, rgba(245, 158, 11, 0.35) 55%, transparent 100%);
       top: 45%;
       left: 25%;
-      animation: floatBlob4 14s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+      animation: floatBlob4 19s ease-in-out infinite alternate;
     }
 
     .blob-5 {
-      width: 460px;
-      height: 460px;
-      background: radial-gradient(circle, rgba(14, 165, 233, 0.75) 0%, rgba(59, 130, 246, 0.4) 60%, transparent 100%);
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(14, 165, 233, 0.75) 0%, rgba(59, 130, 246, 0.35) 55%, transparent 100%);
       bottom: 25%;
       right: 10%;
-      animation: floatBlob5 17s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+      animation: floatBlob5 24s ease-in-out infinite alternate;
     }
 
-    /* Floating geometric visual accents */
+    /* Floating geometric visual accents (GPU Accelerated) */
     .geo-shape {
       position: absolute;
       pointer-events: none;
-      opacity: 0.35;
+      opacity: 0.25;
       will-change: transform;
+      transform: translate3d(0, 0, 0);
     }
 
     .shape-circle-1 {
-      width: 200px;
-      height: 200px;
+      width: 180px;
+      height: 180px;
       border-radius: 50%;
-      background: linear-gradient(135deg, rgba(37, 99, 235, 0.45), rgba(6, 182, 212, 0.25));
-      border: 1.5px solid rgba(56, 189, 248, 0.4);
-      box-shadow: 0 0 35px rgba(6, 182, 212, 0.35);
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.35), rgba(6, 182, 212, 0.2));
+      border: 1.5px solid rgba(56, 189, 248, 0.3);
       top: 15%;
       left: 10%;
-      animation: floatShape1 20s ease-in-out infinite alternate;
+      animation: floatShape1 26s ease-in-out infinite alternate;
     }
 
     .shape-pill-1 {
-      width: 240px;
-      height: 100px;
+      width: 200px;
+      height: 80px;
       border-radius: 9999px;
-      background: linear-gradient(135deg, rgba(124, 58, 237, 0.4), rgba(99, 102, 241, 0.25));
-      border: 1.5px solid rgba(167, 139, 250, 0.4);
-      box-shadow: 0 0 45px rgba(124, 58, 237, 0.3);
+      background: linear-gradient(135deg, rgba(124, 58, 237, 0.3), rgba(99, 102, 241, 0.2));
+      border: 1.5px solid rgba(167, 139, 250, 0.3);
       top: 60%;
       right: 8%;
-      transform: rotate(-25deg);
-      animation: floatShape2 24s ease-in-out infinite alternate;
+      animation: floatShape2 30s ease-in-out infinite alternate;
     }
 
+    /* Hardware-accelerated translate3d keyframes (Locked 60fps) */
     @keyframes floatBlob1 {
-      0% { transform: translate(0, 0) scale(1) rotate(0deg); }
-      50% { transform: translate(140px, 110px) scale(1.18) rotate(45deg); }
-      100% { transform: translate(60px, 180px) scale(0.92) rotate(90deg); }
+      0% { transform: translate3d(0, 0, 0); }
+      50% { transform: translate3d(80px, 60px, 0); }
+      100% { transform: translate3d(30px, 110px, 0); }
     }
 
     @keyframes floatBlob2 {
-      0% { transform: translate(0, 0) scale(1) rotate(0deg); }
-      50% { transform: translate(-140px, 120px) scale(1.15) rotate(-35deg); }
-      100% { transform: translate(-80px, -60px) scale(0.90) rotate(-70deg); }
+      0% { transform: translate3d(0, 0, 0); }
+      50% { transform: translate3d(-80px, 70px, 0); }
+      100% { transform: translate3d(-40px, -30px, 0); }
     }
 
     @keyframes floatBlob3 {
-      0% { transform: translate(0, 0) scale(1) rotate(0deg); }
-      50% { transform: translate(110px, -120px) scale(1.2) rotate(40deg); }
-      100% { transform: translate(-90px, -60px) scale(0.94) rotate(80deg); }
+      0% { transform: translate3d(0, 0, 0); }
+      50% { transform: translate3d(70px, -70px, 0); }
+      100% { transform: translate3d(-50px, -30px, 0); }
     }
 
     @keyframes floatBlob4 {
-      0% { transform: translate(0, 0) scale(1) rotate(0deg); }
-      50% { transform: translate(-100px, -80px) scale(1.15) rotate(-45deg); }
-      100% { transform: translate(70px, 100px) scale(0.9) rotate(45deg); }
+      0% { transform: translate3d(0, 0, 0); }
+      50% { transform: translate3d(-60px, -40px, 0); }
+      100% { transform: translate3d(40px, 60px, 0); }
     }
 
     @keyframes floatBlob5 {
-      0% { transform: translate(0, 0) scale(1) rotate(0deg); }
-      50% { transform: translate(-120px, -110px) scale(1.16) rotate(60deg); }
-      100% { transform: translate(80px, 60px) scale(0.95) rotate(-40deg); }
+      0% { transform: translate3d(0, 0, 0); }
+      50% { transform: translate3d(-70px, -60px, 0); }
+      100% { transform: translate3d(40px, 30px, 0); }
     }
 
     @keyframes floatShape1 {
-      0% { transform: translate(0, 0) rotate(0deg) scale(1); }
-      50% { transform: translate(60px, 50px) rotate(45deg) scale(1.08); }
-      100% { transform: translate(-40px, 80px) rotate(90deg) scale(0.95); }
+      0% { transform: translate3d(0, 0, 0); }
+      50% { transform: translate3d(40px, 30px, 0); }
+      100% { transform: translate3d(-20px, 50px, 0); }
     }
 
     @keyframes floatShape2 {
-      0% { transform: translate(0, 0) rotate(-25deg) scale(1); }
-      50% { transform: translate(-70px, -40px) rotate(-10deg) scale(1.1); }
-      100% { transform: translate(40px, -60px) rotate(-35deg) scale(0.95); }
+      0% { transform: translate3d(0, 0, 0); }
+      50% { transform: translate3d(-40px, -20px, 0); }
+      100% { transform: translate3d(25px, -35px, 0); }
+    }
+
+    /* ================= PREMIUM DARK GLASS SWEETALERT2 STYLING ================= */
+    .swal2-container {
+      background: rgba(2, 6, 23, 0.78) !important;
+      backdrop-filter: blur(12px) !important;
+      -webkit-backdrop-filter: blur(12px) !important;
+      z-index: 10000 !important;
+    }
+
+    .swal2-popup {
+      background: rgba(15, 23, 42, 0.94) !important;
+      backdrop-filter: blur(28px) saturate(190%) !important;
+      -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
+      border: 1px solid rgba(255, 255, 255, 0.18) !important;
+      border-radius: 28px !important;
+      box-shadow: 0 30px 80px -15px rgba(0, 0, 0, 0.85), 0 0 35px rgba(6, 182, 212, 0.22) !important;
+      padding: 1.85rem !important;
+      color: #ffffff !important;
+      font-family: inherit !important;
+      animation: swalLivingEntrance 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+
+    @keyframes swalLivingEntrance {
+      0% {
+        opacity: 0;
+        transform: scale(0.92) translateY(12px);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+
+    .swal2-title {
+      color: #ffffff !important;
+      font-weight: 800 !important;
+      font-size: 1.2rem !important;
+      letter-spacing: -0.01em !important;
+      padding-top: 0.5rem !important;
+    }
+
+    .swal2-html-container {
+      color: #cbd5e1 !important;
+      font-size: 0.85rem !important;
+      line-height: 1.6 !important;
+      margin: 0.75rem 0 0 0 !important;
+    }
+
+    /* Success Icon Glow */
+    .swal2-icon.swal2-success {
+      border-color: #10b981 !important;
+      color: #10b981 !important;
+      box-shadow: 0 0 30px rgba(16, 185, 129, 0.4) !important;
+      margin-top: 0.5rem !important;
+    }
+    .swal2-icon.swal2-success [class^='swal2-success-line'] {
+      background-color: #10b981 !important;
+    }
+    .swal2-icon.swal2-success .swal2-success-ring {
+      border-color: rgba(16, 185, 129, 0.4) !important;
+    }
+
+    /* Error Icon Glow */
+    .swal2-icon.swal2-error {
+      border-color: #f43f5e !important;
+      color: #f43f5e !important;
+      box-shadow: 0 0 30px rgba(244, 63, 94, 0.4) !important;
+      margin-top: 0.5rem !important;
+    }
+    .swal2-icon.swal2-error [class^='swal2-x-mark-line'] {
+      background-color: #f43f5e !important;
+    }
+
+    /* Warning Icon Glow */
+    .swal2-icon.swal2-warning {
+      border-color: #f59e0b !important;
+      color: #f59e0b !important;
+      box-shadow: 0 0 30px rgba(245, 158, 11, 0.4) !important;
+      margin-top: 0.5rem !important;
+    }
+
+    /* Question Icon Glow */
+    .swal2-icon.swal2-question {
+      border-color: #38bdf8 !important;
+      color: #38bdf8 !important;
+      box-shadow: 0 0 30px rgba(56, 189, 248, 0.4) !important;
+      margin-top: 0.5rem !important;
+    }
+
+    /* Confirm Button Styling */
+    .swal2-confirm {
+      background: linear-gradient(135deg, #06b6d4, #2563eb, #4f46e5) !important;
+      border: 1px solid rgba(255, 255, 255, 0.25) !important;
+      box-shadow: 0 10px 25px rgba(6, 182, 212, 0.4) !important;
+      border-radius: 14px !important;
+      font-weight: 700 !important;
+      padding: 0.7rem 2.2rem !important;
+      font-size: 0.85rem !important;
+      color: #ffffff !important;
+      cursor: pointer !important;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+    .swal2-confirm:hover {
+      transform: translateY(-2px) scale(1.02) !important;
+      box-shadow: 0 14px 30px rgba(6, 182, 212, 0.55) !important;
+    }
+
+    /* Cancel Button Styling */
+    .swal2-cancel {
+      background: rgba(255, 255, 255, 0.08) !important;
+      border: 1px solid rgba(255, 255, 255, 0.15) !important;
+      border-radius: 14px !important;
+      color: #94a3b8 !important;
+      font-weight: 600 !important;
+      padding: 0.7rem 1.8rem !important;
+      font-size: 0.85rem !important;
+      cursor: pointer !important;
+      transition: all 0.2s ease !important;
+    }
+    .swal2-cancel:hover {
+      background: rgba(255, 255, 255, 0.14) !important;
+      color: #ffffff !important;
+    }
+
+    /* Input & Select in SweetAlert */
+    .swal2-input, .swal2-select {
+      background: rgba(2, 6, 23, 0.8) !important;
+      border: 1px solid rgba(255, 255, 255, 0.18) !important;
+      color: #ffffff !important;
+      border-radius: 14px !important;
+      font-size: 0.85rem !important;
+      padding: 0.75rem 1rem !important;
+    }
+    .swal2-input:focus, .swal2-select:focus {
+      border-color: #06b6d4 !important;
+      box-shadow: 0 0 18px rgba(6, 182, 212, 0.35) !important;
+      outline: none !important;
+    }
+
+    /* Smooth page view transitions (Ultra-slick 60fps) */
+    .view-enter-motion {
+      animation: smoothViewEnter 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      will-change: transform, opacity;
+    }
+
+    @keyframes smoothViewEnter {
+      0% {
+        opacity: 0;
+        transform: translateY(8px) scale(0.994);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
     }
 
     /* Living Motion Animations for Sign In Card */
@@ -2347,12 +2502,12 @@
   </div>
 
   <!-- ================= SLIDE-OVER APP DRAWER MENU ================= -->
-  <div id="appDrawerMenu" class="hidden fixed inset-0 z-50 overflow-hidden" aria-modal="true" role="dialog">
+  <div id="appDrawerMenu" class="fixed inset-0 z-50 overflow-hidden pointer-events-none transition-all duration-300 opacity-0 invisible" aria-modal="true" role="dialog">
     <!-- Backdrop Blur Overlay -->
-    <div onclick="closeAppDrawerMenu()" class="fixed inset-0 bg-black/70 backdrop-blur-md transition-opacity"></div>
+    <div id="appDrawerBackdrop" onclick="closeAppDrawerMenu()" class="fixed inset-0 bg-black/75 backdrop-blur-md transition-opacity duration-300 opacity-0 cursor-pointer"></div>
 
     <div class="fixed inset-y-0 right-0 max-w-full flex pl-10 pointer-events-none">
-      <div class="pointer-events-auto w-screen max-w-xs sm:max-w-sm bg-slate-900 border-l border-white/15 shadow-2xl flex flex-col justify-between p-5 sm:p-6 overflow-y-auto">
+      <div id="appDrawerPanel" class="pointer-events-auto w-screen max-w-xs sm:max-w-sm bg-slate-900 border-l border-white/15 shadow-2xl flex flex-col justify-between p-5 sm:p-6 overflow-y-auto transform translate-x-full transition-transform duration-300 ease-out">
         
         <!-- Drawer Header -->
         <div class="space-y-4">
@@ -2463,13 +2618,13 @@
             <i data-lucide="log-out" class="w-4 h-4"></i>
             <span>ចាកចេញពីគណនី (Log Out)</span>
           </button>
-          <p class="text-[10px] text-slate-500 text-center font-mono">VST Attendance App • Version 18.0</p>
+          <p class="text-[10px] text-slate-500 text-center font-mono">VST Attendance App • Version 19.0</p>
         </div>
 
       </div>
     </div>
   </div>
 
-  <script src="/app.js?v=18.0"></script>
+  <script src="/app.js?v=19.0"></script>
 </body>
 </html>
