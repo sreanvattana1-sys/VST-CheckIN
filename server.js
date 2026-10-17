@@ -374,6 +374,34 @@ async function getTelegramToken() {
   return ENV_TELEGRAM_BOT_TOKEN || await getSetting('telegram_token');
 }
 
+const TELEGRAM_WEBHOOK_URL = (process.env.TELEGRAM_WEBHOOK_URL || 'https://vst-check-in.vercel.app/api/telegram-webhook').trim();
+let registeredTelegramWebhookToken = '';
+
+function getTelegramWebhookSecret(token) {
+  // Telegram's secret_token is sent back in a request header. Never expose the bot token itself.
+  return crypto.createHmac('sha256', token).update('vst-checkin-telegram-webhook-v1').digest('hex');
+}
+
+async function ensureTelegramWebhook(token) {
+  if (!process.env.VERCEL || registeredTelegramWebhookToken === token) return;
+  const response = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      url: TELEGRAM_WEBHOOK_URL,
+      secret_token: getTelegramWebhookSecret(token),
+      allowed_updates: ['callback_query'],
+      drop_pending_updates: false
+    }),
+    signal: AbortSignal.timeout(10000)
+  });
+  const result = await response.json();
+  if (!response.ok || !result.ok) {
+    throw new Error(result.description || 'Could not register Telegram webhook');
+  }
+  registeredTelegramWebhookToken = token;
+}
+
 function safeEqualSecret(candidate, expected) {
   const candidateBuffer = Buffer.from(String(candidate || ''), 'utf8');
   const expectedBuffer = Buffer.from(String(expected || ''), 'utf8');
@@ -573,6 +601,7 @@ async function sendTelegramLeaveMessage(text, replyMarkup = null) {
   }
 
   try {
+    await ensureTelegramWebhook(token);
     const url = `https://api.telegram.org/bot${token}/sendMessage`;
     const body = {
       chat_id: targetChatId,
@@ -595,6 +624,22 @@ async function sendTelegramLeaveMessage(text, replyMarkup = null) {
     console.error('Failed to send Telegram leave message:', err.message);
     return { success: false, error: err.message };
   }
+}
+
+async function isTelegramGroupAdmin(token, chatId, userId) {
+  if (!chatId || !userId) return false;
+  const response = await fetch(`https://api.telegram.org/bot${token}/getChatAdministrators`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId }),
+    signal: AbortSignal.timeout(5000)
+  });
+  const result = await response.json();
+  if (!response.ok || !result.ok || !Array.isArray(result.result)) {
+    throw new Error(result.description || 'Could not verify Telegram group admins');
+  }
+  return result.result.some(member => String(member.user?.id) === String(userId)
+    && ['creator', 'administrator'].includes(member.status));
 }
 
 // Helper: Answer Telegram Callback Query (Show Alert or Toast in Telegram App)
@@ -665,48 +710,31 @@ async function handleTelegramCallbackQuery(cq, token) {
     const requestId = parseInt(idStr, 10);
     if (!requestId) return;
 
+    const leaveChatId = ((await getSetting('telegram_leave_chat_id')) || '-5352852483').trim();
+    const callbackChatId = cq.message?.chat?.id;
+    if (String(callbackChatId) !== leaveChatId) {
+      await answerTelegramCallback(token, cq.id, 'សំណើនេះមិនមែនមកពី Group សុំច្បាប់ទេ', true);
+      return;
+    }
+
+    let authorized = false;
+    try {
+      authorized = await isTelegramGroupAdmin(token, callbackChatId, cq.from?.id);
+    } catch (err) {
+      console.error('Could not verify Telegram approver:', err.message);
+      await answerTelegramCallback(token, cq.id, 'មិនអាចផ្ទៀងផ្ទាត់សិទ្ធិបាន។ សូមព្យាយាមម្ដងទៀត', true);
+      return;
+    }
+    if (!authorized) {
+      await answerTelegramCallback(token, cq.id, 'មានតែ Admin ក្នុង Group នេះទើបអាចអនុម័តបាន', true);
+      return;
+    }
+
     await ensureDb();
-    let existing = await db.get("SELECT * FROM leave_requests WHERE id = ?", [requestId]);
+    const existing = await db.get("SELECT * FROM leave_requests WHERE id = ?", [requestId]);
     if (!existing) {
-      // Robust Fallback: Parse details directly from the Telegram message text so approval always succeeds!
-      const msgText = (cq.message && cq.message.text) ? cq.message.text : '';
-      const nameMatch = msgText.match(/👤\s*([^\n·]+)\s*·\s*([^\n]+)/) || msgText.match(/បុគ្គលិក:\s*([^\n(]+)(?:\(([^)]+)\))?/);
-      const roleMatch = msgText.match(/តួនាទី:\s*([^\n]+)/);
-      const typeMatch = msgText.match(/ប្រភេទ:\s*([^\n]+)/);
-      const dateMatch = msgText.match(/កាលបរិច្ឆេទ:\s*([^\n]+)/);
-      const reasonMatch = msgText.match(/មូលហេតុ:\s*([^\n]+)/);
-      const shortDetailMatch = msgText.match(/📌\s*([^\n·]+)\s*·\s*([^\n]+)/);
-      const shortReasonMatch = msgText.match(/📝\s*([^\n]+)/);
-
-      const parsedName = nameMatch ? nameMatch[1].trim() : 'បុគ្គលិក';
-      const parsedCode = (nameMatch && nameMatch[2]) ? nameMatch[2].trim() : 'MEM';
-      const parsedRole = roleMatch ? roleMatch[1].trim() : 'បុគ្គលិក';
-      const parsedType = typeMatch ? typeMatch[1].trim() : (shortDetailMatch ? shortDetailMatch[1].trim() : 'សុំច្បាប់');
-      const parsedDates = dateMatch
-        ? parseTgKhDateRange(dateMatch[1])
-        : parseTgKhDateRange(shortDetailMatch ? shortDetailMatch[2] : '');
-      const parsedReason = reasonMatch ? reasonMatch[1].trim() : (shortReasonMatch ? shortReasonMatch[1].trim() : '—');
-
-      existing = {
-        id: requestId,
-        member_name: parsedName,
-        member_code: parsedCode,
-        member_role: parsedRole,
-        request_type: /យឺត|late/i.test(parsedType) || /សុំមកយឺត|late arrival/i.test(msgText.split('\n')[0]) ? 'late' : 'leave',
-        sub_type: parsedType,
-        date_start: parsedDates.start,
-        date_end: parsedDates.end,
-        duration_text: '',
-        reason: parsedReason,
-        status: 'pending'
-      };
-
-      try {
-        await db.run(`
-          INSERT OR REPLACE INTO leave_requests (id, member_name, member_code, member_role, request_type, sub_type, date_start, date_end, reason, status)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
-        `, [requestId, parsedName, parsedCode, parsedRole, existing.request_type, parsedType, parsedDates.start, parsedDates.end, parsedReason]);
-      } catch (e) {}
+      await answerTelegramCallback(token, cq.id, 'រកមិនឃើញសំណើនេះក្នុងប្រព័ន្ធទេ', true);
+      return;
     }
 
     const from = cq.from || {};
@@ -726,11 +754,15 @@ async function handleTelegramCallbackQuery(cq, token) {
     const adminResponse = isApprove ? 'អនុម័តតាម Telegram' : 'បដិសេធតាម Telegram';
 
     // 1. Update SQLite DB
-    await db.run(`
+    const decision = await db.run(`
       UPDATE leave_requests 
       SET status = ?, admin_response = ?, reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP
-      WHERE id = ?
+      WHERE id = ? AND status = 'pending'
     `, [newStatus, adminResponse, leaderName, requestId]);
+    if (!decision.changes) {
+      await answerTelegramCallback(token, cq.id, 'សំណើនេះត្រូវបានពិនិត្យរួចហើយ', true);
+      return;
+    }
 
     // 2. Answer callback query popup in Telegram
     await answerTelegramCallback(
@@ -801,14 +833,19 @@ async function startTelegramPolling() {
 app.post('/api/telegram-webhook', async (req, res) => {
   try {
     const token = await getTelegramToken();
+    if (!token) return res.status(503).json({ ok: false });
+    const suppliedSecret = req.get('X-Telegram-Bot-Api-Secret-Token');
+    if (!safeEqualSecret(suppliedSecret, getTelegramWebhookSecret(token))) {
+      return res.status(403).json({ ok: false });
+    }
     const update = req.body;
-    if (update && update.callback_query && token) {
+    if (update && update.callback_query) {
       await handleTelegramCallbackQuery(update.callback_query, token);
     }
     res.json({ ok: true });
   } catch (err) {
     console.error('Webhook error:', err);
-    res.status(200).json({ ok: true });
+    res.status(500).json({ ok: false });
   }
 });
 
@@ -2088,21 +2125,6 @@ setInterval(async () => {
     }
   }
 }, 60000); // Check every 60 seconds
-
-// Webhook endpoint (alternative to long polling for serverless/Vercel)
-app.post('/api/telegram-webhook', async (req, res) => {
-  try {
-    const token = await getTelegramToken();
-    const update = req.body;
-    if (update && update.callback_query && token) {
-      await handleTelegramCallbackQuery(update.callback_query, token);
-    }
-    res.json({ ok: true });
-  } catch (err) {
-    console.error('Telegram webhook error:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
 
 // Catch-all for undefined /api routes so it ALWAYS returns JSON and NEVER HTML
 app.use('/api', (req, res) => {
