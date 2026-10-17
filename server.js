@@ -117,6 +117,28 @@ async function initDb() {
     )
   `);
 
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS leave_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      member_id INTEGER,
+      member_name TEXT NOT NULL,
+      member_code TEXT NOT NULL,
+      member_role TEXT,
+      request_type TEXT NOT NULL,
+      sub_type TEXT,
+      date_start TEXT NOT NULL,
+      date_end TEXT,
+      time_expected TEXT,
+      duration_text TEXT,
+      reason TEXT NOT NULL,
+      status TEXT DEFAULT 'pending',
+      admin_response TEXT,
+      reviewed_by TEXT,
+      reviewed_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   try {
     await db.execute("ALTER TABLE members ADD COLUMN avatar TEXT");
   } catch (e) {
@@ -129,6 +151,18 @@ async function initDb() {
     // Column already exists
   }
 
+  try {
+    await db.execute("ALTER TABLE leave_requests ADD COLUMN tg_message_id INTEGER");
+  } catch (e) {
+    // Column already exists
+  }
+
+  try {
+    await db.execute("ALTER TABLE leave_requests ADD COLUMN tg_chat_id TEXT");
+  } catch (e) {
+    // Column already exists
+  }
+
   // Seed default settings if not exists
   const initSettings = [
     ['office_lat', '11.536445'],
@@ -137,6 +171,8 @@ async function initDb() {
     ['telegram_token', '8879591305:AAFICQRiKd-ryiJ-e66CZpEPBi4PxoNuc-s'],
     ['telegram_chat_id', '-5037746251'],
     ['telegram_enabled', 'true'],
+    ['telegram_leave_chat_id', '-5352852483'],
+    ['telegram_leave_enabled', 'true'],
     ['office_qr_token', 'OFFICE-ATTENDANCE-HQ-2026'],
     ['company_name', 'VANN SITHA TRADING CO.,LTD'],
     ['admin_pin', '1234'],
@@ -322,6 +358,232 @@ async function sendTelegramMessage(text) {
   } catch (err) {
     console.error('Failed to send Telegram message:', err.message);
     return { success: false, error: err.message };
+  }
+}
+
+// Helper: Send Telegram notification to dedicated Leave / Late Permissions Group
+async function sendTelegramLeaveMessage(text, replyMarkup = null) {
+  const token = await getSetting('telegram_token');
+  const leaveChatId = await getSetting('telegram_leave_chat_id');
+  const leaveEnabled = await getSetting('telegram_leave_enabled');
+
+  if (leaveEnabled === 'false') {
+    return { success: false, reason: 'Leave Telegram alerts are disabled' };
+  }
+
+  // Target the dedicated Leave Group (-5352852483)
+  const targetChatId = (leaveChatId && leaveChatId.trim()) ? leaveChatId.trim() : '-5352852483';
+
+  if (!token || !targetChatId) {
+    return { success: false, reason: 'Telegram Leave Chat ID or Token is not configured' };
+  }
+
+  try {
+    const url = `https://api.telegram.org/bot${token}/sendMessage`;
+    const body = {
+      chat_id: targetChatId,
+      text: text,
+      parse_mode: 'HTML'
+    };
+    if (replyMarkup) {
+      body.reply_markup = replyMarkup;
+    }
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const result = await res.json();
+    return { success: result.ok, data: result };
+  } catch (err) {
+    console.error('Failed to send Telegram leave message:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+// Helper: Answer Telegram Callback Query (Show Alert or Toast in Telegram App)
+async function answerTelegramCallback(token, callbackQueryId, text, showAlert = false) {
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        callback_query_id: callbackQueryId,
+        text: text,
+        show_alert: showAlert
+      })
+    });
+  } catch (err) {
+    console.error('Failed to answer callback query:', err.message);
+  }
+}
+
+// Helper: Remove Inline Buttons from Telegram Group Message
+async function removeTelegramInlineButtons(token, chatId, messageId) {
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/editMessageReplyMarkup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        message_id: messageId,
+        reply_markup: { inline_keyboard: [] }
+      })
+    });
+  } catch (err) {
+    console.error('Failed to remove inline buttons:', err.message);
+  }
+}
+
+// Helper: Handle Telegram Callback Query from Leaders (Inline Buttons: Approve / Reject)
+async function handleTelegramCallbackQuery(cq, token) {
+  try {
+    if (!cq || !cq.data) return;
+    const dataStr = cq.data;
+    if (!dataStr.startsWith('leave_approve:') && !dataStr.startsWith('leave_reject:')) {
+      return;
+    }
+
+    const [action, idStr] = dataStr.split(':');
+    const requestId = parseInt(idStr, 10);
+    if (!requestId) return;
+
+    await ensureDb();
+    const existing = await db.get("SELECT * FROM leave_requests WHERE id = ?", [requestId]);
+    if (!existing) {
+      await answerTelegramCallback(token, cq.id, '❌ រកមិនឃើញសំណើនេះក្នុងប្រព័ន្ធទេ!', true);
+      return;
+    }
+
+    const from = cq.from || {};
+    const leaderName = [from.first_name, from.last_name].filter(Boolean).join(' ') || (from.username ? '@' + from.username : 'មេដឹកនាំ (Leader)');
+
+    // If already processed
+    if (existing.status !== 'pending') {
+      const statusLabel = existing.status === 'approved' ? 'បានយល់ព្រម (OK)' : 'បានបដិសេធ';
+      await answerTelegramCallback(token, cq.id, `⚠️ សំណើនេះត្រូវបាន${statusLabel}រួចរាល់ហើយ ដោយ៖ ${existing.reviewed_by || 'Admin'}!`, true);
+      if (cq.message && cq.message.chat) {
+        await removeTelegramInlineButtons(token, cq.message.chat.id, cq.message.message_id);
+      }
+      return;
+    }
+
+    const isApprove = action === 'leave_approve';
+    const newStatus = isApprove ? 'approved' : 'rejected';
+    const adminResponse = isApprove ? 'Okay! បានយល់ព្រម (អនុញ្ញាតតាម Telegram)' : 'មិនអនុញ្ញាត (បដិសេធតាម Telegram)';
+
+    // 1. Update SQLite DB
+    await db.run(`
+      UPDATE leave_requests 
+      SET status = ?, admin_response = ?, reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `, [newStatus, adminResponse, leaderName, requestId]);
+
+    // 2. Answer callback query popup in Telegram
+    await answerTelegramCallback(
+      token, 
+      cq.id, 
+      isApprove 
+        ? `✅ ជោគជ័យ! លោកអ្នកបាន «យល់ព្រម (OK)» លើសំណើរបស់ ${existing.member_name}។` 
+        : `❌ លោកអ្នកបាន «បដិសេធ» លើសំណើរបស់ ${existing.member_name}។`,
+      true
+    );
+
+    const statusEmoji = isApprove ? '✅' : '❌';
+    const statusLabel = isApprove ? 'បានយល់ព្រម (APPROVED - OK)' : 'មិនអនុម័ត (REJECTED)';
+    const reqTypeLabel = existing.request_type === 'leave' ? '🏖️ សុំច្បាប់ឈប់សម្រាក' : '🛵 សុំមកយឺត (មានបញ្ហាតាមផ្លូវ)';
+
+    let dateInfo = '';
+    if (existing.request_type === 'leave') {
+      dateInfo = `${existing.date_start} ${existing.date_end && existing.date_end !== existing.date_start ? 'ដល់ ' + existing.date_end : ''} (${existing.duration_text || '1 ថ្ងៃ'})`;
+    } else {
+      dateInfo = `ថ្ងៃ ${existing.date_start} • ⏰ មកដល់: ${existing.time_expected || '--'}`;
+    }
+
+    // 3. BROADCAST TO OLD / MAIN GROUP (-5037746251) AS EXPLICITLY REQUESTED!
+    const decisionOldGroupMsg = `
+📢 <b>ការសម្រេចលើសំណើសុំច្បាប់ & មកយឺត</b>
+━━━━━━━━━━━━━━━━━
+👤 <b>បុគ្គលិក:</b> ${existing.member_name} (<code>${existing.member_code}</code>)
+💼 <b>តួនាទី:</b> ${existing.member_role || 'បុគ្គលិក'}
+📑 <b>ប្រភេទ:</b> ${reqTypeLabel} (${existing.sub_type || 'ទូទៅ'})
+📅 <b>កាលបរិច្ឆេទ:</b> ${dateInfo}
+📝 <b>មូលហេតុ:</b> ${existing.reason}
+━━━━━━━━━━━━━━━━━
+📊 <b>ការសម្រេច:</b> ${statusEmoji} <b>${statusLabel}</b>
+💬 <b>សារឆ្លើយតប:</b> "${adminResponse}"
+👨‍💼 <b>អនុញ្ញាត/ពិនិត្យដោយ:</b> ${leaderName}
+🕒 <b>កាលបរិច្ឆេទ:</b> ${formatCambodiaDate(new Date())} ${formatCambodiaTime(new Date())}
+━━━━━━━━━━━━━━━━━
+<i>ប្រព័ន្ធវត្តមានឆ្លាតវៃ VANN SITHA TRADING</i>
+    `.trim();
+
+    sendTelegramMessage(decisionOldGroupMsg).catch(err => console.error('Error sending decision to old group:', err));
+
+    // 4. UPDATE THE MESSAGE IN THE NEW GROUP (-5352852483): REMOVE BUTTONS & SHOW DECISION
+    if (cq.message && cq.message.chat) {
+      try {
+        const origText = cq.message.text || '';
+        const updatedNewGroupText = origText + `\n\n━━━━━━━━━━━━━━━━━\n${statusEmoji} <b>${statusLabel}</b>\n👨‍💼 <b>ពិនិត្យដោយ:</b> ${leaderName}\n🕒 <b>ម៉ោង:</b> ${formatCambodiaTime(new Date())}`;
+        
+        await fetch(`https://api.telegram.org/bot${token}/editMessageText`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: cq.message.chat.id,
+            message_id: cq.message.message_id,
+            text: updatedNewGroupText,
+            parse_mode: 'HTML',
+            reply_markup: { inline_keyboard: [] }
+          })
+        });
+      } catch (editErr) {
+        console.error('Failed to edit original Telegram message:', editErr.message);
+        removeTelegramInlineButtons(token, cq.message.chat.id, cq.message.message_id);
+      }
+    }
+  } catch (err) {
+    console.error('Error in handleTelegramCallbackQuery:', err);
+  }
+}
+
+// Long Polling for Telegram Interactive Buttons
+let tgPollingActive = false;
+let lastUpdateId = 0;
+
+async function startTelegramPolling() {
+  if (tgPollingActive) return;
+  tgPollingActive = true;
+  console.log('🤖 Telegram Long Polling active for Leave/Late interactive buttons...');
+
+  while (tgPollingActive) {
+    try {
+      const token = await getSetting('telegram_token');
+      if (!token) {
+        await new Promise(r => setTimeout(r, 6000));
+        continue;
+      }
+
+      const pollUrl = `https://api.telegram.org/bot${token}/getUpdates?offset=${lastUpdateId + 1}&timeout=20&allowed_updates=["callback_query"]`;
+      const res = await fetch(pollUrl);
+      if (!res.ok) {
+        await new Promise(r => setTimeout(r, 4000));
+        continue;
+      }
+
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.result)) {
+        for (const update of data.result) {
+          lastUpdateId = Math.max(lastUpdateId, update.update_id);
+          if (update.callback_query) {
+            handleTelegramCallbackQuery(update.callback_query, token).catch(e => console.error('Callback error:', e));
+          }
+        }
+      }
+    } catch (err) {
+      await new Promise(r => setTimeout(r, 4000));
+    }
   }
 }
 
@@ -1143,30 +1405,41 @@ app.get('/api/attendance/today-summary', async (req, res) => {
   });
 });
 
-// 4. Attendance History (Admin)
+// 4. Attendance History (Admin & Staff)
 app.get('/api/attendance', async (req, res) => {
-  const { date, member_id, code, limit = 50 } = req.query;
-  let query = 'SELECT * FROM attendance WHERE 1=1';
-  const params = [];
+  try {
+    const { date, startDate, endDate, month, member_id, code, limit = 500 } = req.query;
+    let query = 'SELECT * FROM attendance WHERE 1=1';
+    const params = [];
 
-  if (date) {
-    query += " AND date(timestamp, '+7 hours') = ?";
-    params.push(date);
-  }
-  if (member_id) {
-    query += ' AND member_id = ?';
-    params.push(member_id);
-  }
-  if (code) {
-    query += ' AND member_code = ? COLLATE NOCASE';
-    params.push(code);
-  }
+    if (startDate && endDate) {
+      query += " AND date(timestamp, '+7 hours') >= ? AND date(timestamp, '+7 hours') <= ?";
+      params.push(startDate, endDate);
+    } else if (date) {
+      query += " AND date(timestamp, '+7 hours') = ?";
+      params.push(date);
+    } else if (month) {
+      query += " AND strftime('%Y-%m', datetime(timestamp, '+7 hours')) = ?";
+      params.push(month);
+    }
 
-  query += ' ORDER BY timestamp DESC LIMIT ?';
-  params.push(parseInt(limit));
+    if (member_id) {
+      query += ' AND member_id = ?';
+      params.push(member_id);
+    }
+    if (code) {
+      query += ' AND (member_code = ? COLLATE NOCASE OR member_id IN (SELECT id FROM members WHERE phone = ? OR code = ? COLLATE NOCASE))';
+      params.push(code.trim(), code.trim(), code.trim());
+    }
 
-  const records = await db.all(query, params);
-  res.json(records);
+    query += ' ORDER BY timestamp DESC LIMIT ?';
+    params.push(Math.min(parseInt(limit) || 500, 5000));
+
+    const records = await db.all(query, params);
+    res.json(records);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // 5. Settings (Admin)
@@ -1182,7 +1455,8 @@ app.get('/api/settings', async (req, res) => {
 app.post('/api/settings', async (req, res) => {
   const { 
     office_lat, office_lng, allowed_radius, 
-    telegram_token, telegram_chat_id, telegram_enabled, 
+    telegram_token, telegram_chat_id, telegram_enabled,
+    telegram_leave_chat_id, telegram_leave_enabled,
     office_qr_token, company_name, admin_pin,
     wifi_check_enabled, company_wifi_ips
   } = req.body;
@@ -1199,6 +1473,8 @@ app.post('/api/settings', async (req, res) => {
   if (telegram_token !== undefined && telegram_token !== '') await saveSetting('telegram_token', telegram_token);
   await saveSetting('telegram_chat_id', telegram_chat_id);
   await saveSetting('telegram_enabled', telegram_enabled);
+  await saveSetting('telegram_leave_chat_id', telegram_leave_chat_id);
+  await saveSetting('telegram_leave_enabled', telegram_leave_enabled);
   await saveSetting('office_qr_token', office_qr_token);
   await saveSetting('company_name', company_name);
   await saveSetting('admin_pin', admin_pin);
@@ -1224,6 +1500,254 @@ app.post('/api/settings/test-telegram', async (req, res) => {
     res.json({ success: true, message: 'សារសាកល្បងបានផ្ញើទៅ Telegram រួចរាល់!' });
   } else {
     res.status(400).json({ error: result.reason || result.error || 'មិនអាចផ្ញើសារបានទេ។ សូមពិនិត្យ Token និង Chat ID ឡើងវិញ' });
+  }
+});
+
+// 6.1 Test Dedicated Telegram Leave Group
+app.post('/api/settings/test-telegram-leave', async (req, res) => {
+  const testMsg = `
+🔔 <b>តេស្តផ្ញើសារ Telegram Group សុំច្បាប់ & មកយឺត</b>
+━━━━━━━━━━━━━━━━━━
+✅ Group នេះបានភ្ជាប់ជោគជ័យ និងត្រៀមទទួលការជូនដំណឹងពេលបុគ្គលិកស្នើសុំច្បាប់ ឬសុំមកយឺត!
+📅 កាលបរិច្ឆេទ: ${formatCambodiaDate(new Date())} ${formatCambodiaTime(new Date())}
+━━━━━━━━━━━━━━━━━━
+<i>ប្រព័ន្ធគ្រប់គ្រងវត្តមានឆ្លាតវៃ VANN SITHA TRADING</i>
+  `.trim();
+
+  const result = await sendTelegramLeaveMessage(testMsg);
+  if (result.success) {
+    res.json({ success: true, message: 'សារតេស្តបានផ្ញើទៅកាន់ Group សុំច្បាប់ដោយជោគជ័យ!' });
+  } else {
+    res.status(400).json({ error: result.reason || result.error || 'មិនអាចផ្ញើសារបានទេ។ សូមពិនិត្យមើល Leave Chat ID ឡើងវិញ' });
+  }
+});
+
+// ================= LEAVE & LATE PERMISSION REQUESTS API =================
+
+// 6.2 Submit Leave or Late Request (Staff Web App)
+app.post('/api/leave-requests', async (req, res) => {
+  try {
+    const { 
+      code, 
+      request_type, 
+      sub_type, 
+      date_start, 
+      date_end, 
+      time_expected, 
+      duration_text, 
+      reason 
+    } = req.body;
+
+    const staffCode = (req.body.code || req.body.member_code || '').trim();
+    if (!staffCode || !request_type || !date_start || !reason || !reason.trim()) {
+      return res.status(400).json({ error: 'សូមបំពេញព័ត៌មានចាំបាច់៖ កូដបុគ្គលិក, ប្រភេទសំណើ, កាលបរិច្ឆេទ, និងមូលហេតុ' });
+    }
+
+    let member = await db.get("SELECT * FROM members WHERE code = ? COLLATE NOCASE", [staffCode]);
+    if (!member) {
+      member = {
+        id: req.body.member_id || null,
+        name: req.body.member_name || staffCode,
+        code: staffCode,
+        role: req.body.member_role || 'បុគ្គលិក'
+      };
+    }
+
+    const cleanReason = reason.trim();
+    const reqTypeLabel = request_type === 'leave' ? '🏖️ សុំច្បាប់ឈប់សម្រាក' : '🛵 សុំមកយឺត (មានបញ្ហាតាមផ្លូវ)';
+    const cleanDuration = duration_text || (request_type === 'leave' ? '1 ថ្ងៃ' : 'មកយឺត');
+
+    const result = await db.run(`
+      INSERT INTO leave_requests (
+        member_id, member_name, member_code, member_role,
+        request_type, sub_type, date_start, date_end,
+        time_expected, duration_text, reason, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+    `, [
+      member.id, member.name, member.code, member.role || 'បុគ្គលិក',
+      request_type, sub_type || 'ទូទៅ', date_start, date_end || null,
+      time_expected || null, cleanDuration, cleanReason
+    ]);
+
+    const requestId = result.lastInsertRowid;
+
+    // Format Telegram Alert for the dedicated Leave Group (-5352852483) with Inline Buttons
+    const dateRangeStr = (date_end && date_end !== date_start) ? `${date_start} ដល់ ${date_end}` : date_start;
+    const timeExpectedLine = time_expected ? `\n⏰ <b>រំពឹងមកដល់នៅម៉ោង:</b> ${time_expected}` : '';
+
+    const telegramAlert = `
+🔔 <b>សំណើ${request_type === 'leave' ? 'សុំច្បាប់ឈប់សម្រាក' : 'សុំមកយឺត'}ថ្មី!</b>
+━━━━━━━━━━━━━━━━━
+👤 <b>បុគ្គលិក:</b> ${member.name} (<code>${member.code}</code>)
+💼 <b>តួនាទី:</b> ${member.role || 'បុគ្គលិក'}
+📑 <b>ប្រភេទ:</b> ${reqTypeLabel} (${sub_type || 'ទូទៅ'})
+📅 <b>កាលបរិច្ឆេទ:</b> ${dateRangeStr} (${cleanDuration})${timeExpectedLine}
+📝 <b>មូលហេតុ:</b> ${cleanReason}
+🕒 <b>ម៉ោងស្នើសុំ:</b> ${formatCambodiaDate(new Date())} ${formatCambodiaTime(new Date())}
+━━━━━━━━━━━━━━━━━
+📊 <b>ស្ថានភាព:</b> ⏳ <b>រង់ចាំការអនុម័ត (PENDING)</b>
+<i>👉 មេដឹកនាំ (Leaders) អាចចុចប៊ូតុងខាងក្រោមដើម្បី <b>អនុញ្ញាត</b> ឬ <b>បដិសេធ</b> ភ្លាមៗ</i>
+    `.trim();
+
+    const inlineKeyboard = {
+      inline_keyboard: [
+        [
+          { text: '✅ អនុញ្ញាត (Approve - OK)', callback_data: `leave_approve:${requestId}` },
+          { text: '❌ បដិសេធ (Reject)', callback_data: `leave_reject:${requestId}` }
+        ]
+      ]
+    };
+
+    sendTelegramLeaveMessage(telegramAlert, inlineKeyboard).then(async (sendRes) => {
+      if (sendRes && sendRes.data && sendRes.data.result) {
+        const msgId = sendRes.data.result.message_id;
+        const chatId = sendRes.data.result.chat.id;
+        await db.run("UPDATE leave_requests SET tg_message_id = ?, tg_chat_id = ? WHERE id = ?", [msgId, String(chatId), requestId]);
+      }
+    }).catch(err => console.error('Telegram leave alert error:', err));
+
+    res.json({
+      success: true,
+      message: 'សំណើរបស់អ្នកត្រូវបានផ្ញើជូន Admin & Group Telegram ដោយជោគជ័យ!',
+      requestId,
+      status: 'pending'
+    });
+  } catch (err) {
+    console.error('Error submitting leave request:', err);
+    res.status(500).json({ error: 'បរាជ័យក្នុងការផ្ញើសំណើ: ' + err.message });
+  }
+});
+
+// 6.3 Get Leave Requests (Admin with filters)
+app.get('/api/leave-requests', async (req, res) => {
+  try {
+    const { status, type, code, limit = 200 } = req.query;
+    let sql = 'SELECT * FROM leave_requests WHERE 1=1';
+    const params = [];
+
+    if (status && status !== 'all') {
+      sql += ' AND status = ?';
+      params.push(status);
+    }
+    if (type && type !== 'all') {
+      sql += ' AND request_type = ?';
+      params.push(type);
+    }
+    if (code) {
+      sql += ' AND member_code = ? COLLATE NOCASE';
+      params.push(code.trim());
+    }
+
+    sql += ' ORDER BY created_at DESC LIMIT ?';
+    params.push(parseInt(limit, 10));
+
+    const rows = await db.all(sql, params);
+    
+    // Count pending
+    const pendingCountRow = await db.get("SELECT COUNT(*) as count FROM leave_requests WHERE status = 'pending'");
+    const pendingCount = pendingCountRow ? pendingCountRow.count : 0;
+
+    res.json({
+      requests: rows,
+      pendingCount
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 6.4 Get Staff's Own Leave Requests (Staff view / my status)
+app.get('/api/leave-requests/my', async (req, res) => {
+  try {
+    const { code } = req.query;
+    if (!code) {
+      return res.status(400).json({ error: 'Code is required' });
+    }
+
+    const rows = await db.all(`
+      SELECT * FROM leave_requests 
+      WHERE member_code = ? COLLATE NOCASE 
+      ORDER BY created_at DESC LIMIT 50
+    `, [code.trim()]);
+
+    res.json({ requests: rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 6.5 Admin Review / Approve / Reject Request & Send Notification to Staff and Telegram
+app.post('/api/leave-requests/:id/review', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, admin_response, reviewed_by } = req.body;
+
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: 'Status ត្រូវតែជា approved ឬ rejected' });
+    }
+
+    const existing = await db.get("SELECT * FROM leave_requests WHERE id = ?", [id]);
+    if (!existing) {
+      return res.status(404).json({ error: 'រកមិនឃើញសំណើនេះទេ' });
+    }
+
+    const cleanResponse = (admin_response || (status === 'approved' ? 'Okay! បានយល់ព្រម' : 'មិនអនុម័ត')).trim();
+    const reviewer = reviewed_by || 'Admin';
+
+    await db.run(`
+      UPDATE leave_requests 
+      SET status = ?, admin_response = ?, reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `, [status, cleanResponse, reviewer, id]);
+
+    // Send decision notification to OLD / MAIN Telegram Group (-5037746251)
+    const statusEmoji = status === 'approved' ? '✅' : '❌';
+    const statusLabel = status === 'approved' ? 'បានយល់ព្រម (APPROVED - OK)' : 'មិនអនុម័ត (REJECTED)';
+    const reqTypeLabel = existing.request_type === 'leave' ? '🏖️ សុំច្បាប់ឈប់សម្រាក' : '🛵 សុំមកយឺត (មានបញ្ហាតាមផ្លូវ)';
+
+    let dateInfo = '';
+    if (existing.request_type === 'leave') {
+      dateInfo = `${existing.date_start} ${existing.date_end && existing.date_end !== existing.date_start ? 'ដល់ ' + existing.date_end : ''} (${existing.duration_text || '1 ថ្ងៃ'})`;
+    } else {
+      dateInfo = `ថ្ងៃ ${existing.date_start} • ⏰ មកដល់: ${existing.time_expected || '--'}`;
+    }
+
+    const decisionTelegram = `
+📢 <b>ការសម្រេចលើសំណើសុំច្បាប់ & មកយឺត</b>
+━━━━━━━━━━━━━━━━━
+👤 <b>បុគ្គលិក:</b> ${existing.member_name} (<code>${existing.member_code}</code>)
+💼 <b>តួនាទី:</b> ${existing.member_role || 'បុគ្គលិក'}
+📑 <b>ប្រភេទសំណើ:</b> ${reqTypeLabel} (${existing.sub_type || 'ទូទៅ'})
+📅 <b>កាលបរិច្ឆេទ:</b> ${dateInfo}
+📝 <b>មូលហេតុ:</b> ${existing.reason}
+━━━━━━━━━━━━━━━━━
+📊 <b>ការសម្រេច:</b> ${statusEmoji} <b>${statusLabel}</b>
+💬 <b>សារពី Admin:</b> "${cleanResponse}"
+👨‍💼 <b>ពិនិត្យ/អនុញ្ញាតដោយ:</b> ${reviewer}
+🕒 <b>កាលបរិច្ឆេទ:</b> ${formatCambodiaDate(new Date())} ${formatCambodiaTime(new Date())}
+━━━━━━━━━━━━━━━━━
+<i>ប្រព័ន្ធវត្តមានឆ្លាតវៃ VANN SITHA TRADING</i>
+    `.trim();
+
+    // Broadcast to the OLD / MAIN Telegram Group!
+    sendTelegramMessage(decisionTelegram).catch(err => console.error('Telegram decision to old group error:', err));
+
+    // Remove buttons and update message in the NEW GROUP if tg_message_id is known
+    if (existing.tg_message_id && existing.tg_chat_id) {
+      getSetting('telegram_token').then(tok => {
+        if (tok) removeTelegramInlineButtons(tok, existing.tg_chat_id, existing.tg_message_id);
+      }).catch(e => console.error(e));
+    }
+
+    res.json({
+      success: true,
+      message: status === 'approved' ? 'បានអនុម័ត (OK) ដោយជោគជ័យ!' : 'បានបដិសេធសំណើដោយជោគជ័យ!',
+      status,
+      admin_response: cleanResponse
+    });
+  } catch (err) {
+    console.error('Error reviewing leave request:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -1408,6 +1932,28 @@ setInterval(async () => {
   }
 }, 60000); // Check every 60 seconds
 
+// Webhook endpoint (alternative to long polling for serverless/Vercel)
+app.post('/api/telegram-webhook', async (req, res) => {
+  try {
+    const token = await getSetting('telegram_token');
+    const update = req.body;
+    if (update && update.callback_query && token) {
+      await handleTelegramCallbackQuery(update.callback_query, token);
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Telegram webhook error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Catch-all for undefined /api routes so it ALWAYS returns JSON and NEVER HTML
+app.use('/api', (req, res) => {
+  res.status(404).json({
+    error: `API endpoint '${req.method} ${req.originalUrl}' not found on this server. Please ensure the server has been updated with the latest code.`
+  });
+});
+
 // Global error handling middleware so Express NEVER returns HTML errors for API routes
 app.use((err, req, res, next) => {
   console.error('Unhandled server error:', err);
@@ -1430,6 +1976,11 @@ if (!process.env.VERCEL) {
         console.log(`💾 Local SQLite file database active.`);
       }
       console.log(`===============================================`);
+
+      // Launch background Telegram Long Polling for interactive buttons
+      startTelegramPolling().catch(err => {
+        console.error('Failed to run Telegram polling:', err.message);
+      });
     });
   }).catch(err => {
     console.error('Failed to start server:', err);

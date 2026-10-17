@@ -3681,22 +3681,78 @@ async function executeStaffCheckIn() {
       evening_out: '🏠 4/4 ល្ងាចចេញ (17:00)'
     };
     const slotLabel = slotLabels[data.actionType] || data.actionType;
-    const reasonDisplay = data.note ? `<div class="text-xs text-amber-800 bg-amber-50/80 p-2 rounded-xl border border-amber-200/60 mt-1">📝 <b>មូលហេតុ:</b> ${data.note}</div>` : '';
+    const initial = data.member && data.member.name ? data.member.name.trim().charAt(0).toUpperCase() : 'U';
+
+    const reasonDisplay = data.note 
+      ? `<div class="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/25 space-y-1">
+          <div class="text-[10px] text-amber-300 font-bold uppercase tracking-wider">📝 មូលហេតុមកយឺត:</div>
+          <div class="text-xs text-amber-100 font-medium leading-relaxed">${escapeHtml(data.note)}</div>
+        </div>` 
+      : '';
+
+    const statusDisplay = data.statusText
+      ? `<div class="p-2.5 rounded-2xl bg-white/[0.04] border border-white/10 flex items-center justify-between text-xs">
+          <span class="text-slate-400 font-medium">ស្ថានភាពវត្តមាន:</span>
+          <span class="font-bold text-white">${data.statusText}</span>
+        </div>`
+      : '';
 
     Swal.fire({
       icon: 'success',
-      title: data.message || 'កត់ត្រាវត្តមានជោគជ័យ!',
+      title: `<span class="text-base sm:text-lg font-extrabold text-white tracking-wide">${data.message || 'កត់ត្រាវត្តមានជោគជ័យ!'}</span>`,
+      background: '#0f172a',
+      color: '#ffffff',
+      customClass: {
+        popup: 'glass-crystal rounded-3xl border border-white/20 shadow-2xl p-4 sm:p-5',
+        confirmButton: 'btn-gradient-primary py-2.5 px-6 rounded-xl text-xs font-bold text-white shadow-lg shadow-cyan-500/30'
+      },
       html: `
-        <div class="text-left bg-slate-50 p-4 rounded-2xl border border-slate-200 mt-2 space-y-1.5 text-xs sm:text-sm">
-          <div>👤 <b>សមាជិក:</b> ${data.member.name} (<code>${data.member.code}</code>)</div>
-          <div>💼 <b>ផ្នែក:</b> ${data.member.role || 'General'}</div>
-          <div>⏰ <b>វត្តមាន:</b> <b>${slotLabel}</b></div>
-          <div>${data.statusText || ''}</div>
+        <div class="text-left space-y-3 pt-2 text-white">
+          <!-- Member Profile Header -->
+          <div class="p-3 rounded-2xl bg-white/[0.04] border border-white/10 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white font-black text-sm shadow-md shadow-cyan-500/25">
+                ${initial}
+              </div>
+              <div>
+                <div class="font-extrabold text-white text-xs sm:text-sm tracking-wide">${escapeHtml(data.member.name)}</div>
+                <div class="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono mt-0.5">
+                  <span class="px-1.5 py-0.5 rounded bg-white/10 text-cyan-300">${escapeHtml(data.member.code)}</span>
+                  <span>•</span>
+                  <span>${escapeHtml(data.member.role || 'បុគ្គលិក')}</span>
+                </div>
+              </div>
+            </div>
+            <span class="px-2.5 py-1 rounded-xl bg-cyan-500/15 border border-cyan-400/30 text-cyan-300 font-mono font-bold text-xs shadow-xs">
+              ${data.todayScansCount}/4 លើក
+            </span>
+          </div>
+
+          <!-- Attendance Info Grid -->
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div class="p-2.5 rounded-2xl bg-white/[0.03] border border-white/10">
+              <span class="text-[10px] text-slate-400 block mb-0.5">វេនវត្តមាន (Slot)</span>
+              <span class="font-bold text-white text-xs">${slotLabel}</span>
+            </div>
+            <div class="p-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
+              <span class="text-[10px] text-emerald-300 block mb-0.5">វិធីសាស្ត្រកត់ត្រា</span>
+              <span class="font-bold text-emerald-400 text-xs flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>1-Click Wi-Fi</span>
+              </span>
+            </div>
+          </div>
+
+          ${statusDisplay}
           ${reasonDisplay}
-          <div>📶 <b>វិធីកត់ត្រា:</b> <span class="text-cyan-700 font-bold">1-Click Wi-Fi ក្រុមហ៊ុន</span></div>
-          <div>📊 <b>សរុបថ្ងៃនេះ:</b> ${data.todayScansCount}/4 ដង</div>
-          <div class="text-[11px] text-sky-600 mt-2 pt-2 border-t border-slate-200 flex items-center gap-1.5">
-            <i class="fa-brands fa-telegram text-sm"></i> សារបានផ្ញើជូនដំណឹងទៅ Telegram Group រួចរាល់!
+
+          <!-- Telegram broadcast status -->
+          <div class="p-2.5 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-400 text-[11px] flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i class="fa-brands fa-telegram text-base text-sky-400"></i>
+              <span class="font-medium">បានផ្ញើជូនដំណឹងទៅ Telegram Group រួចរាល់!</span>
+            </div>
+            <span class="text-[10px] font-mono text-sky-300/80 uppercase font-bold tracking-wider">OK</span>
           </div>
         </div>
       `,
@@ -3795,6 +3851,29 @@ window.currentLeaveFilter = 'all';
 function escapeHtml(str) {
   if (!str) return '';
   return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+async function parseJsonResponse(res) {
+  const contentType = (res.headers.get('content-type') || '').toLowerCase();
+  if (contentType.includes('application/json')) {
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || `Server error (${res.status})`);
+    }
+    return data;
+  }
+  const text = await res.text();
+  if (res.status === 404) {
+    throw new Error('ម៉ាស៊ីនបម្រើ (Server / Vercel) មិនទាន់បានធ្វើបច្ចុប្បន្នភាពកូដចុងក្រោយទេ។ សូម Upload ឬ Deploy កូដចុងក្រោយទៅកាន់ Server រួចសាកល្បងម្តងទៀត!');
+  }
+  if (!res.ok) {
+    throw new Error(`Server Error (${res.status}): ${text.substring(0, 100)}`);
+  }
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error('ការឆ្លើយតបពីម៉ាស៊ីនបម្រើមិនត្រឹមត្រូវ (Invalid JSON)');
+  }
 }
 
 function openLeaveRequestModal(defaultTab = 'leave') {
@@ -3941,8 +4020,7 @@ async function handleLeaveFormSubmit(e) {
       body: JSON.stringify(payload)
     });
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'បរាជ័យក្នុងការផ្ញើសំណើ');
+    const data = await parseJsonResponse(res);
 
     // Reset textarea
     const reasonInput = document.getElementById('leaveReason');
@@ -4026,8 +4104,7 @@ async function handleLateFormSubmit(e) {
       body: JSON.stringify(payload)
     });
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'បរាជ័យក្នុងការផ្ញើសំណើ');
+    const data = await parseJsonResponse(res);
 
     // Reset textarea
     const reasonInput = document.getElementById('lateReason');
@@ -4073,7 +4150,7 @@ async function loadMyLeaveRequests() {
 
   try {
     const res = await fetch(`/api/leave-requests/my?code=${encodeURIComponent(currentStaff.code)}`);
-    const data = await res.json();
+    const data = await parseJsonResponse(res);
 
     if (!data.requests || data.requests.length === 0) {
       container.innerHTML = `
@@ -4167,7 +4244,7 @@ async function loadAdminLeaveRequests(filter = window.currentLeaveFilter || 'all
 
   try {
     const res = await fetch('/api/leave-requests');
-    const data = await res.json();
+    const data = await parseJsonResponse(res);
     window.adminLeaveRequestsList = data.requests || [];
 
     // Calculate KPI stats
@@ -4458,8 +4535,7 @@ async function promptReviewLeaveRequest(id, status, memberName, requestType) {
       })
     });
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'បរាជ័យក្នុងការឆ្លើយតប');
+    const data = await parseJsonResponse(res);
 
     await Swal.fire({
       icon: 'success',
