@@ -2222,34 +2222,50 @@ async function loadMyAttendanceActivity() {
 // 8. Admin Portal Authentication & Switching
 async function promptAdminPin() {
   const t = translations[currentLang];
-  const { value: pin } = await Swal.fire({
+  const result = await Swal.fire({
     title: t.pinPromptTitle,
+    text: t.pinPromptInput,
     input: 'password',
-    inputLabel: t.pinPromptInput,
-    inputPlaceholder: 'PIN (Default: 1234)',
+    inputPlaceholder: '••••',
     showCancelButton: true,
     confirmButtonText: t.confirmBtn,
     cancelButtonText: t.cancel,
-    confirmButtonColor: '#f59e0b'
+    showLoaderOnConfirm: true,
+    inputAttributes: {
+      inputmode: 'numeric',
+      pattern: '[0-9]*',
+      maxlength: '10',
+      autocomplete: 'current-password',
+      style: 'text-align: center; font-size: 1.5rem; letter-spacing: 0.35em; font-family: monospace;'
+    },
+    preConfirm: async (pin) => {
+      if (!pin) {
+        Swal.showValidationMessage(currentLang === 'km' ? 'សូមបញ្ចូលលេខកូដសម្ងាត់ Admin PIN' : 'Please enter Admin PIN');
+        return false;
+      }
+      try {
+        const res = await fetch('/api/admin/verify-pin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin: pin.trim() })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          Swal.showValidationMessage(data.error || (currentLang === 'km' ? 'លេខកូដ PIN មិនត្រឹមត្រូវទេ!' : 'Invalid Admin PIN'));
+          return false;
+        }
+        return data;
+      } catch (err) {
+        Swal.showValidationMessage(currentLang === 'km' ? 'បញ្ហាប្រព័ន្ធ / អ៊ីនធឺណិត' : 'Network error');
+        return false;
+      }
+    },
+    allowOutsideClick: () => !Swal.isLoading()
   });
 
-  if (!pin) return;
-
-  try {
-    const res = await fetch('/api/admin/verify-pin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pin })
-    });
-    const data = await res.json();
-    if (res.ok) {
-      isAdminAuthenticated = true;
-      showAdminView();
-    } else {
-      Swal.fire({ icon: 'error', title: 'PIN Error', text: data.error });
-    }
-  } catch (e) {
-    Swal.fire({ icon: 'error', title: 'Error', text: e.message });
+  if (result.isConfirmed && result.value) {
+    isAdminAuthenticated = true;
+    showAdminView();
   }
 }
 
@@ -2305,8 +2321,9 @@ function switchAdminTab(tabId) {
   document.querySelectorAll('.adm-section').forEach(s => s.classList.add('hidden'));
   const activeSec = document.getElementById(`adm-sec-${tabId}`);
   if (activeSec) {
-    activeSec.classList.remove('hidden');
-    applyViewMotion(activeSec);
+    activeSec.classList.remove('hidden', 'adm-section-motion');
+    void activeSec.offsetWidth;
+    activeSec.classList.add('adm-section-motion');
   }
 
   if (window.lucide) lucide.createIcons();

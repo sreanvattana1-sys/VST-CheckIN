@@ -309,32 +309,58 @@
     /* ================= PREMIUM DARK GLASS SWEETALERT2 STYLING ================= */
     .swal2-container {
       background: rgba(2, 6, 23, 0.78) !important;
-      backdrop-filter: blur(12px) !important;
-      -webkit-backdrop-filter: blur(12px) !important;
+      backdrop-filter: blur(16px) saturate(180%) !important;
+      -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
       z-index: 10000 !important;
     }
 
     .swal2-popup {
-      background: rgba(15, 23, 42, 0.94) !important;
-      backdrop-filter: blur(28px) saturate(190%) !important;
-      -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
+      background: rgba(15, 23, 42, 0.95) !important;
+      backdrop-filter: blur(32px) saturate(200%) !important;
+      -webkit-backdrop-filter: blur(32px) saturate(200%) !important;
       border: 1px solid rgba(255, 255, 255, 0.18) !important;
       border-radius: 28px !important;
-      box-shadow: 0 30px 80px -15px rgba(0, 0, 0, 0.85), 0 0 35px rgba(6, 182, 212, 0.22) !important;
+      box-shadow: 0 35px 90px -15px rgba(0, 0, 0, 0.85), 0 0 45px rgba(6, 182, 212, 0.25) !important;
       padding: 1.85rem !important;
       color: #ffffff !important;
       font-family: inherit !important;
-      animation: swalLivingEntrance 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
     }
 
-    @keyframes swalLivingEntrance {
+    /* iOS Native Spring Dialog Animations (Clean Show & Hide without freeze) */
+    .swal2-popup.swal2-show {
+      animation: iosPopupIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.15) forwards !important;
+    }
+
+    .swal2-popup.swal2-hide {
+      animation: iosPopupOut 0.22s cubic-bezier(0.36, 0, 0.66, -0.56) forwards !important;
+    }
+
+    @keyframes iosPopupIn {
       0% {
         opacity: 0;
-        transform: scale(0.92) translateY(12px);
+        transform: scale(0.88) translateY(24px);
+        filter: blur(8px);
+      }
+      70% {
+        filter: blur(0);
       }
       100% {
         opacity: 1;
         transform: scale(1) translateY(0);
+        filter: blur(0);
+      }
+    }
+
+    @keyframes iosPopupOut {
+      0% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+        filter: blur(0);
+      }
+      100% {
+        opacity: 0;
+        transform: scale(0.9) translateY(18px);
+        filter: blur(6px);
       }
     }
 
@@ -444,16 +470,37 @@
       outline: none !important;
     }
 
-    /* Smooth page view transitions (Ultra-slick 60fps) */
+    /* iOS Native App View & Tab Transitions */
     .view-enter-motion {
-      animation: smoothViewEnter 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation: iosAppViewEnter 0.38s cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
+      will-change: transform, opacity, filter;
+    }
+
+    @keyframes iosAppViewEnter {
+      0% {
+        opacity: 0;
+        transform: scale(0.96) translateY(18px);
+        filter: blur(6px);
+      }
+      70% {
+        filter: blur(0);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+        filter: blur(0);
+      }
+    }
+
+    .adm-section-motion {
+      animation: iosSectionGlide 0.32s cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
       will-change: transform, opacity;
     }
 
-    @keyframes smoothViewEnter {
+    @keyframes iosSectionGlide {
       0% {
         opacity: 0;
-        transform: translateY(8px) scale(0.994);
+        transform: translateY(12px) scale(0.985);
       }
       100% {
         opacity: 1;
@@ -816,9 +863,10 @@
       }
     }
 
-    /* ================= ENTRANCE & STAGGER ANIMATIONS ================= */
+    /* ================= ENTRANCE & STAGGER ANIMATIONS (iOS Spring) ================= */
     .animate-entrance {
-      animation: entranceFade 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation: iosModalEntrance 0.36s cubic-bezier(0.175, 0.885, 0.32, 1.15) both;
+      will-change: transform, opacity, filter;
     }
 
     .stagger-1 { animation-delay: 0ms; }
@@ -826,14 +874,19 @@
     .stagger-3 { animation-delay: 120ms; }
     .stagger-4 { animation-delay: 180ms; }
 
-    @keyframes entranceFade {
+    @keyframes iosModalEntrance {
       0% {
         opacity: 0;
-        transform: translateY(10px);
+        transform: scale(0.92) translateY(20px);
+        filter: blur(8px);
+      }
+      70% {
+        filter: blur(0);
       }
       100% {
         opacity: 1;
-        transform: translateY(0);
+        transform: scale(1) translateY(0);
+        filter: blur(0);
       }
     }
 
@@ -2504,10 +2557,10 @@
   <!-- ================= SLIDE-OVER APP DRAWER MENU ================= -->
   <div id="appDrawerMenu" class="fixed inset-0 z-50 overflow-hidden pointer-events-none transition-all duration-300 opacity-0 invisible" aria-modal="true" role="dialog">
     <!-- Backdrop Blur Overlay -->
-    <div id="appDrawerBackdrop" onclick="closeAppDrawerMenu()" class="fixed inset-0 bg-black/75 backdrop-blur-md transition-opacity duration-300 opacity-0 cursor-pointer"></div>
+    <div id="appDrawerBackdrop" onclick="closeAppDrawerMenu()" class="fixed inset-0 bg-slate-950/75 backdrop-blur-xl transition-opacity duration-300 opacity-0 cursor-pointer"></div>
 
     <div class="fixed inset-y-0 right-0 max-w-full flex pl-10 pointer-events-none">
-      <div id="appDrawerPanel" class="pointer-events-auto w-screen max-w-xs sm:max-w-sm bg-slate-900 border-l border-white/15 shadow-2xl flex flex-col justify-between p-5 sm:p-6 overflow-y-auto transform translate-x-full transition-transform duration-300 ease-out">
+      <div id="appDrawerPanel" class="pointer-events-auto w-screen max-w-xs sm:max-w-sm bg-slate-900/95 backdrop-blur-2xl border-l border-white/15 shadow-2xl flex flex-col justify-between p-5 sm:p-6 overflow-y-auto transform translate-x-full transition-transform duration-350 ease-[cubic-bezier(0.32,0.72,0,1)]">
         
         <!-- Drawer Header -->
         <div class="space-y-4">
@@ -2618,13 +2671,13 @@
             <i data-lucide="log-out" class="w-4 h-4"></i>
             <span>ចាកចេញពីគណនី (Log Out)</span>
           </button>
-          <p class="text-[10px] text-slate-500 text-center font-mono">VST Attendance App • Version 19.0</p>
+          <p class="text-[10px] text-slate-500 text-center font-mono">VST Attendance App • Version 20.0</p>
         </div>
 
       </div>
     </div>
   </div>
 
-  <script src="/app.js?v=19.0"></script>
+  <script src="/app.js?v=20.0"></script>
 </body>
 </html>
