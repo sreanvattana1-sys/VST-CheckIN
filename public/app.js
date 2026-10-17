@@ -339,6 +339,19 @@ function setLanguage(lang) {
     }
   }
 
+  // Update Drawer Language Switcher Buttons
+  const drKm = document.getElementById('drawerLangKmBtn');
+  const drEn = document.getElementById('drawerLangEnBtn');
+  if (drKm && drEn) {
+    if (lang === 'km') {
+      drKm.className = 'px-2 py-1 rounded-md text-[11px] font-bold transition flex items-center gap-1 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-xs';
+      drEn.className = 'px-2 py-1 rounded-md text-[11px] font-medium text-slate-400 hover:text-white transition flex items-center gap-1';
+    } else {
+      drEn.className = 'px-2 py-1 rounded-md text-[11px] font-bold transition flex items-center gap-1 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-xs';
+      drKm.className = 'px-2 py-1 rounded-md text-[11px] font-medium text-slate-400 hover:text-white transition flex items-center gap-1';
+    }
+  }
+
   // Update all DOM elements with data-i18n
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
@@ -417,6 +430,47 @@ function applyTheme(themeId) {
   if (window.lucide) {
     lucide.createIcons();
   }
+}
+
+// ================= APP SLIDE-OVER DRAWER MENU =================
+function openAppDrawerMenu() {
+  const drawer = document.getElementById('appDrawerMenu');
+  if (!drawer) return;
+
+  // Sync Current Staff Profile in Drawer
+  const pSec = document.getElementById('drawerProfileSection');
+  const dName = document.getElementById('drawerStaffName');
+  const dRole = document.getElementById('drawerStaffRole');
+  const dCode = document.getElementById('drawerStaffCode');
+  const dAvatarWrap = document.getElementById('drawerAvatarWrapper');
+  const btnLogout = document.getElementById('btnDrawerLogout');
+
+  if (currentStaff) {
+    if (dName) dName.textContent = currentStaff.name || 'សមាជិក';
+    if (dRole) dRole.textContent = currentStaff.role || 'បុគ្គលិក';
+    if (dCode) dCode.textContent = currentStaff.code || 'MEM-000';
+    if (dAvatarWrap) {
+      if (currentStaff.avatar && currentStaff.avatar.trim()) {
+        dAvatarWrap.innerHTML = `<img src="${currentStaff.avatar}" alt="${currentStaff.name}" class="w-full h-full object-cover rounded-full">`;
+      } else {
+        const initial = currentStaff.name ? currentStaff.name.trim().charAt(0) : 'U';
+        dAvatarWrap.innerHTML = `<span class="font-bold text-white text-sm">${initial}</span>`;
+      }
+    }
+    if (pSec) pSec.classList.remove('hidden');
+    if (btnLogout) btnLogout.classList.remove('hidden');
+  } else {
+    if (pSec) pSec.classList.add('hidden');
+    if (btnLogout) btnLogout.classList.add('hidden');
+  }
+
+  drawer.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeAppDrawerMenu() {
+  const drawer = document.getElementById('appDrawerMenu');
+  if (drawer) drawer.classList.add('hidden');
 }
 
 function openThemeSelectorModal() {

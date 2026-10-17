@@ -713,80 +713,44 @@
 
     <!-- ================= GLOBAL APP HEADER ================= -->
     <header class="glass-nav sticky top-0 z-40 transition-all">
-      <div class="max-w-[1440px] mx-auto px-3.5 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between">
+      <div class="max-w-[1440px] mx-auto px-3.5 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-3">
         
-        <!-- Left: Logo & Company Name with Translucent Crystal Identity -->
-        <div class="flex items-center gap-2.5 sm:gap-3.5">
+        <!-- Left: Logo & Company Name (Clean & Truncated, 1 line only) -->
+        <div class="flex items-center gap-2.5 min-w-0">
           <div class="relative group flex-shrink-0">
             <div class="absolute -inset-1 rounded-xl bg-gradient-to-r from-blue-500 via-cyan-400 to-indigo-500 opacity-60 blur-sm group-hover:opacity-90 transition duration-300"></div>
-            <div class="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/95 border border-white/60 p-1 flex items-center justify-center shadow-md">
+            <div class="relative w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/95 border border-white/60 p-1 flex items-center justify-center shadow-md">
               <img src="/logo.png" alt="VST Logo" class="w-full h-full object-contain">
             </div>
           </div>
-          <div>
-            <h1 id="headerCompanyName" class="font-extrabold text-xs sm:text-sm text-white tracking-tight leading-snug flex items-center gap-1.5">
-              <span>វ៉ាន់ ស៊ីថា ត្រេឌីង</span>
-              <span class="px-1.5 py-0.2 rounded-md text-[9px] font-mono font-bold bg-cyan-400/20 text-cyan-300 border border-cyan-400/30">VST</span>
+          <div class="min-w-0">
+            <h1 id="headerCompanyName" class="font-extrabold text-xs sm:text-sm text-white tracking-tight leading-none truncate flex items-center gap-1.5">
+              <span class="truncate">វ៉ាន់ ស៊ីថា ត្រេឌីង</span>
+              <span class="hidden sm:inline-block px-1.5 py-0.5 rounded-md text-[9px] font-mono font-bold bg-cyan-400/20 text-cyan-300 border border-cyan-400/30 flex-shrink-0">VST</span>
             </h1>
-            <div class="flex items-center gap-1.5 text-[10px] text-cyan-200/80 font-medium">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span data-i18n="appSubtitle">ប្រព័ន្ធវត្តមានឆ្លាតវៃ</span>
-            </div>
+            <p class="text-[10px] text-cyan-200/80 font-medium truncate mt-0.5" data-i18n="appSubtitle">ប្រព័ន្ធវត្តមានឆ្លាតវៃ</p>
           </div>
         </div>
 
-        <!-- Right: Language Switcher, Theme Switcher, Live Clock, Admin/Staff Toggles -->
-        <div class="flex items-center gap-1.5 sm:gap-2.5">
-          
-          <!-- Language Switcher Glass Container -->
-          <div class="flex items-center p-0.5 rounded-xl bg-white/10 border border-white/15 text-xs font-semibold shadow-xs notranslate" translate="no">
-            <button id="langKmBtn" onclick="setLanguage('km')" class="px-2 py-1 rounded-lg transition-all flex items-center gap-1 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-xs font-bold notranslate" translate="no">
-              <span class="text-[11px]">🇰🇭</span>
-              <span class="text-[11px]">ខ្មែរ</span>
-            </button>
-            <button id="langEnBtn" onclick="setLanguage('en')" class="px-2 py-1 rounded-lg transition-all flex items-center gap-1 text-slate-300 hover:text-white font-medium notranslate" translate="no">
-              <span class="text-[11px]">🇬🇧</span>
-              <span class="text-[11px]">EN</span>
-            </button>
-          </div>
-
-          <!-- Theme Switcher Button -->
-          <button onclick="openThemeSelectorModal()" class="p-1.5 sm:px-2.5 sm:py-1 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-semibold flex items-center gap-1.5 transition text-cyan-300 shadow-xs active:scale-95" title="ប្តូរស្បែកកញ្ចក់ (Theme)">
-            <span class="w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-cyan-400 via-purple-500 to-pink-500 animate-pulse"></span>
-            <span class="hidden md:inline font-bold text-slate-200">Theme</span>
-            <i data-lucide="palette" class="w-3.5 h-3.5 text-cyan-400"></i>
-          </button>
-
-          <!-- Font Switcher Button -->
-          <button onclick="openFontSelectorModal()" class="p-1.5 sm:px-2.5 sm:py-1 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-semibold flex items-center gap-1.5 transition text-cyan-300 shadow-xs active:scale-95" title="ប្តូរពុម្ពអក្សរខ្មែរ (Khmer Fonts)">
-            <span class="text-xs font-bold text-cyan-300">Aa</span>
-            <span class="hidden md:inline font-bold text-slate-200">Font</span>
-            <i data-lucide="type" class="w-3.5 h-3.5 text-cyan-400"></i>
-          </button>
-
+        <!-- Right: Just the Hamburger Menu Drawer Toggle & Desktop Live Clock -->
+        <div class="flex items-center gap-2 flex-shrink-0">
           <!-- Live Clock Pill (Desktop Only) -->
           <div class="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 border border-white/15 text-xs text-slate-300 shadow-xs">
             <i data-lucide="clock" class="w-3.5 h-3.5 text-cyan-400"></i>
             <span id="liveClock" class="font-mono font-bold text-white">00:00:00</span>
           </div>
 
-          <!-- Staff Logout Button (Top Header) -->
-          <button id="btnStaffLogoutTop" onclick="logoutStaffAccount()" class="hidden px-2.5 sm:px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 shadow-sm" title="ចាកចេញ (Log Out)">
-            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
-            <span class="hidden sm:inline">ចាកចេញ</span>
-          </button>
-
-          <!-- Admin / Staff Action Buttons -->
-          <button id="btnSwitchToAdmin" onclick="promptAdminPin()" class="px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600/90 to-cyan-600/90 hover:from-blue-600 hover:to-cyan-500 border border-cyan-400/40 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-cyan-500/20 active:scale-95">
-            <i data-lucide="shield" class="w-3.5 h-3.5 text-cyan-200"></i>
-            <span class="hidden sm:inline" data-i18n="adminPortal">Admin</span>
-          </button>
-          
-          <button id="btnSwitchToStaff" onclick="showStaffView()" class="hidden px-3.5 py-1.5 rounded-xl btn-gradient-primary border border-cyan-400/40 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-cyan-500/25 active:scale-95">
+          <!-- Switch to Staff Button (Admin View Only) -->
+          <button id="btnSwitchToStaff" onclick="showStaffView()" class="hidden px-3 py-1.5 rounded-xl btn-gradient-primary border border-cyan-400/40 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-cyan-500/25 active:scale-95">
             <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
             <span data-i18n="staffView">ទំព័របុគ្គលិក</span>
           </button>
 
+          <!-- Modern App Menu Button -->
+          <button type="button" onclick="openAppDrawerMenu()" class="px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-cyan-300 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 shadow-sm" title="ម៉ឺនុយ (Menu)">
+            <i data-lucide="menu" class="w-4 h-4 text-cyan-400"></i>
+            <span class="text-xs font-bold text-slate-200">Menu</span>
+          </button>
         </div>
 
       </div>
@@ -879,10 +843,10 @@
     </main>
 
     <!-- ================= VIEW 1: STAFF WORKSPACE (ACLEDA BANKING STYLE MOBILE INTERFACE) ================= -->
-    <main id="staffView" class="max-w-xl mx-auto w-full px-3.5 sm:px-5 py-3 pb-28 flex-1 flex flex-col justify-start">
+    <main id="staffView" class="max-w-xl mx-auto w-full px-3.5 sm:px-5 py-3 pb-36 flex-1 flex flex-col justify-start">
       
       <!-- ACLEDA Staff Profile Header -->
-      <div id="staffProfileSet" onclick="openStaffProfileModal()" class="glass-crystal p-3.5 sm:p-4 rounded-3xl border border-white/20 shadow-[0_10px_30px_rgba(0,0,0,0.3)] flex items-center justify-between mb-3.5 mt-1 cursor-pointer hover:border-cyan-400/50 transition-all group" title="ចុចដើម្បីមើលព័ត៌មាន & ប្តូររូបថត Profile">
+      <div id="staffProfileSet" onclick="openStaffProfileModal()" class="glass-crystal p-3.5 sm:p-4 rounded-3xl border border-white/20 shadow-[0_10px_30px_rgba(0,0,0,0.3)] flex items-center justify-between mb-3.5 mt-2 sm:mt-3 cursor-pointer hover:border-cyan-400/50 transition-all group" title="ចុចដើម្បីមើលព័ត៌មាន & ប្តូររូបថត Profile">
         <div class="flex items-center gap-3">
           <!-- Circular Avatar with glowing border & online indicator -->
           <div class="relative flex-shrink-0" style="width: 48px; height: 48px;">
@@ -1189,12 +1153,12 @@
           <span class="text-[10px] font-medium mt-1">តេឡេក្រាម</span>
         </button>
 
-        <!-- Tab 4: Profile -->
-        <button type="button" onclick="openStaffProfileModal()" class="flex flex-col items-center text-slate-400 hover:text-white group">
+        <!-- Tab 4: App Menu -->
+        <button type="button" onclick="openAppDrawerMenu()" class="flex flex-col items-center text-slate-400 hover:text-white group">
           <div class="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-white group-hover:scale-110 transition-transform">
-            <i data-lucide="user" class="w-4 h-4"></i>
+            <i data-lucide="menu" class="w-4 h-4"></i>
           </div>
-          <span class="text-[10px] font-medium mt-1">គណនី</span>
+          <span class="text-[10px] font-medium mt-1">ម៉ឺនុយ</span>
         </button>
       </nav>
     </div>
@@ -2232,6 +2196,119 @@
     </div>
   </div>
 
-  <script src="/app.js?v=14.0"></script>
+  <!-- ================= SLIDE-OVER APP DRAWER MENU ================= -->
+  <div id="appDrawerMenu" class="hidden fixed inset-0 z-50 overflow-hidden" aria-modal="true" role="dialog">
+    <!-- Backdrop Blur Overlay -->
+    <div onclick="closeAppDrawerMenu()" class="fixed inset-0 bg-black/70 backdrop-blur-md transition-opacity"></div>
+
+    <div class="fixed inset-y-0 right-0 max-w-full flex pl-10 pointer-events-none">
+      <div class="pointer-events-auto w-screen max-w-xs sm:max-w-sm bg-slate-900 border-l border-white/15 shadow-2xl flex flex-col justify-between p-5 sm:p-6 overflow-y-auto">
+        
+        <!-- Drawer Header -->
+        <div class="space-y-4">
+          <div class="flex items-center justify-between pb-3 border-b border-white/10">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-white p-1 border border-white/80 flex items-center justify-center shadow-xs">
+                <img src="/logo.png" alt="VST Logo" class="w-full h-full object-contain">
+              </div>
+              <div>
+                <h3 class="text-xs font-extrabold text-white">VANN SITHA TRADING</h3>
+                <p class="text-[10px] text-cyan-300">Smart Attendance App</p>
+              </div>
+            </div>
+            <button type="button" onclick="closeAppDrawerMenu()" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center transition">
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <!-- Staff Profile Card in Drawer (Dynamic) -->
+          <div id="drawerProfileSection" onclick="closeAppDrawerMenu(); openStaffProfileModal();" class="p-3.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center gap-3 cursor-pointer transition">
+            <div id="drawerAvatarWrapper" class="w-11 h-11 rounded-full bg-gradient-to-tr from-brand-blue to-brand-cyan text-white font-extrabold flex items-center justify-center text-sm border border-cyan-400/50 shadow-sm flex-shrink-0">
+              <span id="drawerAvatarText">U</span>
+            </div>
+            <div class="min-w-0 flex-1">
+              <h4 id="drawerStaffName" class="font-bold text-white text-xs truncate">សមាជិក</h4>
+              <p id="drawerStaffRole" class="text-[11px] text-slate-400 truncate mt-0.5">បុគ្គលិក</p>
+              <span id="drawerStaffCode" class="inline-block text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/25 mt-1 font-bold">MEM-000</span>
+            </div>
+            <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500"></i>
+          </div>
+
+          <!-- Navigation / Action Items -->
+          <div class="space-y-1.5 pt-1">
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 block">ការកំណត់ទូទៅ (General Settings)</span>
+
+            <!-- Language Switcher in Drawer -->
+            <div class="p-2.5 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between">
+              <span class="text-xs font-semibold text-slate-200 flex items-center gap-2">
+                <i data-lucide="globe" class="w-4 h-4 text-cyan-400"></i>
+                <span>ភាសា (Language)</span>
+              </span>
+              <div class="flex items-center p-0.5 rounded-lg bg-black/40 border border-white/10 notranslate" translate="no">
+                <button type="button" id="drawerLangKmBtn" onclick="setLanguage('km')" class="px-2 py-1 rounded-md text-[11px] font-bold transition flex items-center gap-1 bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-xs">
+                  <span>🇰🇭 ខ្មែរ</span>
+                </button>
+                <button type="button" id="drawerLangEnBtn" onclick="setLanguage('en')" class="px-2 py-1 rounded-md text-[11px] font-medium text-slate-400 hover:text-white transition flex items-center gap-1">
+                  <span>🇬🇧 EN</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Theme Selector -->
+            <button type="button" onclick="closeAppDrawerMenu(); openThemeSelectorModal();" class="w-full p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-between transition text-left group">
+              <span class="text-xs font-semibold text-slate-200 flex items-center gap-2">
+                <i data-lucide="palette" class="w-4 h-4 text-purple-400"></i>
+                <span>ប្តូរពណ៌ស្បែក (Themes)</span>
+              </span>
+              <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500 group-hover:text-white transition"></i>
+            </button>
+
+            <!-- Khmer Font Selector -->
+            <button type="button" onclick="closeAppDrawerMenu(); openFontSelectorModal();" class="w-full p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-between transition text-left group">
+              <span class="text-xs font-semibold text-slate-200 flex items-center gap-2">
+                <i data-lucide="type" class="w-4 h-4 text-pink-400"></i>
+                <span>ពុម្ពអក្សរខ្មែរ (Khmer Fonts)</span>
+              </span>
+              <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500 group-hover:text-white transition"></i>
+            </button>
+
+            <div class="pt-2">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 block">ប្រព័ន្ធគ្រប់គ្រង (Admin & System)</span>
+            </div>
+
+            <!-- Admin Portal PIN Access -->
+            <button type="button" onclick="closeAppDrawerMenu(); promptAdminPin();" class="w-full p-2.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-400/30 flex items-center justify-between transition text-left group">
+              <span class="text-xs font-bold text-cyan-300 flex items-center gap-2">
+                <i data-lucide="shield" class="w-4 h-4 text-cyan-400"></i>
+                <span>ចូលផ្នែក Admin (Admin Portal)</span>
+              </span>
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-400/20 text-cyan-200 font-bold">PIN</span>
+            </button>
+
+            <!-- Telegram Channel / Group -->
+            <button type="button" onclick="closeAppDrawerMenu(); openTelegramNoticeGroup();" class="w-full p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-between transition text-left group">
+              <span class="text-xs font-semibold text-slate-200 flex items-center gap-2">
+                <i data-lucide="send" class="w-4 h-4 text-sky-400"></i>
+                <span>Telegram ក្រុមហ៊ុន</span>
+              </span>
+              <i data-lucide="external-link" class="w-3.5 h-3.5 text-slate-500"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Drawer Footer: Logout Button -->
+        <div class="pt-4 border-t border-white/10 space-y-3">
+          <button type="button" id="btnDrawerLogout" onclick="closeAppDrawerMenu(); logoutStaffAccount();" class="w-full py-2.5 px-3 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 hover:text-white text-xs font-bold transition flex items-center justify-center gap-2 active:scale-95 shadow-sm">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+            <span>ចាកចេញពីគណនី (Log Out)</span>
+          </button>
+          <p class="text-[10px] text-slate-500 text-center font-mono">VST Attendance App • Version 15.0</p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js?v=15.0"></script>
 </body>
 </html>
