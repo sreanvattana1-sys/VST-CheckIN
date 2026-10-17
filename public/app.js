@@ -737,6 +737,18 @@ function getKhWeekRange(d = getKhCurrentDate()) {
   };
 }
 
+function toggleBottomNav(visible) {
+  const bNav = document.getElementById('acledaBottomNav');
+  const bWrap = document.getElementById('acledaBottomNavWrapper');
+  if (visible) {
+    if (bNav) bNav.classList.remove('hidden');
+    if (bWrap) bWrap.classList.remove('hidden');
+  } else {
+    if (bNav) bNav.classList.add('hidden');
+    if (bWrap) bWrap.classList.add('hidden');
+  }
+}
+
 function showLoginView() {
   const loginV = document.getElementById('loginView');
   const staffV = document.getElementById('staffView');
@@ -753,8 +765,7 @@ function showLoginView() {
   if (btnAdmin) btnAdmin.classList.remove('hidden');
   if (btnLogout) btnLogout.classList.add('hidden');
 
-  const bNav = document.getElementById('acledaBottomNav');
-  if (bNav) bNav.classList.add('hidden');
+  toggleBottomNav(false);
 }
 
 function showStaffView() {
@@ -788,8 +799,7 @@ function showStaffView() {
     textHist.className = 'text-[10px] font-medium mt-1 text-slate-400';
   }
 
-  const bNav = document.getElementById('acledaBottomNav');
-  if (bNav) bNav.classList.remove('hidden');
+  toggleBottomNav(true);
   
   if (currentStaff) {
     loadMyAttendanceActivity();
@@ -824,8 +834,7 @@ function showStaffHistoryView() {
     textHist.className = 'text-[10px] font-bold mt-1 text-white';
   }
 
-  const bNav = document.getElementById('acledaBottomNav');
-  if (bNav) bNav.classList.remove('hidden');
+  toggleBottomNav(true);
 
   if (currentStaff) {
     const nameEl = document.getElementById('staffHistoryEmployeeName');
@@ -2190,19 +2199,21 @@ function showAdminView() {
   if (staffV) staffV.classList.add('hidden');
   const staffHistV = document.getElementById('staffHistoryView');
   if (staffHistV) staffHistV.classList.add('hidden');
-  document.getElementById('adminView').classList.remove('hidden');
-  document.getElementById('btnSwitchToAdmin').classList.add('hidden');
-  document.getElementById('btnSwitchToStaff').classList.remove('hidden');
+  const adminV = document.getElementById('adminView');
+  if (adminV) adminV.classList.remove('hidden');
+
+  const btnAdmin = document.getElementById('btnSwitchToAdmin');
+  if (btnAdmin) btnAdmin.classList.add('hidden');
+  const btnStaff = document.getElementById('btnSwitchToStaff');
+  if (btnStaff) btnStaff.classList.remove('hidden');
   const btnLogout = document.getElementById('btnStaffLogoutTop');
   if (btnLogout) btnLogout.classList.add('hidden');
 
-  // Hide bottom nav in Admin View
-  const bNav = document.getElementById('acledaBottomNav');
-  if (bNav) bNav.classList.add('hidden');
+  // Hide bottom nav in Admin View completely
+  toggleBottomNav(false);
 
   switchAdminTab('dashboard');
   loadAdminDashboard();
-  renderOfficeQrPoster();
 }
 
 // (showStaffView is defined above)
@@ -2237,7 +2248,6 @@ function switchAdminTab(tabId) {
     loadAdminDashboard();
     loadPendingMembers();
   }
-  if (tabId === 'office-qr') renderOfficeQrPoster();
   if (tabId === 'members') {
     loadAdminMembers();
     loadPendingMembers();
@@ -2252,12 +2262,17 @@ async function loadAdminDashboard() {
     const res = await fetch('/api/dashboard');
     const data = await res.json();
 
-    document.getElementById('statTotalMembers').textContent = data.totalMembers;
-    document.getElementById('statTodayCheckIns').textContent = data.todayCheckIns;
-    document.getElementById('statTodayCheckOuts').textContent = data.todayCheckOuts;
-    document.getElementById('statAbsentCount').textContent = data.absentCount;
+    const statMembers = document.getElementById('statTotalMembers');
+    if (statMembers) statMembers.textContent = data.totalMembers ?? 0;
+    const statIns = document.getElementById('statTodayCheckIns');
+    if (statIns) statIns.textContent = data.todayCheckIns ?? 0;
+    const statOuts = document.getElementById('statTodayCheckOuts');
+    if (statOuts) statOuts.textContent = data.todayCheckOuts ?? 0;
+    const statAbsent = document.getElementById('statAbsentCount');
+    if (statAbsent) statAbsent.textContent = data.absentCount ?? 0;
 
     const tbody = document.getElementById('recentLogsTable');
+    if (!tbody) return;
     if (!data.recentLogs || data.recentLogs.length === 0) {
       tbody.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-slate-400">${translations[currentLang].noDataYet}</td></tr>`;
       return;
