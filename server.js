@@ -332,13 +332,24 @@ async function getSetting(key) {
   return row ? row.value : null;
 }
 
-// Helper: Send Telegram notification
+// Helper: Escape HTML special characters for Telegram HTML parse_mode
+function escapeTg(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+// Helper: Send Telegram notification to OLD / MAIN Group (-5037746251)
 async function sendTelegramMessage(text) {
   const token = await getSetting('telegram_token');
   const chatId = await getSetting('telegram_chat_id');
   const enabled = await getSetting('telegram_enabled');
 
-  if (enabled !== 'true' || !token || !chatId) {
+  const targetChatId = (chatId && chatId.trim()) ? chatId.trim() : '-5037746251';
+
+  if (enabled === 'false' || !token || !targetChatId) {
     return { success: false, reason: 'Telegram is not configured or disabled' };
   }
 
@@ -348,10 +359,11 @@ async function sendTelegramMessage(text) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        chat_id: chatId,
+        chat_id: targetChatId,
         text: text,
         parse_mode: 'HTML'
-      })
+      }),
+      signal: AbortSignal.timeout(5000)
     });
     const result = await res.json();
     return { success: result.ok, data: result };
@@ -361,7 +373,7 @@ async function sendTelegramMessage(text) {
   }
 }
 
-// Helper: Send Telegram notification to dedicated Leave / Late Permissions Group
+// Helper: Send Telegram notification to dedicated Leave / Late Permissions Group (-5352852483)
 async function sendTelegramLeaveMessage(text, replyMarkup = null) {
   const token = await getSetting('telegram_token');
   const leaveChatId = await getSetting('telegram_leave_chat_id');
@@ -392,7 +404,8 @@ async function sendTelegramLeaveMessage(text, replyMarkup = null) {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(5000)
     });
     const result = await res.json();
     return { success: result.ok, data: result };
@@ -505,21 +518,25 @@ async function handleTelegramCallbackQuery(cq, token) {
     const decisionOldGroupMsg = `
 📢 <b>ការសម្រេចលើសំណើសុំច្បាប់ & មកយឺត</b>
 ━━━━━━━━━━━━━━━━━
-👤 <b>បុគ្គលិក:</b> ${existing.member_name} (<code>${existing.member_code}</code>)
-💼 <b>តួនាទី:</b> ${existing.member_role || 'បុគ្គលិក'}
-📑 <b>ប្រភេទ:</b> ${reqTypeLabel} (${existing.sub_type || 'ទូទៅ'})
-📅 <b>កាលបរិច្ឆេទ:</b> ${dateInfo}
-📝 <b>មូលហេតុ:</b> ${existing.reason}
+👤 <b>បុគ្គលិក:</b> ${escapeTg(existing.member_name)} (<code>${escapeTg(existing.member_code)}</code>)
+💼 <b>តួនាទី:</b> ${escapeTg(existing.member_role || 'បុគ្គលិក')}
+📑 <b>ប្រភេទ:</b> ${escapeTg(reqTypeLabel)} (${escapeTg(existing.sub_type || 'ទូទៅ')})
+📅 <b>កាលបរិច្ឆេទ:</b> ${escapeTg(dateInfo)}
+📝 <b>មូលហេតុ:</b> ${escapeTg(existing.reason)}
 ━━━━━━━━━━━━━━━━━
-📊 <b>ការសម្រេច:</b> ${statusEmoji} <b>${statusLabel}</b>
-💬 <b>សារឆ្លើយតប:</b> "${adminResponse}"
-👨‍💼 <b>អនុញ្ញាត/ពិនិត្យដោយ:</b> ${leaderName}
+📊 <b>ការសម្រេច:</b> ${statusEmoji} <b>${escapeTg(statusLabel)}</b>
+💬 <b>សារឆ្លើយតប:</b> "${escapeTg(adminResponse)}"
+👨‍💼 <b>អនុញ្ញាត/ពិនិត្យដោយ:</b> ${escapeTg(leaderName)}
 🕒 <b>កាលបរិច្ឆេទ:</b> ${formatCambodiaDate(new Date())} ${formatCambodiaTime(new Date())}
 ━━━━━━━━━━━━━━━━━
 <i>ប្រព័ន្ធវត្តមានឆ្លាតវៃ VANN SITHA TRADING</i>
     `.trim();
 
-    sendTelegramMessage(decisionOldGroupMsg).catch(err => console.error('Error sending decision to old group:', err));
+    try {
+      await sendTelegramMessage(decisionOldGroupMsg);
+    } catch (err) {
+      console.error('Error sending decision to old group:', err);
+    }
 
     // 4. UPDATE THE MESSAGE IN THE NEW GROUP (-5352852483): REMOVE BUTTONS & SHOW DECISION
     if (cq.message && cq.message.chat) {
@@ -1557,6 +1574,20 @@ app.post('/api/leave-requests', async (req, res) => {
     const reqTypeLabel = request_type === 'leave' ? '🏖️ សុំច្បាប់ឈប់សម្រាក' : '🛵 សុំមកយឺត (មានបញ្ហាតាមផ្លូវ)';
     const cleanDuration = duration_text || (request_type === 'leave' ? '1 ថ្ងៃ' : 'មកយឺត');
 
+    // Auto-calculate end date if user requested multiple days
+    let finalEndDate = date_end || date_start;
+    if (request_type === 'leave' && (!date_end || date_end === date_start)) {
+      if (cleanDuration.includes('2 ថ្ងៃ')) {
+        const d = new Date(date_start);
+        d.setDate(d.getDate() + 1);
+        finalEndDate = d.toISOString().slice(0, 10);
+      } else if (cleanDuration.includes('3 ថ្ងៃ')) {
+        const d = new Date(date_start);
+        d.setDate(d.getDate() + 2);
+        finalEndDate = d.toISOString().slice(0, 10);
+      }
+    }
+
     const result = await db.run(`
       INSERT INTO leave_requests (
         member_id, member_name, member_code, member_role,
@@ -1565,24 +1596,24 @@ app.post('/api/leave-requests', async (req, res) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
     `, [
       member.id, member.name, member.code, member.role || 'បុគ្គលិក',
-      request_type, sub_type || 'ទូទៅ', date_start, date_end || null,
+      request_type, sub_type || 'ទូទៅ', date_start, finalEndDate || null,
       time_expected || null, cleanDuration, cleanReason
     ]);
 
     const requestId = result.lastInsertRowid;
 
     // Format Telegram Alert for the dedicated Leave Group (-5352852483) with Inline Buttons
-    const dateRangeStr = (date_end && date_end !== date_start) ? `${date_start} ដល់ ${date_end}` : date_start;
-    const timeExpectedLine = time_expected ? `\n⏰ <b>រំពឹងមកដល់នៅម៉ោង:</b> ${time_expected}` : '';
+    const dateRangeStr = (finalEndDate && finalEndDate !== date_start) ? `${date_start} ដល់ ${finalEndDate}` : date_start;
+    const timeExpectedLine = time_expected ? `\n⏰ <b>រំពឹងមកដល់នៅម៉ោង:</b> ${escapeTg(time_expected)}` : '';
 
     const telegramAlert = `
 🔔 <b>សំណើ${request_type === 'leave' ? 'សុំច្បាប់ឈប់សម្រាក' : 'សុំមកយឺត'}ថ្មី!</b>
 ━━━━━━━━━━━━━━━━━
-👤 <b>បុគ្គលិក:</b> ${member.name} (<code>${member.code}</code>)
-💼 <b>តួនាទី:</b> ${member.role || 'បុគ្គលិក'}
-📑 <b>ប្រភេទ:</b> ${reqTypeLabel} (${sub_type || 'ទូទៅ'})
-📅 <b>កាលបរិច្ឆេទ:</b> ${dateRangeStr} (${cleanDuration})${timeExpectedLine}
-📝 <b>មូលហេតុ:</b> ${cleanReason}
+👤 <b>បុគ្គលិក:</b> ${escapeTg(member.name)} (<code>${escapeTg(member.code)}</code>)
+💼 <b>តួនាទី:</b> ${escapeTg(member.role || 'បុគ្គលិក')}
+📑 <b>ប្រភេទ:</b> ${escapeTg(reqTypeLabel)} (${escapeTg(sub_type || 'ទូទៅ')})
+📅 <b>កាលបរិច្ឆេទ:</b> ${escapeTg(dateRangeStr)} (${escapeTg(cleanDuration)})${timeExpectedLine}
+📝 <b>មូលហេតុ:</b> ${escapeTg(cleanReason)}
 🕒 <b>ម៉ោងស្នើសុំ:</b> ${formatCambodiaDate(new Date())} ${formatCambodiaTime(new Date())}
 ━━━━━━━━━━━━━━━━━
 📊 <b>ស្ថានភាព:</b> ⏳ <b>រង់ចាំការអនុម័ត (PENDING)</b>
@@ -1598,13 +1629,16 @@ app.post('/api/leave-requests', async (req, res) => {
       ]
     };
 
-    sendTelegramLeaveMessage(telegramAlert, inlineKeyboard).then(async (sendRes) => {
+    try {
+      const sendRes = await sendTelegramLeaveMessage(telegramAlert, inlineKeyboard);
       if (sendRes && sendRes.data && sendRes.data.result) {
         const msgId = sendRes.data.result.message_id;
         const chatId = sendRes.data.result.chat.id;
         await db.run("UPDATE leave_requests SET tg_message_id = ?, tg_chat_id = ? WHERE id = ?", [msgId, String(chatId), requestId]);
       }
-    }).catch(err => console.error('Telegram leave alert error:', err));
+    } catch (err) {
+      console.error('Telegram leave alert error:', err);
+    }
 
     res.json({
       success: true,
@@ -1715,22 +1749,26 @@ app.post('/api/leave-requests/:id/review', async (req, res) => {
     const decisionTelegram = `
 📢 <b>ការសម្រេចលើសំណើសុំច្បាប់ & មកយឺត</b>
 ━━━━━━━━━━━━━━━━━
-👤 <b>បុគ្គលិក:</b> ${existing.member_name} (<code>${existing.member_code}</code>)
-💼 <b>តួនាទី:</b> ${existing.member_role || 'បុគ្គលិក'}
-📑 <b>ប្រភេទសំណើ:</b> ${reqTypeLabel} (${existing.sub_type || 'ទូទៅ'})
-📅 <b>កាលបរិច្ឆេទ:</b> ${dateInfo}
-📝 <b>មូលហេតុ:</b> ${existing.reason}
+👤 <b>បុគ្គលិក:</b> ${escapeTg(existing.member_name)} (<code>${escapeTg(existing.member_code)}</code>)
+💼 <b>តួនាទី:</b> ${escapeTg(existing.member_role || 'បុគ្គលិក')}
+📑 <b>ប្រភេទសំណើ:</b> ${escapeTg(reqTypeLabel)} (${escapeTg(existing.sub_type || 'ទូទៅ')})
+📅 <b>កាលបរិច្ឆេទ:</b> ${escapeTg(dateInfo)}
+📝 <b>មូលហេតុ:</b> ${escapeTg(existing.reason)}
 ━━━━━━━━━━━━━━━━━
-📊 <b>ការសម្រេច:</b> ${statusEmoji} <b>${statusLabel}</b>
-💬 <b>សារពី Admin:</b> "${cleanResponse}"
-👨‍💼 <b>ពិនិត្យ/អនុញ្ញាតដោយ:</b> ${reviewer}
+📊 <b>ការសម្រេច:</b> ${statusEmoji} <b>${escapeTg(statusLabel)}</b>
+💬 <b>សារពី Admin:</b> "${escapeTg(cleanResponse)}"
+👨‍💼 <b>ពិនិត្យ/អនុញ្ញាតដោយ:</b> ${escapeTg(reviewer)}
 🕒 <b>កាលបរិច្ឆេទ:</b> ${formatCambodiaDate(new Date())} ${formatCambodiaTime(new Date())}
 ━━━━━━━━━━━━━━━━━
 <i>ប្រព័ន្ធវត្តមានឆ្លាតវៃ VANN SITHA TRADING</i>
     `.trim();
 
     // Broadcast to the OLD / MAIN Telegram Group!
-    sendTelegramMessage(decisionTelegram).catch(err => console.error('Telegram decision to old group error:', err));
+    try {
+      await sendTelegramMessage(decisionTelegram);
+    } catch (err) {
+      console.error('Telegram decision to old group error:', err);
+    }
 
     // Remove buttons and update message in the NEW GROUP if tg_message_id is known
     if (existing.tg_message_id && existing.tg_chat_id) {
