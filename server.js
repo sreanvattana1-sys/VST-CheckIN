@@ -220,8 +220,8 @@ function ensureDb() {
 app.use(cors());
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.static(__dirname));
+
+
 
 // Route to always serve the latest index.html whether uploaded to root or public/
 app.get('/', (req, res) => {
@@ -251,6 +251,11 @@ app.get('/app.js', (req, res) => {
   if (fs.existsSync(pubApp)) return res.sendFile(pubApp);
   res.status(404).send('console.error("app.js not found");');
 });
+
+// Serve all other static assets only after the explicit root and app.js routes.
+// This prevents stale files in public/ from overriding newer root-level files.
+app.use(express.static(path.join(__dirname, 'public'), { index: false }));
+app.use(express.static(__dirname, { index: false }));
 
 // Ensure DB is initialized before processing any route
 app.use(async (req, res, next) => {
