@@ -122,6 +122,9 @@ const translations = {
     pinPromptInput: "សូមបញ្ចូលលេខកូដសម្ងាត់ (PIN)",
     confirmBtn: "យល់ព្រម",
     loginPortalSubtitle: "ចូលប្រើប្រាស់",
+    welcomeHeading: "សូមស្វាគមន៍",
+    welcomeCheckIn: "ចុះវត្តមាន",
+    welcomeSkip: "រំលង",
     tabSignIn: "ចូលប្រើ (Sign In)",
     tabRegister: "ចុះឈ្មោះ",
     lblPhoneOrCode: "លេខទូរសព្ទ ឬ ID",
@@ -289,6 +292,9 @@ const translations = {
     pinPromptInput: "Enter Admin PIN (Default: 1234)",
     confirmBtn: "Confirm",
     loginPortalSubtitle: "Staff Login",
+    welcomeHeading: "Welcome",
+    welcomeCheckIn: "Check In",
+    welcomeSkip: "Skip",
     tabSignIn: "Sign In",
     tabRegister: "Registration",
     lblPhoneOrCode: "Phone or Member ID",
@@ -687,8 +693,28 @@ function closeFontSelectorModal() {
   if (modal) modal.classList.add('hidden');
 }
 
+function initWelcomeSplash() {
+  const splash = document.getElementById('welcomeSplash');
+  if (!splash) return;
+  const finish = () => {
+    splash.classList.add('is-finished');
+    splash.setAttribute('aria-hidden', 'true');
+    splash.removeAttribute('aria-modal');
+  };
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    finish();
+    return;
+  }
+  const timer = window.setTimeout(finish, 3400);
+  document.getElementById('welcomeSkip')?.addEventListener('click', () => {
+    window.clearTimeout(timer);
+    finish();
+  });
+}
+
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', async () => {
+  initWelcomeSplash();
   applyTheme(currentTheme);
   applyUiStyle(currentUiStyle);
   applyKhmerFont(currentKhmerFont);
