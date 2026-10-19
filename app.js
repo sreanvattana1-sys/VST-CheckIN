@@ -4117,7 +4117,7 @@ function showAcledaNoticeModal() {
 }
 
 function openTelegramNoticeGroup() {
-  window.open('https://t.me/c/5037746251', '_blank');
+  window.open('https://t.me/+7-2v2mntfswzZTg9', '_blank', 'noopener,noreferrer');
 }
 
 // ========================================================
