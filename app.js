@@ -3369,6 +3369,34 @@ async function deleteMember(id, name) {
 
 // 12. Admin History & Period Tracking (Week / Month / Day / Member)
 let adminHistoryCurrentPeriod = 'week';
+let adminHistoryLogs = [];
+let adminHistoryPage = 1;
+const adminHistoryPageSize = 10;
+let adminHistoryExportFormat = 'csv';
+
+function resetHistoryPagination() { adminHistoryPage = 1; }
+
+function toLocalDateValue(date) {
+  const d = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return d.toISOString().slice(0, 10);
+}
+
+function applyHistoryPeriodDates(period) {
+  const startEl = document.getElementById('adminHistoryStartDate');
+  const endEl = document.getElementById('adminHistoryEndDate');
+  if (!startEl || !endEl || period === 'custom') return;
+  const today = new Date();
+  let start = new Date(today);
+  let end = new Date(today);
+  if (period === 'week') {
+    const day = today.getDay();
+    start.setDate(today.getDate() - (day === 0 ? 6 : day - 1));
+  } else if (period === 'month') {
+    start = new Date(today.getFullYear(), today.getMonth(), 1);
+  }
+  startEl.value = toLocalDateValue(start);
+  endEl.value = toLocalDateValue(end);
+}
 
 function setAdminHistoryPeriod(period) {
   adminHistoryCurrentPeriod = period;
@@ -3376,9 +3404,7 @@ function setAdminHistoryPeriod(period) {
     'today': document.getElementById('admPeriodBtnToday'),
     'week': document.getElementById('admPeriodBtnWeek'),
     'month': document.getElementById('admPeriodBtnMonth'),
-    'custom-date': document.getElementById('admPeriodBtnCustomDate'),
-    'custom-month': document.getElementById('admPeriodBtnCustomMonth'),
-    'all': document.getElementById('admPeriodBtnAll')
+    'custom': document.getElementById('admPeriodBtnCustom')
   };
 
   Object.keys(btns).forEach(k => {
@@ -3391,157 +3417,179 @@ function setAdminHistoryPeriod(period) {
     }
   });
 
-  const dateInput = document.getElementById('adminHistoryDateFilter');
-  const monthInput = document.getElementById('adminHistoryMonthFilter');
-
-  if (dateInput) {
-    if (period === 'custom-date') {
-      dateInput.classList.remove('hidden');
-      if (!dateInput.value) dateInput.value = getKhDateString();
-    } else {
-      dateInput.classList.add('hidden');
-    }
-  }
-
-  if (monthInput) {
-    if (period === 'custom-month') {
-      monthInput.classList.remove('hidden');
-      if (!monthInput.value) monthInput.value = getKhMonthString();
-    } else {
-      monthInput.classList.add('hidden');
-    }
-  }
-
+  applyHistoryPeriodDates(period);
+  resetHistoryPagination();
   loadAttendanceHistory();
 }
 
-async function loadAttendanceHistory() {
-  const memberCode = document.getElementById('adminHistoryMemberFilter') ? document.getElementById('adminHistoryMemberFilter').value : '';
-  const dateVal = document.getElementById('adminHistoryDateFilter') ? document.getElementById('adminHistoryDateFilter').value : '';
-  const monthVal = document.getElementById('adminHistoryMonthFilter') ? document.getElementById('adminHistoryMonthFilter').value : '';
+function getHistoryQuery(limit = 5000) {
+  const memberCode = document.getElementById('adminHistoryMemberFilter')?.value || '';
+  const startDate = document.getElementById('adminHistoryStartDate')?.value || '';
+  const endDate = document.getElementById('adminHistoryEndDate')?.value || '';
+  let url = `/api/attendance?limit=${limit}`;
+  if (memberCode) url += `&code=${encodeURIComponent(memberCode)}`;
+  if (startDate) url += `&startDate=${encodeURIComponent(startDate)}`;
+  if (endDate) url += `&endDate=${encodeURIComponent(endDate)}`;
+  return url;
+}
 
-  let queryUrl = '/api/attendance?limit=1000';
-  if (memberCode) queryUrl += `&code=${encodeURIComponent(memberCode)}`;
+function isLateAttendance(record) {
+  if (!['morning_in', 'afternoon_in', 'check_in'].includes(record.type)) return false;
+  const d = new Date(record.timestamp);
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Phnom_Penh', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(d);
+  const hour = Number(parts.find(p => p.type === 'hour')?.value || 0);
+  const minute = Number(parts.find(p => p.type === 'minute')?.value || 0);
+  const total = hour * 60 + minute;
+  return record.type === 'afternoon_in' ? total > 790 : total > 490;
+}
 
-  if (adminHistoryCurrentPeriod === 'today') {
-    queryUrl += `&date=${getKhDateString()}`;
-  } else if (adminHistoryCurrentPeriod === 'week') {
-    const { startDate, endDate } = getKhWeekRange();
-    queryUrl += `&startDate=${startDate}&endDate=${endDate}`;
-  } else if (adminHistoryCurrentPeriod === 'month') {
-    queryUrl += `&month=${getKhMonthString()}`;
-  } else if (adminHistoryCurrentPeriod === 'custom-date') {
-    if (dateVal) queryUrl += `&date=${dateVal}`;
-  } else if (adminHistoryCurrentPeriod === 'custom-month') {
-    if (monthVal) queryUrl += `&month=${monthVal}`;
-  } // 'all': no date restriction
+function historyActionLabel(type) {
+  const labels = currentLang === 'km'
+    ? { morning_in: '1/4 ព្រឹកចូល', lunch_out: '2/4 សម្រាកបាយ', afternoon_in: '3/4 ចូលវិញ', evening_out: '4/4 ល្ងាចចេញ', check_in: 'ចូល', check_out: 'ចេញ' }
+    : { morning_in: '1/4 Morning In', lunch_out: '2/4 Lunch Out', afternoon_in: '3/4 Return In', evening_out: '4/4 Evening Out', check_in: 'Check In', check_out: 'Check Out' };
+  return labels[type] || type || '-';
+}
 
-  try {
-    const res = await apiFetch(queryUrl);
-    const logs = await res.json();
-    const tbody = document.getElementById('fullHistoryTable');
-    if (!tbody) return;
-
-    // Calculate KPIs
-    const totalRecords = logs.length;
-    const distinctMembers = new Set();
-    let insideCount = 0;
-    let outsideCount = 0;
-
-    logs.forEach(l => {
-      if (l.member_code || l.member_name) distinctMembers.add(l.member_code || l.member_name);
-      if (l.is_within_range) insideCount++;
-      else outsideCount++;
-    });
-
-    const inPct = totalRecords > 0 ? Math.round((insideCount / totalRecords) * 100) : 100;
-
-    const kpiTotal = document.getElementById('admKpiTotalRecords');
-    const kpiMembers = document.getElementById('admKpiActiveMembers');
-    const kpiIn = document.getElementById('admKpiInGeofence');
-    const kpiInPct = document.getElementById('admKpiInGeofencePct');
-    const kpiOut = document.getElementById('admKpiOutGeofence');
-
-    if (kpiTotal) kpiTotal.textContent = totalRecords;
-    if (kpiMembers) kpiMembers.textContent = distinctMembers.size;
-    if (kpiIn) kpiIn.textContent = insideCount;
-    if (kpiInPct) kpiInPct.textContent = `${inPct}% ក្នុងទីស្នាក់ការ`;
-    if (kpiOut) kpiOut.textContent = outsideCount;
-
-    if (!logs || logs.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-slate-400 font-medium">${translations[currentLang].noDataYet || 'មិនមានកំណត់ត្រាវត្តមានសម្រាប់កាលវេលា និងបុគ្គលិកដែលបានជ្រើសរើសនេះទេ។'}</td></tr>`;
-      return;
-    }
-
-    const loc = currentLang === 'km' ? 'km-KH' : 'en-US';
-
-    const slotBadgeMap = {
-      morning_in: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>1/4 ព្រឹកចូល</span>`,
-      lunch_out: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>2/4 សម្រាកបាយ</span>`,
-      afternoon_in: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20"><span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>3/4 ចូលវិញ</span>`,
-      evening_out: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20"><span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span>4/4 ល្ងាចចេញ</span>`,
-      check_in: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>Check-In</span>`,
-      check_out: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20"><span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>Check-Out</span>`
+function renderAttendanceHistory() {
+  const tbody = document.getElementById('fullHistoryTable');
+  if (!tbody) return;
+  const totalPages = Math.max(1, Math.ceil(adminHistoryLogs.length / adminHistoryPageSize));
+  adminHistoryPage = Math.min(adminHistoryPage, totalPages);
+  const offset = (adminHistoryPage - 1) * adminHistoryPageSize;
+  const pageLogs = adminHistoryLogs.slice(offset, offset + adminHistoryPageSize);
+  if (!pageLogs.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="py-10 text-center text-slate-400">មិនមានទិន្នន័យសម្រាប់រយៈពេលដែលបានជ្រើសរើសទេ</td></tr>`;
+  } else {
+    const badgeClass = {
+      morning_in: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
+      lunch_out: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
+      afternoon_in: 'bg-sky-500/10 text-sky-300 border-sky-500/20',
+      evening_out: 'bg-purple-500/10 text-purple-300 border-purple-500/20',
+      check_in: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
+      check_out: 'bg-sky-500/10 text-sky-300 border-sky-500/20'
     };
+    tbody.innerHTML = pageLogs.map((l, index) => {
+      const color = badgeClass[l.type] || 'bg-slate-500/10 text-slate-300 border-slate-500/20';
+      const time = new Date(l.timestamp).toLocaleString(currentLang === 'km' ? 'km-KH' : 'en-US', { timeZone: 'Asia/Phnom_Penh' });
+      return `<tr class="hover:bg-white/[0.035] transition-colors"><td class="py-3 px-4 font-mono text-slate-500">${offset + index + 1}</td><td class="py-3 px-4 font-bold text-white">${escapeHtml(l.member_name || '-')}</td><td class="py-3 px-4 font-mono text-cyan-300 font-semibold">${escapeHtml(l.member_code || '-')}</td><td class="py-3 px-4 text-slate-400">${escapeHtml(l.member_role || '-')}</td><td class="py-3 px-4"><span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${color}"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>${escapeHtml(historyActionLabel(l.type))}</span>${isLateAttendance(l) ? '<span class="ml-1.5 text-[10px] font-bold text-rose-400">យឺត</span>' : ''}</td><td class="py-3 px-4 font-mono text-slate-300 whitespace-nowrap">${escapeHtml(time)}</td></tr>`;
+    }).join('');
+  }
+  const start = adminHistoryLogs.length ? offset + 1 : 0;
+  const end = Math.min(offset + adminHistoryPageSize, adminHistoryLogs.length);
+  const info = document.getElementById('historyPageInfo');
+  if (info) info.textContent = `បង្ហាញ ${start}-${end} ក្នុងចំណោម ${adminHistoryLogs.length} កំណត់ត្រា`;
+  const pager = document.getElementById('historyPagination');
+  if (pager) {
+    const buttons = [];
+    buttons.push(`<button ${adminHistoryPage === 1 ? 'disabled' : ''} onclick="changeHistoryPage(${adminHistoryPage - 1})" class="w-9 h-9 rounded-xl border border-white/10 text-slate-300 disabled:opacity-30">‹</button>`);
+    for (let p = 1; p <= totalPages; p++) if (p === 1 || p === totalPages || Math.abs(p - adminHistoryPage) <= 1) buttons.push(`<button onclick="changeHistoryPage(${p})" class="w-9 h-9 rounded-xl ${p === adminHistoryPage ? 'bg-gradient-to-br from-blue-600 to-cyan-400 text-white font-bold' : 'border border-white/10 text-slate-300'}">${p}</button>`);
+    buttons.push(`<button ${adminHistoryPage === totalPages ? 'disabled' : ''} onclick="changeHistoryPage(${adminHistoryPage + 1})" class="w-9 h-9 rounded-xl border border-white/10 text-slate-300 disabled:opacity-30">›</button>`);
+    pager.innerHTML = buttons.join('');
+  }
+}
 
-    tbody.innerHTML = logs.map((l, i) => `
-      <tr class="hover:bg-white/[0.03] transition-colors border-b border-slate-800/80">
-        <td class="py-2.5 px-4 font-mono text-slate-500 text-xs">${i + 1}</td>
-        <td class="py-2.5 px-4 font-bold text-white">${l.member_name || '-'}</td>
-        <td class="py-2.5 px-4 font-mono text-xs text-cyan-300 font-semibold">${l.member_code || '-'}</td>
-        <td class="py-2.5 px-4 text-xs text-slate-400 font-medium">${l.member_role || '-'}</td>
-        <td class="py-2.5 px-4">${slotBadgeMap[l.type] || `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-800 text-slate-300 border border-slate-700">${l.type}</span>`}</td>
-        <td class="py-2.5 px-4 font-mono text-xs text-slate-300">${new Date(l.timestamp).toLocaleString(loc, { timeZone: 'Asia/Phnom_Penh' })}</td>
-        <td class="py-2.5 px-4 font-mono text-xs text-slate-400">${l.distance_meters !== null ? l.distance_meters + 'm' : '-'}</td>
-        <td class="py-2.5 px-4">${l.is_within_range 
-          ? `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>ក្នុងរង្វង់</span>` 
-          : `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>ក្រៅរង្វង់</span>`}</td>
-      </tr>
-    `).join('');
+function changeHistoryPage(page) { adminHistoryPage = page; renderAttendanceHistory(); }
 
+async function loadAttendanceHistory() {
+  try {
+    if (!document.getElementById('adminHistoryStartDate')?.value) applyHistoryPeriodDates(adminHistoryCurrentPeriod);
+    const res = await apiFetch(getHistoryQuery());
+    if (!res.ok) throw new Error('Unable to load attendance report');
+    const logs = await res.json();
+    adminHistoryLogs = Array.isArray(logs) ? logs : [];
+    const totalRecords = logs.length;
+    const distinctMembers = new Set(logs.map(l => l.member_code || l.member_name).filter(Boolean));
+    const lateCount = logs.filter(isLateAttendance).length;
+    document.getElementById('admKpiTotalRecords').textContent = totalRecords;
+    document.getElementById('admKpiActiveMembers').textContent = distinctMembers.size;
+    document.getElementById('admKpiOnTime').textContent = Math.max(0, totalRecords - lateCount);
+    document.getElementById('admKpiLate').textContent = lateCount;
+    renderAttendanceHistory();
     if (window.lucide) lucide.createIcons();
   } catch (e) {
     console.error(e);
+    Swal.fire({ icon: 'error', title: 'មិនអាចទាញយករបាយការណ៍', text: e.message });
   }
 }
 
 async function exportHistoryCSV() {
-  const memberCode = document.getElementById('adminHistoryMemberFilter') ? document.getElementById('adminHistoryMemberFilter').value : '';
-  const dateVal = document.getElementById('adminHistoryDateFilter') ? document.getElementById('adminHistoryDateFilter').value : '';
-  const monthVal = document.getElementById('adminHistoryMonthFilter') ? document.getElementById('adminHistoryMonthFilter').value : '';
-
-  let queryUrl = '/api/attendance?limit=5000';
-  if (memberCode) queryUrl += `&code=${encodeURIComponent(memberCode)}`;
-
-  if (adminHistoryCurrentPeriod === 'today') {
-    queryUrl += `&date=${getKhDateString()}`;
-  } else if (adminHistoryCurrentPeriod === 'week') {
-    const { startDate, endDate } = getKhWeekRange();
-    queryUrl += `&startDate=${startDate}&endDate=${endDate}`;
-  } else if (adminHistoryCurrentPeriod === 'month') {
-    queryUrl += `&month=${getKhMonthString()}`;
-  } else if (adminHistoryCurrentPeriod === 'custom-date') {
-    if (dateVal) queryUrl += `&date=${dateVal}`;
-  } else if (adminHistoryCurrentPeriod === 'custom-month') {
-    if (monthVal) queryUrl += `&month=${monthVal}`;
-  }
-
-  const res = await apiFetch(queryUrl);
-  const records = await res.json();
+  const records = adminHistoryLogs;
   if (!records || records.length === 0) return Swal.fire({ icon: 'info', title: 'គ្មានទិន្នន័យសម្រាប់ Export ទេ' });
-
-  const csvRows = [['ID', 'Name', 'Code', 'Role', 'Type', 'DateTime', 'Distance (m)', 'Within Geofence', 'Note']];
+  const csvRows = [['No.', 'Name', 'Code', 'Role', 'Action', 'Date & Time', 'Late', 'Note']];
+  const loc = currentLang === 'km' ? 'km-KH' : 'en-US';
   for (const r of records) {
-    csvRows.push([r.id, `"${r.member_name || ''}"`, r.member_code || '', `"${r.member_role || ''}"`, r.type, `"${r.timestamp}"`, r.distance_meters || '', r.is_within_range ? 'Yes' : 'No', `"${(r.note || '').replace(/"/g, '""')}"`]);
+    csvRows.push([r.id, `"${(r.member_name || '').replace(/"/g, '""')}"`, r.member_code || '', `"${(r.member_role || '').replace(/"/g, '""')}"`, `"${historyActionLabel(r.type)}"`, `"${new Date(r.timestamp).toLocaleString(loc, { timeZone: 'Asia/Phnom_Penh' })}"`, isLateAttendance(r) ? 'Yes' : 'No', `"${(r.note || '').replace(/"/g, '""')}"`]);
   }
-  const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + csvRows.map(e => e.join(",")).join("\n");
-  const link = document.createElement("a");
-  link.setAttribute("href", encodeURI(csvContent));
-  const periodLabel = adminHistoryCurrentPeriod;
-  link.setAttribute("download", `attendance_${periodLabel}_${new Date().toISOString().slice(0, 10)}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  downloadBlob(new Blob(['\uFEFF' + csvRows.map(row => row.join(',')).join('\n')], { type: 'text/csv;charset=utf-8' }), historyExportFileName('csv'));
+}
+
+function historyExportFileName(ext) {
+  const start = document.getElementById('adminHistoryStartDate')?.value || 'all';
+  const end = document.getElementById('adminHistoryEndDate')?.value || start;
+  return `VST_Attendance_${start}_to_${end}.${ext}`;
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a'); link.href = url; link.download = filename;
+  document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function openHistoryExportModal() {
+  if (!adminHistoryLogs.length) return Swal.fire({ icon: 'info', title: 'មិនមានទិន្នន័យសម្រាប់ Export ទេ' });
+  const modal = document.getElementById('historyExportModal');
+  modal.classList.remove('hidden'); modal.classList.add('flex');
+  document.getElementById('exportDateRangeLabel').textContent = `${document.getElementById('adminHistoryStartDate')?.value || '-'} → ${document.getElementById('adminHistoryEndDate')?.value || '-'}`;
+  if (window.lucide) lucide.createIcons();
+}
+function closeHistoryExportModal() { const m = document.getElementById('historyExportModal'); m.classList.add('hidden'); m.classList.remove('flex'); }
+function selectHistoryExportFormat(format) {
+  adminHistoryExportFormat = format;
+  document.querySelectorAll('.history-export-format').forEach(btn => {
+    const active = btn.dataset.exportFormat === format;
+    btn.classList.toggle('border-2', active); btn.classList.toggle('border-cyan-400', active); btn.classList.toggle('bg-cyan-400/10', active);
+    btn.classList.toggle('border', !active); btn.classList.toggle('border-white/10', !active); btn.classList.toggle('bg-white/[0.03]', !active);
+  });
+}
+
+function buildPrintableHistoryReport() {
+  const includeSummary = document.getElementById('exportIncludeSummary')?.checked;
+  const includeDetails = document.getElementById('exportIncludeDetails')?.checked;
+  const range = `${document.getElementById('adminHistoryStartDate')?.value || '-'} to ${document.getElementById('adminHistoryEndDate')?.value || '-'}`;
+  const lateCount = adminHistoryLogs.filter(isLateAttendance).length;
+  const members = new Set(adminHistoryLogs.map(r => r.member_code || r.member_name).filter(Boolean)).size;
+  const rows = adminHistoryLogs.map((r, i) => `<tr><td>${i + 1}</td>${includeDetails ? `<td>${escapeHtml(r.member_name || '-')}</td><td>${escapeHtml(r.member_code || '-')}</td><td>${escapeHtml(r.member_role || '-')}</td>` : ''}<td>${escapeHtml(historyActionLabel(r.type))}${isLateAttendance(r) ? ' (Late)' : ''}</td><td>${escapeHtml(new Date(r.timestamp).toLocaleString('en-GB', { timeZone: 'Asia/Phnom_Penh' }))}</td></tr>`).join('');
+  const el = document.createElement('div');
+  el.style.cssText = 'background:#fff;color:#0f172a;padding:32px;width:1050px;font-family:"Noto Sans Khmer",Arial,sans-serif;';
+  el.innerHTML = `<div style="border-bottom:3px solid #0891b2;padding-bottom:16px;margin-bottom:20px"><h1 style="margin:0;font-size:25px">VANN SITHA TRADING CO.,LTD</h1><h2 style="margin:6px 0;color:#0891b2;font-size:18px">Attendance Report / របាយការណ៍វត្តមាន</h2><p style="margin:0;color:#64748b;font-size:12px">Date range: ${range} · Generated: ${new Date().toLocaleString('en-GB')}</p></div>${includeSummary ? `<div style="display:flex;gap:12px;margin:18px 0"><div style="padding:12px;border:1px solid #cbd5e1;flex:1"><b>Total Records</b><div style="font-size:22px">${adminHistoryLogs.length}</div></div><div style="padding:12px;border:1px solid #cbd5e1;flex:1"><b>Members Present</b><div style="font-size:22px">${members}</div></div><div style="padding:12px;border:1px solid #cbd5e1;flex:1"><b>On Time</b><div style="font-size:22px">${adminHistoryLogs.length - lateCount}</div></div><div style="padding:12px;border:1px solid #cbd5e1;flex:1"><b>Late</b><div style="font-size:22px;color:#e11d48">${lateCount}</div></div></div>` : ''}<table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="background:#0f172a;color:#fff"><th style="padding:9px;border:1px solid #334155">#</th>${includeDetails ? '<th style="padding:9px;border:1px solid #334155">Name</th><th style="padding:9px;border:1px solid #334155">Code</th><th style="padding:9px;border:1px solid #334155">Role</th>' : ''}<th style="padding:9px;border:1px solid #334155">Action</th><th style="padding:9px;border:1px solid #334155">Date & Time</th></tr></thead><tbody>${rows.replaceAll('<td>', '<td style="padding:8px;border:1px solid #cbd5e1">')}</tbody></table><p style="text-align:center;color:#64748b;font-size:10px;margin-top:22px">VANN SITHA TRADING · Smart Digital Attendance Hub</p>`;
+  return el;
+}
+
+async function exportHistoryPDF() {
+  if (typeof html2pdf === 'undefined') throw new Error('PDF exporter is not ready. Please refresh and try again.');
+  const report = buildPrintableHistoryReport(); document.body.appendChild(report);
+  try { await html2pdf().set({ margin: 8, filename: historyExportFileName('pdf'), image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }, pagebreak: { mode: ['avoid-all', 'css', 'legacy'] } }).from(report).save(); }
+  finally { report.remove(); }
+}
+
+function exportHistoryWord() {
+  const report = buildPrintableHistoryReport();
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>@page{size:A4 landscape;margin:15mm}body{font-family:"Noto Sans Khmer",Arial,sans-serif}table{width:100%;border-collapse:collapse}td,th{border:1px solid #cbd5e1;padding:7px}</style></head><body>${report.innerHTML}</body></html>`;
+  downloadBlob(new Blob(['\uFEFF', html], { type: 'application/msword' }), historyExportFileName('doc'));
+}
+
+async function downloadHistoryReport() {
+  const btn = document.getElementById('historyDownloadBtn');
+  btn.disabled = true; btn.classList.add('opacity-60');
+  try {
+    if (adminHistoryExportFormat === 'pdf') await exportHistoryPDF();
+    else if (adminHistoryExportFormat === 'word') exportHistoryWord();
+    else exportHistoryCSV();
+    closeHistoryExportModal();
+    Swal.fire({ icon: 'success', title: 'បានទាញយករបាយការណ៍', timer: 1500, showConfirmButton: false });
+  } catch (error) { Swal.fire({ icon: 'error', title: 'Export មិនបានសម្រេច', text: error.message }); }
+  finally { btn.disabled = false; btn.classList.remove('opacity-60'); }
 }
 
 // 13. Admin Settings Load & Save

@@ -79,6 +79,8 @@
 
   <!-- SweetAlert2 -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <!-- Client-side PDF export (renders Khmer text exactly as displayed) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
   <style>
     /* ================= BASE & TYPOGRAPHY (LINEAR / VERCEL SAAS THEME) ================= */
@@ -1927,94 +1929,49 @@
 
       <!-- Admin Section 4: History & Period Tracking -->
       <section id="adm-sec-history" class="adm-section hidden space-y-4">
-        <div class="glass-crystal p-5 sm:p-6 rounded-3xl border border-white/20 shadow-2xl space-y-4">
-          
-          <!-- Top Controls Bar -->
-          <div class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3.5 pb-3 border-b border-white/10">
-            
-            <!-- Member & Period Selectors -->
-            <div class="flex items-center gap-3 flex-wrap">
-              <!-- Member Filter -->
-              <div class="flex items-center gap-2">
-                <i data-lucide="users" class="w-4 h-4 text-cyan-400"></i>
-                <label for="adminHistoryMemberFilter" class="text-xs font-bold text-white whitespace-nowrap">បុគ្គលិក:</label>
-                <select id="adminHistoryMemberFilter" onchange="loadAttendanceHistory()" class="text-xs bg-slate-900/90 border border-white/20 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-cyan-400 font-medium">
-                  <option value="">-- បុគ្គលិកទាំងអស់ (All Members) --</option>
-                </select>
-              </div>
-
-              <!-- Period Pills -->
-              <div class="flex items-center p-1 rounded-xl bg-slate-900/80 border border-white/15 gap-1 flex-wrap">
-                <button type="button" onclick="setAdminHistoryPeriod('today')" id="admPeriodBtnToday" class="adm-history-period-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition">ថ្ងៃនេះ</button>
-                <button type="button" onclick="setAdminHistoryPeriod('week')" id="admPeriodBtnWeek" class="adm-history-period-btn px-2.5 py-1.5 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-blue-600 to-cyan-500 shadow-xs transition">សប្តាហ៍នេះ</button>
-                <button type="button" onclick="setAdminHistoryPeriod('month')" id="admPeriodBtnMonth" class="adm-history-period-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition">ខែនេះ</button>
-                <button type="button" onclick="setAdminHistoryPeriod('custom-date')" id="admPeriodBtnCustomDate" class="adm-history-period-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition">តាមថ្ងៃ</button>
-                <button type="button" onclick="setAdminHistoryPeriod('custom-month')" id="admPeriodBtnCustomMonth" class="adm-history-period-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition">តាមខែ</button>
-                <button type="button" onclick="setAdminHistoryPeriod('all')" id="admPeriodBtnAll" class="adm-history-period-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition">ទាំងអស់</button>
-              </div>
-
-              <!-- Custom Pickers -->
-              <input type="date" id="adminHistoryDateFilter" onchange="loadAttendanceHistory()" class="hidden text-xs bg-slate-900 border border-white/20 rounded-xl px-3 py-1.5 text-white focus:outline-none focus:border-cyan-400">
-              <input type="month" id="adminHistoryMonthFilter" onchange="loadAttendanceHistory()" class="hidden text-xs bg-slate-900 border border-white/20 rounded-xl px-3 py-1.5 text-white focus:outline-none focus:border-cyan-400">
+        <div class="glass-crystal rounded-3xl border border-white/20 shadow-2xl overflow-hidden">
+          <div class="p-5 sm:p-6 border-b border-white/10 bg-gradient-to-r from-cyan-500/[0.08] to-blue-500/[0.04] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+              <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-400 flex items-center justify-center shadow-lg shadow-cyan-500/20"><i data-lucide="chart-no-axes-column-increasing" class="w-6 h-6 text-white"></i></div>
+              <div><h3 class="text-lg font-black text-white">របាយការណ៍វត្តមាន <span class="text-cyan-300">Attendance Reports</span></h3><p class="text-xs text-slate-400">មើល ស្វែងរក និងទាញយកទិន្នន័យវត្តមានបុគ្គលិក</p></div>
             </div>
-
-            <!-- Action Buttons: Telegram & Export -->
-            <div class="flex items-center gap-2 flex-wrap self-end lg:self-auto">
-              <button type="button" onclick="sendDailyTelegramSummaryNow()" class="hover:bg-white/10 text-cyan-300 font-bold px-3.5 py-2 rounded-xl text-xs border border-cyan-400/40 flex items-center gap-1.5 shadow-xs transition active:scale-95 cursor-pointer">
-                <i data-lucide="send" class="w-3.5 h-3.5 text-cyan-400"></i> <span>ផ្ញើសរុប Telegram</span>
-              </button>
-              <button type="button" onclick="exportHistoryCSV()" class="btn-gradient-primary px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-cyan-500/25 active:scale-95 cursor-pointer">
-                <i data-lucide="download" class="w-3.5 h-3.5"></i> <span data-i18n="exportExcel">Export CSV</span>
-              </button>
-            </div>
-
-          </div>
-
-          <!-- Summary KPI Cards for Selected Period -->
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div class="p-3 rounded-2xl bg-slate-900/60 border border-white/10">
-              <span class="text-[11px] text-slate-400 block mb-0.5">កំណត់ត្រាសរុប</span>
-              <span id="admKpiTotalRecords" class="text-lg font-black text-white font-mono">0</span>
-              <span class="text-[10px] text-cyan-400 block">ដង (Clock-ins)</span>
-            </div>
-            <div class="p-3 rounded-2xl bg-slate-900/60 border border-white/10">
-              <span class="text-[11px] text-slate-400 block mb-0.5">បុគ្គលិកមានវត្តមាន</span>
-              <span id="admKpiActiveMembers" class="text-lg font-black text-emerald-400 font-mono">0</span>
-              <span class="text-[10px] text-slate-400 block">នាក់ (Members)</span>
-            </div>
-            <div class="p-3 rounded-2xl bg-slate-900/60 border border-white/10">
-              <span class="text-[11px] text-slate-400 block mb-0.5">ក្នុងរង្វង់ GPS</span>
-              <span id="admKpiInGeofence" class="text-lg font-black text-cyan-300 font-mono">0</span>
-              <span id="admKpiInGeofencePct" class="text-[10px] text-emerald-400 block">100% ក្នុងទីស្នាក់ការ</span>
-            </div>
-            <div class="p-3 rounded-2xl bg-slate-900/60 border border-white/10">
-              <span class="text-[11px] text-slate-400 block mb-0.5">ក្រៅរង្វង់ GPS</span>
-              <span id="admKpiOutGeofence" class="text-lg font-black text-rose-400 font-mono">0</span>
-              <span class="text-[10px] text-rose-400 block">ដង ក្រៅទីស្នាក់ការ</span>
+            <div class="flex items-center gap-2">
+              <button type="button" onclick="sendDailyTelegramSummaryNow()" class="px-3.5 py-2.5 rounded-xl border border-cyan-400/40 text-cyan-300 text-xs font-bold hover:bg-cyan-400/10 transition flex items-center gap-2"><i data-lucide="send" class="w-4 h-4"></i> Telegram</button>
+              <button type="button" onclick="openHistoryExportModal()" class="btn-gradient-primary px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-cyan-500/25 active:scale-95"><i data-lucide="download" class="w-4 h-4"></i> Export</button>
             </div>
           </div>
 
-          <!-- History Records Table -->
-          <div class="overflow-x-auto rounded-2xl border border-white/10">
-            <table class="w-full text-left text-xs text-slate-300">
-              <thead class="bg-slate-900/90 text-cyan-300 font-bold uppercase tracking-wider border-b border-white/15 sticky top-0 backdrop-blur-md">
-                <tr>
-                  <th class="py-3 px-4">#</th>
-                  <th class="py-3 px-4" data-i18n="colName">ឈ្មោះ</th>
-                  <th class="py-3 px-4" data-i18n="colCode">កូដ</th>
-                  <th class="py-3 px-4" data-i18n="colRole">តួនាទី</th>
-                  <th class="py-3 px-4" data-i18n="colAction">សកម្មភាព</th>
-                  <th class="py-3 px-4" data-i18n="colTime">កាលបរិច្ឆេទ & ម៉ោង</th>
-                  <th class="py-3 px-4" data-i18n="colDistance">ចម្ងាយ GPS</th>
-                  <th class="py-3 px-4" data-i18n="colGeofence">Geofence</th>
-                </tr>
-              </thead>
-              <tbody id="fullHistoryTable" class="divide-y divide-white/10"></tbody>
-            </table>
-          </div>
+          <div class="p-5 sm:p-6 space-y-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[1fr_1.3fr_2fr_auto] gap-3 items-end">
+              <label class="space-y-1.5"><span class="text-[11px] font-bold text-slate-300 flex items-center gap-1.5"><i data-lucide="user" class="w-3.5 h-3.5 text-cyan-400"></i> បុគ្គលិក</span><select id="adminHistoryMemberFilter" onchange="resetHistoryPagination(); loadAttendanceHistory()" class="w-full h-11 text-xs bg-slate-950/80 border border-white/15 rounded-xl px-3 text-white focus:outline-none focus:border-cyan-400"><option value="">បុគ្គលិកទាំងអស់</option></select></label>
+              <div class="space-y-1.5"><span class="text-[11px] font-bold text-slate-300 flex items-center gap-1.5"><i data-lucide="calendar-range" class="w-3.5 h-3.5 text-cyan-400"></i> ចន្លោះកាលបរិច្ឆេទ</span><div class="flex items-center gap-2"><input type="date" id="adminHistoryStartDate" onchange="setAdminHistoryPeriod('custom')" class="w-full h-11 text-xs bg-slate-950/80 border border-white/15 rounded-xl px-3 text-white focus:outline-none focus:border-cyan-400"><span class="text-slate-500">→</span><input type="date" id="adminHistoryEndDate" onchange="setAdminHistoryPeriod('custom')" class="w-full h-11 text-xs bg-slate-950/80 border border-white/15 rounded-xl px-3 text-white focus:outline-none focus:border-cyan-400"></div></div>
+              <div class="space-y-1.5"><span class="text-[11px] font-bold text-slate-300 flex items-center gap-1.5"><i data-lucide="list-filter" class="w-3.5 h-3.5 text-cyan-400"></i> ជ្រើសរើសរយៈពេល</span><div class="h-11 flex items-center p-1 rounded-xl bg-slate-950/80 border border-white/15 gap-1"><button type="button" onclick="setAdminHistoryPeriod('today')" id="admPeriodBtnToday" class="adm-history-period-btn flex-1 h-8 rounded-lg text-[11px] font-semibold text-slate-300">ថ្ងៃនេះ</button><button type="button" onclick="setAdminHistoryPeriod('week')" id="admPeriodBtnWeek" class="adm-history-period-btn flex-1 h-8 rounded-lg text-[11px] font-bold text-white bg-gradient-to-r from-blue-600 to-cyan-500">សប្តាហ៍នេះ</button><button type="button" onclick="setAdminHistoryPeriod('month')" id="admPeriodBtnMonth" class="adm-history-period-btn flex-1 h-8 rounded-lg text-[11px] font-semibold text-slate-300">ខែនេះ</button><button type="button" onclick="setAdminHistoryPeriod('custom')" id="admPeriodBtnCustom" class="adm-history-period-btn flex-1 h-8 rounded-lg text-[11px] font-semibold text-slate-300">ផ្ទាល់ខ្លួន</button></div></div>
+              <button type="button" onclick="resetHistoryPagination(); loadAttendanceHistory()" class="h-11 px-5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center justify-center gap-2 transition"><i data-lucide="search" class="w-4 h-4"></i> ស្វែងរក</button>
+            </div>
 
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div class="p-4 rounded-2xl bg-blue-500/[0.08] border border-blue-400/15 flex items-center gap-3"><div class="w-11 h-11 rounded-xl bg-blue-500/20 text-blue-300 flex items-center justify-center"><i data-lucide="files" class="w-5 h-5"></i></div><div><span class="text-[11px] text-slate-400 block">កំណត់ត្រាសរុប</span><span id="admKpiTotalRecords" class="text-xl font-black text-white font-mono">0</span></div></div>
+              <div class="p-4 rounded-2xl bg-emerald-500/[0.08] border border-emerald-400/15 flex items-center gap-3"><div class="w-11 h-11 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center"><i data-lucide="users-round" class="w-5 h-5"></i></div><div><span class="text-[11px] text-slate-400 block">បុគ្គលិកមានវត្តមាន</span><span id="admKpiActiveMembers" class="text-xl font-black text-emerald-400 font-mono">0</span></div></div>
+              <div class="p-4 rounded-2xl bg-cyan-500/[0.08] border border-cyan-400/15 flex items-center gap-3"><div class="w-11 h-11 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center"><i data-lucide="clock-3" class="w-5 h-5"></i></div><div><span class="text-[11px] text-slate-400 block">ទាន់ពេល</span><span id="admKpiOnTime" class="text-xl font-black text-cyan-300 font-mono">0</span></div></div>
+              <div class="p-4 rounded-2xl bg-amber-500/[0.08] border border-amber-400/15 flex items-center gap-3"><div class="w-11 h-11 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center"><i data-lucide="triangle-alert" class="w-5 h-5"></i></div><div><span class="text-[11px] text-slate-400 block">មកយឺត</span><span id="admKpiLate" class="text-xl font-black text-rose-400 font-mono">0</span></div></div>
+            </div>
+
+            <div class="overflow-x-auto rounded-2xl border border-white/10"><table class="w-full text-left text-xs text-slate-300"><thead class="bg-slate-900/90 text-cyan-300 font-bold uppercase tracking-wider border-b border-white/15"><tr><th class="py-3.5 px-4">#</th><th class="py-3.5 px-4">ឈ្មោះ / NAME</th><th class="py-3.5 px-4">កូដ / CODE</th><th class="py-3.5 px-4">តួនាទី / ROLE</th><th class="py-3.5 px-4">សកម្មភាព / ACTION</th><th class="py-3.5 px-4">កាលបរិច្ឆេទ និងម៉ោង / DATE & TIME</th></tr></thead><tbody id="fullHistoryTable" class="divide-y divide-white/10"></tbody></table></div>
+            <div class="flex flex-col sm:flex-row gap-3 sm:items-center justify-between"><p id="historyPageInfo" class="text-[11px] text-slate-400">0 កំណត់ត្រា</p><div id="historyPagination" class="flex items-center gap-1.5"></div></div>
+          </div>
         </div>
       </section>
+
+      <div id="historyExportModal" class="hidden fixed inset-0 z-[100] bg-slate-950/80 backdrop-blur-sm p-4 items-center justify-center">
+        <div class="w-full max-w-xl rounded-3xl bg-slate-900 border border-white/15 shadow-2xl overflow-hidden">
+          <div class="p-5 border-b border-white/10 flex items-center justify-between"><div class="flex items-center gap-3"><div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-400 flex items-center justify-center"><i data-lucide="download" class="w-5 h-5 text-white"></i></div><div><h3 class="font-black text-white">ទាញយករបាយការណ៍</h3><p class="text-xs text-slate-400">Export Attendance Report</p></div></div><button onclick="closeHistoryExportModal()" class="p-2 rounded-xl hover:bg-white/10 text-slate-400"><i data-lucide="x" class="w-5 h-5"></i></button></div>
+          <div class="p-5 space-y-5">
+            <div><p class="text-xs font-bold text-slate-300 mb-2">ប្រភេទឯកសារ</p><div class="grid grid-cols-3 gap-3"><button type="button" onclick="selectHistoryExportFormat('csv')" data-export-format="csv" class="history-export-format p-4 rounded-2xl border-2 border-cyan-400 bg-cyan-400/10 text-center"><i data-lucide="file-spreadsheet" class="w-7 h-7 text-emerald-400 mx-auto mb-2"></i><b class="text-xs text-white">Excel / CSV</b></button><button type="button" onclick="selectHistoryExportFormat('pdf')" data-export-format="pdf" class="history-export-format p-4 rounded-2xl border border-white/10 bg-white/[0.03] text-center"><i data-lucide="file-type-2" class="w-7 h-7 text-rose-400 mx-auto mb-2"></i><b class="text-xs text-white">PDF</b></button><button type="button" onclick="selectHistoryExportFormat('word')" data-export-format="word" class="history-export-format p-4 rounded-2xl border border-white/10 bg-white/[0.03] text-center"><i data-lucide="file-text" class="w-7 h-7 text-blue-400 mx-auto mb-2"></i><b class="text-xs text-white">Word</b></button></div></div>
+            <div class="rounded-2xl bg-slate-950/60 border border-white/10 p-4 text-xs text-slate-300"><div class="flex items-center justify-between mb-2"><span>ចន្លោះកាលបរិច្ឆេទ</span><span id="exportDateRangeLabel" class="font-mono text-cyan-300"></span></div><label class="flex items-center justify-between py-2 border-t border-white/10"><span>បញ្ចូលសេចក្ដីសង្ខេប</span><input id="exportIncludeSummary" type="checkbox" checked class="w-4 h-4 accent-cyan-500"></label><label class="flex items-center justify-between py-2 border-t border-white/10"><span>បញ្ចូលព័ត៌មានបុគ្គលិក</span><input id="exportIncludeDetails" type="checkbox" checked class="w-4 h-4 accent-cyan-500"></label></div>
+            <button type="button" onclick="downloadHistoryReport()" id="historyDownloadBtn" class="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-400 text-white text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20"><i data-lucide="download" class="w-4 h-4"></i> ទាញយករបាយការណ៍</button>
+          </div>
+        </div>
+      </div>
 
       <!-- Admin Section: Leave & Late Permissions Management -->
       <section id="adm-sec-leaves" class="adm-section hidden space-y-6">
@@ -3304,6 +3261,6 @@
     </div>
   </div>
 
-  <script src="/app.js?v=30.0"></script>
+  <script src="/app.js?v=31.0"></script>
 </body>
 </html>
