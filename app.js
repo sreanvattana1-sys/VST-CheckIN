@@ -10,6 +10,16 @@ let isAdminAuthenticated = false;
 let todayScansTotalCount = 0;
 let allAdminMembers = [];
 let allPendingMembers = [];
+let adminSessionToken = sessionStorage.getItem('vst_admin_token') || '';
+let staffSessionToken = localStorage.getItem('vst_staff_token') || '';
+const nativeFetch = window.fetch.bind(window);
+
+function apiFetch(input, options = {}) {
+  const headers = new Headers(options.headers || {});
+  const token = isAdminAuthenticated ? adminSessionToken : staffSessionToken;
+  if (token && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`);
+  return nativeFetch(input, { ...options, headers });
+}
 
 // Persistent Device UUID for 1 Staff = 1 Device policy
 function getOrCreateDeviceId() {
@@ -811,7 +821,7 @@ function initLiveClock() {
 // 2. Load Public Information & Configurations
 async function loadPublicInfo() {
   try {
-    const res = await fetch('/api/public-info');
+    const res = await apiFetch('/api/public-info');
     publicInfo = await res.json();
     
     // Update company branding across header & poster
@@ -878,6 +888,11 @@ function getSavedStaffFromStorage() {
 }
 
 function initStaffProfile() {
+  if (!staffSessionToken) {
+    currentStaff = null;
+    showLoginView();
+    return false;
+  }
   const saved = getSavedStaffFromStorage();
   if (saved && (saved.code || saved.id || saved.name)) {
     setStaffProfile(saved);
@@ -1070,7 +1085,7 @@ async function loadTeamOverview() {
   const container = document.getElementById('staffTeamRanking');
   if (!container || !currentStaff) return;
   try {
-    const response = await fetch('/api/staff/team-overview');
+    const response = await apiFetch('/api/staff/team-overview');
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     teamOverview = await response.json();
     renderTeamRanking();
@@ -1180,7 +1195,7 @@ async function loadMyAttendanceHistory(period = staffHistoryCurrentPeriod) {
 
   try {
     if (listContainer) listContainer.innerHTML = '<div class="py-12 text-center text-xs text-slate-400">កំពុងទាញយកកំណត់ត្រា...</div>';
-    const res = await fetch(queryUrl);
+    const res = await apiFetch(queryUrl);
     if (!res.ok) throw new Error('Failed to load history');
     const logs = await res.json();
 
@@ -1363,7 +1378,7 @@ async function handleEmployeeLogin(e) {
   }
 
   try {
-    const res = await fetch('/api/members/login', {
+    const res = await apiFetch('/api/members/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code: codeOrPhone, password, device_id: getOrCreateDeviceId() })
@@ -1391,6 +1406,8 @@ async function handleEmployeeLogin(e) {
       return;
     }
 
+    staffSessionToken = data.token || '';
+    localStorage.setItem('vst_staff_token', staffSessionToken);
     setStaffProfile(data.member);
     showStaffView();
     Swal.fire({
@@ -1428,6 +1445,8 @@ async function logoutStaffAccount() {
   // Clear saved staff session
   localStorage.removeItem('my_attendance_member_code');
   localStorage.removeItem('my_attendance_member_data');
+  localStorage.removeItem('vst_staff_token');
+  staffSessionToken = '';
   document.cookie = 'vst_staff=; path=/; max-age=0; SameSite=Lax';
   currentStaff = null;
 
@@ -1680,7 +1699,7 @@ async function saveStaffSelfAvatar() {
   let serverMessage = '';
 
   try {
-    const res = await fetch('/api/staff/update-avatar', {
+    const res = await apiFetch('/api/staff/update-avatar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2095,7 +2114,7 @@ async function onOfficeQrCodeScanned(decodedText) {
   }
 
   try {
-    const res = await fetch('/api/attendance/check', {
+    const res = await apiFetch('/api/attendance/check', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2228,7 +2247,7 @@ async function loadMyAttendanceActivity() {
   const loc = currentLang === 'km' ? 'km-KH' : 'en-US';
 
   try {
-    const sumRes = await fetch(`/api/attendance/today-summary?code=${encodeURIComponent(currentStaff.code)}`);
+    const sumRes = await apiFetch(`/api/attendance/today-summary?code=${encodeURIComponent(currentStaff.code)}`);
     if (!sumRes.ok) return;
     const summary = await sumRes.json();
 
@@ -2424,7 +2443,7 @@ async function loadMyAttendanceActivity() {
     }
 
     // 2. Fetch Recent 5 activity logs for the member
-    const res = await fetch(`/api/attendance?code=${encodeURIComponent(currentStaff.code)}&limit=10`);
+    const res = await apiFetch(`/api/attendance?code=${encodeURIComponent(currentStaff.code)}&limit=10`);
     if (!res.ok) return;
     const logs = await res.json();
     const listContainer = document.getElementById('myRecentScansList');
@@ -2504,7 +2523,7 @@ async function promptAdminPin() {
         return false;
       }
       try {
-        const res = await fetch('/api/admin/verify-pin', {
+        const res = await apiFetch('/api/admin/verify-pin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ pin: pin.trim() })
@@ -2524,6 +2543,8 @@ async function promptAdminPin() {
   });
 
   if (result.isConfirmed && result.value) {
+    adminSessionToken = result.value.token || '';
+    sessionStorage.setItem('vst_admin_token', adminSessionToken);
     isAdminAuthenticated = true;
     showAdminView();
   }
@@ -2560,6 +2581,8 @@ function showAdminView() {
 
 function lockAdmin() {
   isAdminAuthenticated = false;
+  adminSessionToken = '';
+  sessionStorage.removeItem('vst_admin_token');
   if (currentStaff) {
     showStaffView();
   } else {
@@ -2607,8 +2630,9 @@ function switchAdminTab(tabId) {
 // 9. Admin Dashboard Data
 async function loadAdminDashboard() {
   try {
-    const res = await fetch('/api/dashboard');
+    const res = await apiFetch('/api/dashboard');
     const data = await res.json();
+    if (publicInfo && data.officeQrToken) publicInfo.officeQrToken = data.officeQrToken;
 
     const statMembers = document.getElementById('statTotalMembers');
     if (statMembers) statMembers.textContent = data.totalMembers ?? 0;
@@ -2688,7 +2712,7 @@ function copyMobileUrl() {
 // 11. Admin Members Management
 async function loadAdminMembers() {
   try {
-    const res = await fetch('/api/members');
+    const res = await apiFetch('/api/members');
     allAdminMembers = await res.json();
     renderAdminMembers(allAdminMembers);
   } catch (err) {
@@ -2705,7 +2729,7 @@ function renderAdminMembers(members) {
 
   container.innerHTML = members.map(m => {
     const emailStr = m.email ? `<p class="text-[11px] text-slate-400 mt-0.5 truncate flex items-center gap-1"><i data-lucide="mail" class="w-3 h-3 text-slate-500 flex-shrink-0"></i>${m.email}</p>` : '';
-    const pwdDisplay = m.password ? m.password : '1234';
+    const pwdDisplay = '••••••';
 
     const avatarHtml = (m.avatar && m.avatar.trim())
       ? `<div class="w-11 h-11 rounded-xl overflow-hidden border border-white/10 flex-shrink-0 shadow-sm"><img src="${m.avatar}" alt="${m.name}" class="w-full h-full object-cover"></div>`
@@ -2800,7 +2824,7 @@ function toggleMemberPassword(id) {
 // ================= ADMIN PENDING APPROVAL WORKFLOW =================
 async function loadPendingMembers() {
   try {
-    const res = await fetch('/api/members/pending');
+    const res = await apiFetch('/api/members/pending');
     if (!res.ok) return;
     allPendingMembers = await res.json();
     renderPendingMembers(allPendingMembers);
@@ -2901,7 +2925,7 @@ async function approveMember(id, name) {
   if (!result.isConfirmed) return;
 
   try {
-    const res = await fetch(`/api/members/${id}/approve`, { method: 'POST' });
+    const res = await apiFetch(`/api/members/${id}/approve`, { method: 'POST' });
     const data = await res.json();
     if (!res.ok) {
       Swal.fire({ icon: 'error', title: 'បរាជ័យ', text: data.error || 'មិនអាចអនុម័តបានទេ' });
@@ -2937,7 +2961,7 @@ async function rejectMember(id, name) {
   if (!result.isConfirmed) return;
 
   try {
-    const res = await fetch(`/api/members/${id}/reject`, { method: 'POST' });
+    const res = await apiFetch(`/api/members/${id}/reject`, { method: 'POST' });
     const data = await res.json();
     if (!res.ok) {
       Swal.fire({ icon: 'error', title: 'បរាជ័យ', text: data.error || 'មិនអាចបដិសេធបានទេ' });
@@ -2971,7 +2995,7 @@ async function resetMemberDevice(id, name) {
   if (!result.isConfirmed) return;
 
   try {
-    const res = await fetch(`/api/members/${id}/reset-device`, { method: 'POST' });
+    const res = await apiFetch(`/api/members/${id}/reset-device`, { method: 'POST' });
     const data = await res.json();
     if (!res.ok) {
       Swal.fire({ icon: 'error', title: 'បរាជ័យ', text: data.error || 'មិនអាចដោះសោបានទេ' });
@@ -3090,7 +3114,7 @@ async function handleSelfRegisterSubmit(e) {
 
   try {
     const deviceId = getOrCreateDeviceId();
-    const res = await fetch('/api/members/self-register', {
+    const res = await apiFetch('/api/members/self-register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -3217,7 +3241,7 @@ function clearMemberPhoto() {
 function openAddMemberModal() {
   document.getElementById('addMemberForm').reset();
   document.getElementById('memberFormId').value = '';
-  document.getElementById('memberFormPassword').value = '1234';
+  document.getElementById('memberFormPassword').value = '';
   setMemberPhotoPreview('');
   const title = document.getElementById('memberModalTitle');
   if (title) title.textContent = currentLang === 'km' ? 'ចុះឈ្មោះសមាជិកបុគ្គលិកថ្មី' : 'Register New Employee';
@@ -3240,7 +3264,7 @@ function editMember(id) {
   document.getElementById('memberFormName').value = m.name || '';
   document.getElementById('memberFormRole').value = m.role || '';
   document.getElementById('memberFormPhone').value = m.phone || '';
-  document.getElementById('memberFormPassword').value = m.password || '1234';
+  document.getElementById('memberFormPassword').value = '';
   document.getElementById('memberFormGender').value = m.gender || '';
   document.getElementById('memberFormDob').value = m.dob || '';
   document.getElementById('memberFormNationalId').value = m.national_id || '';
@@ -3271,6 +3295,10 @@ async function handleAddMember(e) {
   const role = document.getElementById('memberFormRole').value.trim();
   const phone = document.getElementById('memberFormPhone').value.trim();
   const password = document.getElementById('memberFormPassword').value.trim();
+  if (!id && password.length < 4) {
+    Swal.fire({ icon: 'warning', title: 'សូមកំណត់ Password', text: 'Password ត្រូវមានយ៉ាងតិច 4 តួអក្សរ។' });
+    return;
+  }
   const gender = document.getElementById('memberFormGender').value;
   const dob = document.getElementById('memberFormDob').value;
   const national_id = document.getElementById('memberFormNationalId').value.trim();
@@ -3292,7 +3320,7 @@ async function handleAddMember(e) {
     const url = isEdit ? `/api/members/${id}` : '/api/members';
     const method = isEdit ? 'PUT' : 'POST';
 
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -3333,7 +3361,7 @@ async function deleteMember(id, name) {
     confirmButtonColor: '#e11d48'
   });
   if (cf.isConfirmed) {
-    await fetch(`/api/members/${id}`, { method: 'DELETE' });
+    await apiFetch(`/api/members/${id}`, { method: 'DELETE' });
     loadAdminMembers();
     loadPublicInfo();
   }
@@ -3409,7 +3437,7 @@ async function loadAttendanceHistory() {
   } // 'all': no date restriction
 
   try {
-    const res = await fetch(queryUrl);
+    const res = await apiFetch(queryUrl);
     const logs = await res.json();
     const tbody = document.getElementById('fullHistoryTable');
     if (!tbody) return;
@@ -3498,7 +3526,7 @@ async function exportHistoryCSV() {
     if (monthVal) queryUrl += `&month=${monthVal}`;
   }
 
-  const res = await fetch(queryUrl);
+  const res = await apiFetch(queryUrl);
   const records = await res.json();
   if (!records || records.length === 0) return Swal.fire({ icon: 'info', title: 'គ្មានទិន្នន័យសម្រាប់ Export ទេ' });
 
@@ -3519,7 +3547,7 @@ async function exportHistoryCSV() {
 // 13. Admin Settings Load & Save
 async function loadAdminSettings() {
   try {
-    const res = await fetch('/api/settings');
+    const res = await apiFetch('/api/settings');
     const s = await res.json();
     if (s.telegram_chat_id) document.getElementById('inputTelegramChatId').value = s.telegram_chat_id;
     if (s.telegram_enabled) document.getElementById('inputTelegramEnabled').checked = s.telegram_enabled === 'true';
@@ -3567,7 +3595,7 @@ async function saveTelegramSettings() {
   };
   if (token) payload.telegram_token = token;
 
-  await fetch('/api/settings', {
+  await apiFetch('/api/settings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -3577,7 +3605,7 @@ async function saveTelegramSettings() {
 
 async function testTelegramConnection() {
   Swal.fire({ title: 'Testing...', didOpen: () => Swal.showLoading() });
-  const res = await fetch('/api/settings/test-telegram', { method: 'POST' });
+  const res = await apiFetch('/api/settings/test-telegram', { method: 'POST' });
   const d = await res.json();
   if (res.ok) Swal.fire({ icon: 'success', title: translations[currentLang].alertSuccess, text: d.message });
   else Swal.fire({ icon: 'error', title: 'Error', text: d.error });
@@ -3586,7 +3614,7 @@ async function testTelegramConnection() {
 async function testTelegramLeaveConnection() {
   Swal.fire({ title: 'Testing Leave Group...', didOpen: () => Swal.showLoading() });
   try {
-    const res = await fetch('/api/settings/test-telegram-leave', { method: 'POST' });
+    const res = await apiFetch('/api/settings/test-telegram-leave', { method: 'POST' });
     const d = await res.json();
     if (res.ok) Swal.fire({ icon: 'success', title: translations[currentLang].alertSuccess, text: d.message });
     else Swal.fire({ icon: 'error', title: 'Error', text: d.error });
@@ -3604,7 +3632,7 @@ async function saveGeofenceSettings() {
   const wifiIps = document.getElementById('inputCompanyWifiIps') ? document.getElementById('inputCompanyWifiIps').value : '';
   const wifiEnabled = document.getElementById('inputWifiCheckEnabled') ? (document.getElementById('inputWifiCheckEnabled').checked ? 'true' : 'false') : 'true';
 
-  await fetch('/api/settings', {
+  await apiFetch('/api/settings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ 
@@ -3696,7 +3724,7 @@ async function sendDailyTelegramSummaryNow() {
   });
 
   try {
-    const res = await fetch('/api/attendance/send-daily-summary', {
+    const res = await apiFetch('/api/attendance/send-daily-summary', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     });
@@ -3742,7 +3770,7 @@ let isWorkHoursBlurred = false;
 // Real-time Wi-Fi Network Status
 async function fetchNetworkStatus(showToast = false) {
   try {
-    const res = await fetch('/api/network-status');
+    const res = await apiFetch('/api/network-status');
     if (!res.ok) return;
     const data = await res.json();
     currentNetworkStatus = data;
@@ -3921,7 +3949,7 @@ async function executeStaffCheckIn() {
 
   // 3. Post One-Click Check-In to Backend
   try {
-    const res = await fetch('/api/attendance/check', {
+    const res = await apiFetch('/api/attendance/check', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -4336,7 +4364,7 @@ async function handleLeaveFormSubmit(e) {
       reason: reason.trim()
     };
 
-    const res = await fetch('/api/leave-requests', {
+    const res = await apiFetch('/api/leave-requests', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -4420,7 +4448,7 @@ async function handleLateFormSubmit(e) {
       reason: reason.trim()
     };
 
-    const res = await fetch('/api/leave-requests', {
+    const res = await apiFetch('/api/leave-requests', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -4471,7 +4499,7 @@ async function loadMyLeaveRequests() {
   container.innerHTML = `<div class="py-8 text-center text-xs text-slate-400"><span class="inline-block animate-spin mr-1.5">🌀</span> កំពុងទាញយកទិន្នន័យ...</div>`;
 
   try {
-    const res = await fetch(`/api/leave-requests/my?code=${encodeURIComponent(currentStaff.code)}`);
+    const res = await apiFetch(`/api/leave-requests/my?code=${encodeURIComponent(currentStaff.code)}`);
     const data = await parseJsonResponse(res);
 
     if (!data.requests || data.requests.length === 0) {
@@ -4565,7 +4593,7 @@ async function loadAdminLeaveRequests(filter = window.currentLeaveFilter || 'all
   }
 
   try {
-    const res = await fetch('/api/leave-requests');
+    const res = await apiFetch('/api/leave-requests');
     const data = await parseJsonResponse(res);
     window.adminLeaveRequestsList = data.requests || [];
 
@@ -4847,7 +4875,7 @@ async function promptReviewLeaveRequest(id, status, memberName, requestType) {
   });
 
   try {
-    const res = await fetch(`/api/leave-requests/${id}/review`, {
+    const res = await apiFetch(`/api/leave-requests/${id}/review`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

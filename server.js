@@ -1,6 +1,5 @@
 process.env.TZ = 'Asia/Phnom_Penh';
 const express = require('express');
-const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -10,6 +9,39 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const ENV_ADMIN_PIN = (process.env.ADMIN_PIN || '').trim();
 const ENV_TELEGRAM_BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
+const ENV_SESSION_SECRET = (process.env.SESSION_SECRET || '').trim();
+
+const PASSWORD_PREFIX = 'scrypt$v1$';
+
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(String(password), salt, 64).toString('hex');
+  return `${PASSWORD_PREFIX}${salt}$${hash}`;
+}
+
+function verifyPassword(password, storedValue) {
+  const stored = String(storedValue || '');
+  if (!stored.startsWith(PASSWORD_PREFIX)) {
+    return safeEqualSecret(String(password || ''), stored);
+  }
+  const parts = stored.split('$');
+  if (parts.length !== 4) return false;
+  const actual = Buffer.from(parts[3], 'hex');
+  const candidate = crypto.scryptSync(String(password || ''), parts[2], actual.length);
+  return actual.length === candidate.length && crypto.timingSafeEqual(actual, candidate);
+}
+
+function base64UrlJson(value) {
+  return Buffer.from(JSON.stringify(value), 'utf8').toString('base64url');
+}
+
+function cleanPlainText(value, maxLength = 500) {
+  return String(value || '')
+    .replace(/[<>&"'`]/g, '')
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .trim()
+    .slice(0, maxLength);
+}
 
 // Initialize Database (Cloud Turso or local SQLite fallback)
 let client;
@@ -165,6 +197,12 @@ async function initDb() {
   }
 
   try {
+    await db.execute("ALTER TABLE members ADD COLUMN session_version INTEGER DEFAULT 0");
+  } catch (e) {
+    // Existing databases may already have this column.
+  }
+
+  try {
     await db.execute("ALTER TABLE leave_requests ADD COLUMN tg_message_id INTEGER");
   } catch (e) {
     // Column already exists
@@ -189,6 +227,7 @@ async function initDb() {
     ['office_qr_token', 'OFFICE-ATTENDANCE-HQ-2026'],
     ['company_name', 'VANN SITHA TRADING CO.,LTD'],
     ['admin_pin', ''],
+    ['session_secret', crypto.randomBytes(32).toString('hex')],
     ['wifi_check_enabled', 'true'],
     ['company_wifi_ips', '45.119.135.171, 36.37.169.199']
   ];
@@ -219,6 +258,12 @@ async function initDb() {
       await db.run('INSERT INTO members (code, name, role, phone) VALUES (?, ?, ?, ?)', [code, name, role, phone]);
     }
   }
+
+  // One-time transparent migration from legacy plain-text passwords.
+  const legacyPasswords = await db.all("SELECT id, password FROM members WHERE password IS NOT NULL AND password NOT LIKE 'scrypt$v1$%'");
+  for (const member of legacyPasswords) {
+    await db.run('UPDATE members SET password = ? WHERE id = ?', [hashPassword(member.password || '1234'), member.id]);
+  }
 }
 
 let dbInitPromise = null;
@@ -230,8 +275,15 @@ function ensureDb() {
 }
 
 // Middleware
-app.use(cors());
 app.use(express.json({ limit: '15mb' }));
+app.disable('x-powered-by');
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(self), geolocation=(self), microphone=()');
+  next();
+});
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
 
@@ -417,6 +469,108 @@ function safeEqualSecret(candidate, expected) {
   const expectedBuffer = Buffer.from(String(expected || ''), 'utf8');
   if (!expectedBuffer.length || candidateBuffer.length !== expectedBuffer.length) return false;
   return crypto.timingSafeEqual(candidateBuffer, expectedBuffer);
+}
+
+async function getSessionSecret() {
+  if (ENV_SESSION_SECRET) return ENV_SESSION_SECRET;
+  const row = await db.get("SELECT value FROM settings WHERE key = 'session_secret'");
+  return row && row.value ? row.value : '';
+}
+
+async function createSessionToken(payload, ttlSeconds) {
+  const secret = await getSessionSecret();
+  if (!secret) throw new Error('Session secret is not configured');
+  const body = base64UrlJson({ ...payload, exp: Math.floor(Date.now() / 1000) + ttlSeconds });
+  const signature = crypto.createHmac('sha256', secret).update(body).digest('base64url');
+  return `${body}.${signature}`;
+}
+
+async function readSessionToken(token) {
+  try {
+    const [body, signature] = String(token || '').split('.');
+    if (!body || !signature) return null;
+    const secret = await getSessionSecret();
+    const expected = crypto.createHmac('sha256', secret).update(body).digest('base64url');
+    if (!safeEqualSecret(signature, expected)) return null;
+    const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+    if (!payload.exp || payload.exp < Math.floor(Date.now() / 1000)) return null;
+    return payload;
+  } catch (_) {
+    return null;
+  }
+}
+
+function bearerToken(req) {
+  const value = req.get('authorization') || '';
+  return value.startsWith('Bearer ') ? value.slice(7).trim() : '';
+}
+
+async function requireAuth(req, res, next) {
+  const session = await readSessionToken(bearerToken(req));
+  if (!session) return res.status(401).json({ error: 'Session expired. Please sign in again.' });
+  if (session.role === 'staff') {
+    const member = await db.get('SELECT status, session_version FROM members WHERE id = ?', [session.memberId]);
+    if (!member || member.status !== 'active' || Number(member.session_version || 0) !== Number(session.sessionVersion || 0)) {
+      return res.status(401).json({ error: 'Session is no longer valid. Please sign in again.' });
+    }
+  }
+  req.session = session;
+  next();
+}
+
+function requireAdmin(req, res, next) {
+  if (!req.session || req.session.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin authorization required' });
+  }
+  next();
+}
+
+function requireStaffOrAdmin(req, res, next) {
+  if (!req.session || !['staff', 'admin'].includes(req.session.role)) {
+    return res.status(403).json({ error: 'Authorization required' });
+  }
+  next();
+}
+
+function ensureStaffOwnsCode(req, res, code) {
+  if (req.session.role === 'admin') return true;
+  if (String(req.session.code || '').toLowerCase() !== String(code || '').trim().toLowerCase()) {
+    res.status(403).json({ error: 'You can only access your own attendance account.' });
+    return false;
+  }
+  return true;
+}
+
+const loginAttempts = new Map();
+function loginRateLimit(req, res, next) {
+  const identity = cleanPlainText(req.body && (req.body.code || req.body.pin), 80).toLowerCase() || 'admin';
+  const key = `${getClientIp(req) || 'unknown'}:${identity}`;
+  const now = Date.now();
+  const recent = (loginAttempts.get(key) || []).filter(ts => now - ts < 15 * 60 * 1000);
+  if (recent.length >= 10) {
+    return res.status(429).json({ error: 'សាកចូលច្រើនដងពេក។ សូមរង់ចាំ 15 នាទី រួចសាកម្តងទៀត។' });
+  }
+  recent.push(now);
+  loginAttempts.set(key, recent);
+  next();
+}
+
+function clearLoginAttempts(req) {
+  const identity = cleanPlainText(req.body && (req.body.code || req.body.pin), 80).toLowerCase() || 'admin';
+  loginAttempts.delete(`${getClientIp(req) || 'unknown'}:${identity}`);
+}
+
+const registrationAttempts = new Map();
+function registrationRateLimit(req, res, next) {
+  const key = getClientIp(req) || 'unknown';
+  const now = Date.now();
+  const recent = (registrationAttempts.get(key) || []).filter(ts => now - ts < 60 * 60 * 1000);
+  if (recent.length >= 5) {
+    return res.status(429).json({ error: 'បានផ្ញើសំណើច្រើនពេក។ សូមរង់ចាំមួយម៉ោង រួចសាកម្តងទៀត។' });
+  }
+  recent.push(now);
+  registrationAttempts.set(key, recent);
+  next();
 }
 
 // Helper: Escape HTML special characters for Telegram HTML parse_mode
@@ -864,24 +1018,19 @@ app.post('/api/telegram-webhook', async (req, res) => {
 // Public Info (for staff mobile app)
 app.get('/api/public-info', async (req, res) => {
   try {
-    const members = await db.all("SELECT id, code, name, role, avatar FROM members WHERE status = 'active' ORDER BY name ASC");
     const companyName = await getSetting('company_name');
     const officeLat = await getSetting('office_lat');
     const officeLng = await getSetting('office_lng');
     const allowedRadius = await getSetting('allowed_radius');
-    const officeQrToken = await getSetting('office_qr_token');
     const wifiCheckEnabled = (await getSetting('wifi_check_enabled')) !== 'false';
-    const companyWifiIps = (await getSetting('company_wifi_ips')) || '45.119.135.171, 36.37.169.199';
 
     res.json({
       companyName: companyName || 'VANN SITHA TRADING CO.,LTD',
       officeLat: parseFloat(officeLat),
       officeLng: parseFloat(officeLng),
       allowedRadius: parseFloat(allowedRadius) || 200,
-      officeQrToken: officeQrToken || 'OFFICE-ATTENDANCE-HQ-2026',
       wifiCheckEnabled,
-      companyWifiIps,
-      members: members
+      members: []
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -915,7 +1064,7 @@ app.get('/api/network-status', async (req, res) => {
       isCompanyWifi: isAllowed,
       matchedName,
       wifiCheckEnabled,
-      allowedIps
+      allowedNetworkCount: allowedIps.length
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -923,18 +1072,20 @@ app.get('/api/network-status', async (req, res) => {
 });
 
 // Admin verify PIN
-app.post('/api/admin/verify-pin', async (req, res) => {
+app.post('/api/admin/verify-pin', loginRateLimit, async (req, res) => {
   const { pin } = req.body;
   const currentPin = ENV_ADMIN_PIN || await getSetting('admin_pin');
   if (safeEqualSecret(pin, currentPin)) {
-    res.json({ success: true });
+    clearLoginAttempts(req);
+    const token = await createSessionToken({ role: 'admin' }, 8 * 60 * 60);
+    res.json({ success: true, token });
   } else {
     res.status(401).json({ error: 'លេខកូដសម្ងាត់ PIN មិនត្រឹមត្រូវទេ!' });
   }
 });
 
 // 1. Dashboard summary (Admin)
-app.get('/api/dashboard', async (req, res) => {
+app.get('/api/dashboard', requireAuth, requireAdmin, async (req, res) => {
   try {
     const totalMembersRow = await db.get("SELECT COUNT(*) as count FROM members WHERE status = 'active'");
     const totalMembers = totalMembersRow ? totalMembersRow.count : 0;
@@ -977,7 +1128,7 @@ app.get('/api/dashboard', async (req, res) => {
 });
 
 // Staff-facing aggregate: no phone numbers, birthdays, passwords or private notes.
-app.get('/api/staff/team-overview', async (req, res) => {
+app.get('/api/staff/team-overview', requireAuth, requireStaffOrAdmin, async (req, res) => {
   try {
     const today = getCambodiaDateString();
     const todayDate = new Date(`${today}T00:00:00Z`);
@@ -1060,16 +1211,16 @@ app.get('/api/staff/team-overview', async (req, res) => {
 });
 
 // 2. Members Management (Admin)
-app.get('/api/members', async (req, res) => {
+app.get('/api/members', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const members = await db.all("SELECT * FROM members WHERE status != 'pending' OR status IS NULL ORDER BY id DESC");
+    const members = await db.all("SELECT id, code, name, name_km, name_latin, role, phone, gender, dob, national_id, email, address, join_date, emergency_contact, salary_type, notes, avatar, status, device_id, created_at FROM members WHERE status != 'pending' OR status IS NULL ORDER BY id DESC");
     res.json(members);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.post('/api/members', async (req, res) => {
+app.post('/api/members', requireAuth, requireAdmin, async (req, res) => {
   const { 
     code, name, role, phone, password, 
     gender, dob, national_id, email, address, join_date, emergency_contact, salary_type, notes, avatar 
@@ -1079,7 +1230,11 @@ app.post('/api/members', async (req, res) => {
     return res.status(400).json({ error: 'Code and Name are required' });
   }
 
-  const memberPassword = (password && password.trim()) ? password.trim() : '1234';
+  if (!password || password.trim().length < 4) {
+    return res.status(400).json({ error: 'Password must contain at least 4 characters' });
+  }
+
+  const memberPassword = hashPassword(password.trim());
 
   try {
     const info = await db.run(`
@@ -1088,10 +1243,10 @@ app.post('/api/members', async (req, res) => {
         gender, dob, national_id, email, address, join_date, emergency_contact, salary_type, notes, avatar
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
-      code.trim().toUpperCase(), 
-      name.trim(), 
-      role ? role.trim() : '', 
-      phone ? phone.trim() : '',
+      cleanPlainText(code, 40).toUpperCase(),
+      cleanPlainText(name, 160),
+      cleanPlainText(role, 120),
+      cleanPlainText(phone, 40),
       memberPassword,
       gender || '',
       dob || '',
@@ -1113,7 +1268,7 @@ app.post('/api/members', async (req, res) => {
   }
 });
 
-app.put('/api/members/:id', async (req, res) => {
+app.put('/api/members/:id', requireAuth, requireAdmin, async (req, res) => {
   const { 
     code, name, role, phone, password, 
     gender, dob, national_id, email, address, join_date, emergency_contact, salary_type, notes, avatar 
@@ -1129,7 +1284,7 @@ app.put('/api/members/:id', async (req, res) => {
       return res.status(404).json({ error: 'Member not found' });
     }
 
-    const memberPassword = (password && password.trim()) ? password.trim() : (currentMember.password || '1234');
+    const memberPassword = (password && password.trim()) ? hashPassword(password.trim()) : currentMember.password;
     const memberCode = (code && code.trim()) ? code.trim().toUpperCase() : currentMember.code;
     const memberAvatar = (avatar !== undefined) ? avatar : (currentMember.avatar || '');
 
@@ -1157,6 +1312,10 @@ app.put('/api/members/:id', async (req, res) => {
       req.params.id
     ]);
 
+    if (password && password.trim()) {
+      await db.run('UPDATE members SET session_version = COALESCE(session_version, 0) + 1 WHERE id = ?', [req.params.id]);
+    }
+
     res.json({ success: true });
   } catch (err) {
     if (err.message && err.message.includes('UNIQUE')) {
@@ -1167,12 +1326,16 @@ app.put('/api/members/:id', async (req, res) => {
 });
 
 // Staff Self-Service: Update profile photo (Name is NOT editable)
-app.post('/api/staff/update-avatar', async (req, res) => {
+app.post('/api/staff/update-avatar', requireAuth, requireStaffOrAdmin, async (req, res) => {
   try {
     const { code, avatar } = req.body;
+    if (avatar && String(avatar).length > 3_000_000) {
+      return res.status(413).json({ error: 'រូបថតធំពេក។ សូមជ្រើសរូបតូចជាង 2MB។' });
+    }
     if (!code || !code.trim()) {
       return res.status(400).json({ error: 'Staff code is required' });
     }
+    if (!ensureStaffOwnsCode(req, res, code)) return;
     const member = await db.get('SELECT id, name FROM members WHERE code = ? COLLATE NOCASE', [code.trim()]);
     if (!member) {
       return res.status(404).json({ error: 'រកមិនឃើញសមាជិកបុគ្គលិកនេះទេ' });
@@ -1185,7 +1348,7 @@ app.post('/api/staff/update-avatar', async (req, res) => {
   }
 });
 
-app.delete('/api/members/:id', async (req, res) => {
+app.delete('/api/members/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     await db.run('DELETE FROM members WHERE id = ?', [req.params.id]);
     res.json({ success: true });
@@ -1197,11 +1360,14 @@ app.delete('/api/members/:id', async (req, res) => {
 // ================= STAFF SELF-REGISTRATION & DEVICE BINDING =================
 
 // 1. Staff Self-Registration (starts in 'pending' status for Admin approval)
-app.post('/api/members/self-register', async (req, res) => {
+app.post('/api/members/self-register', registrationRateLimit, async (req, res) => {
   try {
     const { name_km, name_latin, phone, dob, join_date, role, password, avatar, device_id } = req.body;
-    const nameKm = String(name_km || '').trim();
-    const nameLatin = String(name_latin || '').trim();
+    if (avatar && String(avatar).length > 3_000_000) {
+      return res.status(413).json({ error: 'រូបថតធំពេក។ សូមជ្រើសរូបតូចជាង 2MB។' });
+    }
+    const nameKm = cleanPlainText(name_km, 160);
+    const nameLatin = cleanPlainText(name_latin, 160);
     const validDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) &&
       !Number.isNaN(Date.parse(`${value}T00:00:00Z`)) &&
       new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
@@ -1244,7 +1410,10 @@ app.post('/api/members/self-register', async (req, res) => {
       }
     }
     const nextCode = `MEM-${String(maxNum + 1).padStart(3, '0')}`;
-    const memberPwd = (password && password.trim()) ? password.trim() : '1234';
+    if (!password || password.trim().length < 4) {
+      return res.status(400).json({ error: 'សូមបង្កើត Password យ៉ាងតិច 4 តួអក្សរ' });
+    }
+    const memberPwd = hashPassword(password.trim());
 
     const insertResult = await db.run(`
       INSERT INTO members (code, name, name_km, name_latin, role, phone, dob, join_date, password, avatar, device_id, status)
@@ -1292,7 +1461,7 @@ app.post('/api/members/self-register', async (req, res) => {
 });
 
 // 2. Admin: Get all pending registration requests
-app.get('/api/members/pending', async (req, res) => {
+app.get('/api/members/pending', requireAuth, requireAdmin, async (req, res) => {
   try {
     const list = await db.all("SELECT id, code, name, name_km, name_latin, role, phone, dob, join_date, avatar, device_id, created_at FROM members WHERE status = 'pending' ORDER BY id DESC");
     res.json(list);
@@ -1302,7 +1471,7 @@ app.get('/api/members/pending', async (req, res) => {
 });
 
 // 3. Admin: Approve pending member
-app.post('/api/members/:id/approve', async (req, res) => {
+app.post('/api/members/:id/approve', requireAuth, requireAdmin, async (req, res) => {
   try {
     const member = await db.get("SELECT * FROM members WHERE id = ? AND status = 'pending'", [req.params.id]);
     if (!member) {
@@ -1326,7 +1495,7 @@ app.post('/api/members/:id/approve', async (req, res) => {
 });
 
 // 4. Admin: Reject pending member
-app.post('/api/members/:id/reject', async (req, res) => {
+app.post('/api/members/:id/reject', requireAuth, requireAdmin, async (req, res) => {
   try {
     const member = await db.get("SELECT * FROM members WHERE id = ? AND status = 'pending'", [req.params.id]);
     if (!member) {
@@ -1341,14 +1510,14 @@ app.post('/api/members/:id/reject', async (req, res) => {
 });
 
 // 5. Admin: Reset member device lock (allow employee to bind a new device)
-app.post('/api/members/:id/reset-device', async (req, res) => {
+app.post('/api/members/:id/reset-device', requireAuth, requireAdmin, async (req, res) => {
   try {
     const member = await db.get("SELECT id, name, code FROM members WHERE id = ?", [req.params.id]);
     if (!member) {
       return res.status(404).json({ error: 'រកមិនឃើញសមាជិកនេះទេ' });
     }
 
-    await db.run("UPDATE members SET device_id = NULL WHERE id = ?", [req.params.id]);
+    await db.run("UPDATE members SET device_id = NULL, session_version = COALESCE(session_version, 0) + 1 WHERE id = ?", [req.params.id]);
     res.json({ success: true, message: `បានដោះសោទូរស័ព្ទ (Device Reset) សម្រាប់ ${member.name} រួចរាល់! បុគ្គលិកអាចប្រើទូរស័ព្ទថ្មីបាន។` });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1356,7 +1525,7 @@ app.post('/api/members/:id/reset-device', async (req, res) => {
 });
 
 // Employee Login (By Member Code / Selection + Password set by Admin)
-app.post('/api/members/login', async (req, res) => {
+app.post('/api/members/login', loginRateLimit, async (req, res) => {
   const { code, password, device_id } = req.body;
   if (!code || !code.trim()) {
     return res.status(400).json({ error: 'សូមជ្រើសរើសឈ្មោះបុគ្គលិក ឬបញ្ចូលលេខកូដ ID' });
@@ -1381,14 +1550,19 @@ app.post('/api/members/login', async (req, res) => {
 
   // Password verification
   const inputPwd = (password || '').trim();
-  const actualPwd = (member.password || '1234').trim();
+  const actualPwd = member.password || '';
 
   if (!inputPwd) {
     return res.status(400).json({ error: 'សូមបញ្ចូលលេខកូដសម្ងាត់ Password!' });
   }
 
-  if (inputPwd !== actualPwd) {
+  if (!verifyPassword(inputPwd, actualPwd)) {
     return res.status(401).json({ error: 'លេខកូដសម្ងាត់ Password មិនត្រឹមត្រូវទេ! សូមទាក់ទង Admin បើអ្នកភ្លេច។' });
+  }
+
+  clearLoginAttempts(req);
+  if (!String(actualPwd).startsWith(PASSWORD_PREFIX)) {
+    await db.run('UPDATE members SET password = ? WHERE id = ?', [hashPassword(inputPwd), member.id]);
   }
 
   // Check 1 Staff = 1 Device restriction
@@ -1407,16 +1581,19 @@ app.post('/api/members/login', async (req, res) => {
   // Return safe member object (without exposing password)
   const safeMember = { ...member };
   delete safeMember.password;
-  res.json({ success: true, member: safeMember });
+  delete safeMember.session_version;
+  const token = await createSessionToken({ role: 'staff', memberId: member.id, code: member.code, deviceId: member.device_id || device_id || '', sessionVersion: Number(member.session_version || 0) }, 30 * 24 * 60 * 60);
+  res.json({ success: true, member: safeMember, token });
 });
 
-app.post('/api/attendance/check', async (req, res) => {
+app.post('/api/attendance/check', requireAuth, requireStaffOrAdmin, async (req, res) => {
   try {
     const { code, type, qr_token, latitude, longitude, note, check_method } = req.body;
     
     if (!code) {
       return res.status(400).json({ error: 'សូមបញ្ជាក់លេខកូដសមាជិក (Member Code)' });
     }
+    if (!ensureStaffOwnsCode(req, res, code)) return;
 
     // Client IP & Company Wi-Fi verification
     const clientIp = getClientIp(req);
@@ -1464,6 +1641,9 @@ app.post('/api/attendance/check', async (req, res) => {
 
     // Check 1 Staff = 1 Device restriction
     const { device_id } = req.body;
+    if (req.session.role === 'staff' && (!device_id || device_id !== req.session.deviceId)) {
+      return res.status(403).json({ error: 'ឧបករណ៍នេះមិនត្រូវនឹង Login Session ទេ។ សូមចាកចេញ ហើយ Login ម្តងទៀត។' });
+    }
     if (device_id) {
       if (!member.device_id) {
         await db.run('UPDATE members SET device_id = ? WHERE id = ?', [device_id, member.id]);
@@ -1589,7 +1769,7 @@ app.post('/api/attendance/check', async (req, res) => {
     }
 
     // Require reason if late or early leave
-    const trimmedNote = (note || '').trim();
+    const trimmedNote = cleanPlainText(note, 500);
     if ((isLate || isEarlyLeave) && !trimmedNote) {
       const diffStr = formatDurationKm(diffMinutes);
       return res.status(400).json({
@@ -1700,11 +1880,12 @@ app.post('/api/attendance/check', async (req, res) => {
 });
 
 // 4. Employee Today 4-Slot Summary (Smart detector)
-app.get('/api/attendance/today-summary', async (req, res) => {
+app.get('/api/attendance/today-summary', requireAuth, requireStaffOrAdmin, async (req, res) => {
   const { code } = req.query;
   if (!code) {
     return res.status(400).json({ error: 'Code is required' });
   }
+  if (!ensureStaffOwnsCode(req, res, code)) return;
 
   const member = await db.get('SELECT * FROM members WHERE code = ? COLLATE NOCASE', [code.trim()]);
   if (!member) {
@@ -1769,9 +1950,10 @@ app.get('/api/attendance/today-summary', async (req, res) => {
 });
 
 // 4. Attendance History (Admin & Staff)
-app.get('/api/attendance', async (req, res) => {
+app.get('/api/attendance', requireAuth, requireStaffOrAdmin, async (req, res) => {
   try {
     const { date, startDate, endDate, month, member_id, code, limit = 500 } = req.query;
+    if (req.session.role === 'staff' && !ensureStaffOwnsCode(req, res, code)) return;
     let query = 'SELECT * FROM attendance WHERE 1=1';
     const params = [];
 
@@ -1806,11 +1988,11 @@ app.get('/api/attendance', async (req, res) => {
 });
 
 // 5. Settings (Admin)
-app.get('/api/settings', async (req, res) => {
+app.get('/api/settings', requireAuth, requireAdmin, async (req, res) => {
   const rows = await db.all('SELECT * FROM settings');
   const settingsObj = {};
   for (const r of rows) {
-    if (r.key === 'telegram_token' || r.key === 'admin_pin') continue;
+    if (r.key === 'telegram_token' || r.key === 'admin_pin' || r.key === 'session_secret') continue;
     settingsObj[r.key] = r.value;
   }
   settingsObj.telegram_token_configured = Boolean(await getTelegramToken());
@@ -1818,7 +2000,7 @@ app.get('/api/settings', async (req, res) => {
   res.json(settingsObj);
 });
 
-app.post('/api/settings', async (req, res) => {
+app.post('/api/settings', requireAuth, requireAdmin, async (req, res) => {
   const { 
     office_lat, office_lng, allowed_radius, 
     telegram_token, telegram_chat_id, telegram_enabled,
@@ -1855,7 +2037,7 @@ app.post('/api/settings', async (req, res) => {
 });
 
 // 6. Test Telegram Connection
-app.post('/api/settings/test-telegram', async (req, res) => {
+app.post('/api/settings/test-telegram', requireAuth, requireAdmin, async (req, res) => {
   const testMsg = '✅ <b>Attendance alerts connected</b>\nVANN SITHA TRADING';
 
   const result = await sendTelegramMessage(testMsg);
@@ -1867,7 +2049,7 @@ app.post('/api/settings/test-telegram', async (req, res) => {
 });
 
 // 6.1 Test Dedicated Telegram Leave Group
-app.post('/api/settings/test-telegram-leave', async (req, res) => {
+app.post('/api/settings/test-telegram-leave', requireAuth, requireAdmin, async (req, res) => {
   const testMsg = '✅ <b>Leave alerts connected</b>\nVANN SITHA TRADING';
 
   const result = await sendTelegramLeaveMessage(testMsg);
@@ -1881,7 +2063,7 @@ app.post('/api/settings/test-telegram-leave', async (req, res) => {
 // ================= LEAVE & LATE PERMISSION REQUESTS API =================
 
 // 6.2 Submit Leave or Late Request (Staff Web App)
-app.post('/api/leave-requests', async (req, res) => {
+app.post('/api/leave-requests', requireAuth, requireStaffOrAdmin, async (req, res) => {
   try {
     const { 
       code, 
@@ -1898,6 +2080,7 @@ app.post('/api/leave-requests', async (req, res) => {
     if (!staffCode || !request_type || !date_start || !reason || !reason.trim()) {
       return res.status(400).json({ error: 'សូមបំពេញព័ត៌មានចាំបាច់៖ កូដបុគ្គលិក, ប្រភេទសំណើ, កាលបរិច្ឆេទ, និងមូលហេតុ' });
     }
+    if (!ensureStaffOwnsCode(req, res, staffCode)) return;
 
     let member = await db.get("SELECT * FROM members WHERE code = ? COLLATE NOCASE", [staffCode]);
     if (!member) {
@@ -1909,8 +2092,8 @@ app.post('/api/leave-requests', async (req, res) => {
       };
     }
 
-    const cleanReason = reason.trim();
-    const cleanDuration = duration_text || (request_type === 'leave' ? '1 ថ្ងៃ' : 'មកយឺត');
+    const cleanReason = cleanPlainText(reason, 1000);
+    const cleanDuration = cleanPlainText(duration_text || (request_type === 'leave' ? '1 ថ្ងៃ' : 'មកយឺត'), 120);
 
     // Auto-calculate end date if user requested multiple days
     let finalEndDate = date_end || date_start;
@@ -1980,7 +2163,7 @@ app.post('/api/leave-requests', async (req, res) => {
 });
 
 // 6.3 Get Leave Requests (Admin with filters)
-app.get('/api/leave-requests', async (req, res) => {
+app.get('/api/leave-requests', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { status, type, code, limit = 200 } = req.query;
     let sql = 'SELECT * FROM leave_requests WHERE 1=1';
@@ -2018,12 +2201,13 @@ app.get('/api/leave-requests', async (req, res) => {
 });
 
 // 6.4 Get Staff's Own Leave Requests (Staff view / my status)
-app.get('/api/leave-requests/my', async (req, res) => {
+app.get('/api/leave-requests/my', requireAuth, requireStaffOrAdmin, async (req, res) => {
   try {
     const { code } = req.query;
     if (!code) {
       return res.status(400).json({ error: 'Code is required' });
     }
+    if (!ensureStaffOwnsCode(req, res, code)) return;
 
     const rows = await db.all(`
       SELECT * FROM leave_requests 
@@ -2038,7 +2222,7 @@ app.get('/api/leave-requests/my', async (req, res) => {
 });
 
 // 6.5 Admin Review / Approve / Reject Request & Send Notification to Staff and Telegram
-app.post('/api/leave-requests/:id/review', async (req, res) => {
+app.post('/api/leave-requests/:id/review', requireAuth, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { status, admin_response, reviewed_by } = req.body;
@@ -2193,7 +2377,7 @@ async function generateDailySummaryReport() {
 }
 
 // 8. API to Send Daily Summary to Telegram
-app.post('/api/attendance/send-daily-summary', async (req, res) => {
+app.post('/api/attendance/send-daily-summary', requireAuth, requireAdmin, async (req, res) => {
   try {
     const report = await generateDailySummaryReport();
     const result = await sendTelegramMessage(report.summaryMsg);
@@ -2312,5 +2496,7 @@ if (!process.env.VERCEL) {
     console.error('Failed to start server:', err);
   });
 }
+
+module.exports = app;
 
 module.exports = app;

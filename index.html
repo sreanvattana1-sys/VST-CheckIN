@@ -2354,7 +2354,7 @@
                 <label class="block text-xs font-semibold text-txt-primary mb-1" data-i18n="colPassword">លេខកូដសម្ងាត់ (Password) *</label>
                 <div class="relative">
                   <i data-lucide="lock" class="w-4 h-4 absolute left-3 top-3 text-txt-muted"></i>
-                  <input type="text" id="memberFormPassword" required placeholder="ឧ. 1234 ឬ 8888" value="1234" class="w-full text-xs bg-white border border-app-border rounded-xl pl-9 pr-3 py-2.5 font-mono font-bold focus:outline-none focus:border-brand-blue">
+                  <input type="password" id="memberFormPassword" minlength="4" placeholder="កំណត់ថ្មី ឬទុកទទេពេលកែព័ត៌មាន" class="w-full text-xs bg-white border border-app-border rounded-xl pl-9 pr-3 py-2.5 font-mono font-bold focus:outline-none focus:border-brand-blue">
                 </div>
                 <span class="text-[11px] text-txt-muted mt-1 block">* ផ្តល់លេខកូដនេះឱ្យបុគ្គលិកដើម្បី Sign In</span>
               </div>
@@ -2907,7 +2907,7 @@
           </label>
           <div class="relative">
             <i data-lucide="lock" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
-            <input type="password" id="selfRegPassword" required minlength="4" placeholder="កំណត់ Password យ៉ាងតិច ៤ ខ្ទង់ (Default: 1234)" value="1234" class="w-full text-xs bg-slate-800/80 border border-white/10 rounded-xl pl-10 pr-10 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition">
+            <input type="password" id="selfRegPassword" required minlength="4" placeholder="កំណត់ Password យ៉ាងតិច ៤ តួអក្សរ" class="w-full text-xs bg-slate-800/80 border border-white/10 rounded-xl pl-10 pr-10 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition">
             <button type="button" onclick="togglePasswordVisibility('selfRegPassword', 'toggleSelfRegPwdIcon')" class="absolute right-3.5 top-2.5 text-slate-400 hover:text-white transition">
               <i data-lucide="eye" id="toggleSelfRegPwdIcon" class="w-4 h-4"></i>
             </button>
@@ -3304,6 +3304,6 @@
     </div>
   </div>
 
-  <script src="/app.js?v=29.1"></script>
+  <script src="/app.js?v=30.0"></script>
 </body>
 </html>
