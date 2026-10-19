@@ -2072,9 +2072,9 @@ async function onOfficeQrCodeScanned(decodedText) {
           ${data.statusText ? `<div class="pt-1 text-[11px] text-slate-300">${data.statusText}</div>` : ''}
           ${reasonDisplay}
           ${sundayBadge}
-          <div class="text-[10px] text-sky-400 pt-2 border-t border-white/10 flex items-center gap-1.5 font-medium">
+          <div class="text-[10px] ${data.telegramSent === true ? 'text-sky-400' : 'text-amber-300'} pt-2 border-t border-white/10 flex items-center gap-1.5 font-medium">
             <i class="fa-brands fa-telegram text-sm text-sky-400"></i>
-            <span>${currentLang === 'km' ? 'សារបានផ្ញើជូនដំណឹងទៅ Telegram Group រួចរាល់!' : 'Alert broadcasted to Telegram successfully!'}</span>
+            <span>${data.telegramSent === true ? (currentLang === 'km' ? 'បានផ្ញើទៅ Telegram រួចរាល់' : 'Sent to Telegram') : (currentLang === 'km' ? 'វត្តមានបានកត់ត្រា ប៉ុន្តែមិនអាចបញ្ជាក់ការផ្ញើទៅ Telegram បាន។ សូមកុំចុចម្ដងទៀត។' : 'Attendance saved, but Telegram delivery was not confirmed. Please do not check in again.')}</span>
           </div>
         </div>
       `,
@@ -3896,12 +3896,12 @@ async function executeStaffCheckIn() {
           ${reasonDisplay}
 
           <!-- Telegram broadcast status -->
-          <div class="p-2.5 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-400 text-[11px] flex items-center justify-between">
+          <div class="p-2.5 rounded-2xl ${data.telegramSent === true ? 'bg-sky-500/10 border-sky-500/20 text-sky-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-300'} border text-[11px] flex items-center justify-between">
             <div class="flex items-center gap-2">
               <i class="fa-brands fa-telegram text-base text-sky-400"></i>
-              <span class="font-medium">បានផ្ញើជូនដំណឹងទៅ Telegram Group រួចរាល់!</span>
+              <span class="font-medium">${data.telegramSent === true ? (currentLang === 'km' ? 'បានផ្ញើទៅ Telegram រួចរាល់' : 'Sent to Telegram') : (currentLang === 'km' ? 'វត្តមានបានកត់ត្រា ប៉ុន្តែមិនអាចបញ្ជាក់ការផ្ញើទៅ Telegram បាន។ សូមកុំចុចម្ដងទៀត។' : 'Attendance saved, but Telegram delivery was not confirmed. Please do not check in again.')}</span>
             </div>
-            <span class="text-[10px] font-mono text-sky-300/80 uppercase font-bold tracking-wider">OK</span>
+            <span class="text-[10px] font-mono text-sky-300/80 uppercase font-bold tracking-wider">${data.telegramSent === true ? 'OK' : '⚠'}</span>
           </div>
         </div>
       `,
