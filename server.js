@@ -2214,35 +2214,64 @@ app.post('/api/attendance/send-daily-summary', async (req, res) => {
   }
 });
 
-// 9. Automated Schedule: Daily evening report at 17:30 (Monday - Saturday)
-let lastAutoSentDate = '';
-setInterval(async () => {
-  const isSunday = getCambodiaDayOfWeek() === 0;
-  if (isSunday) return; // Skip Sunday
+// 9. Automated Schedule: Vercel Cron calls this route at 20:00 Cambodia time.
+// A database claim prevents duplicate reports if the endpoint is invoked more than once.
+app.get('/api/cron/daily-summary', async (req, res) => {
+  const cronSecret = (process.env.CRON_SECRET || '').trim();
+  const authorization = req.get('authorization') || '';
+  const isVercelCron = req.get('user-agent') === 'vercel-cron/1.0';
 
-  const { hour: hours, minute: minutes } = getCambodiaHoursAndMinutes();
+  if (cronSecret) {
+    if (authorization !== `Bearer ${cronSecret}`) {
+      return res.status(401).json({ error: 'Unauthorized cron request' });
+    }
+  } else if (!isVercelCron) {
+    return res.status(401).json({ error: 'Unauthorized cron request' });
+  }
+
+  const isSunday = getCambodiaDayOfWeek() === 0;
+  const { hour } = getCambodiaHoursAndMinutes();
   const todayDateStr = getCambodiaDateString();
 
-  // Trigger automatically at 17:30 or later if not yet sent today
-  if (hours >= 17 && minutes >= 30 && lastAutoSentDate !== todayDateStr) {
-    const enabled = await getSetting('telegram_enabled');
-    const token = await getTelegramToken();
-    const chatId = await getSetting('telegram_chat_id');
-
-    if (enabled === 'true' && token && chatId) {
-      lastAutoSentDate = todayDateStr;
-      console.log(`[SCHEDULE] Sending automated evening attendance summary for ${todayDateStr}...`);
-      try {
-        const report = await generateDailySummaryReport();
-        const res = await sendTelegramMessage(report.summaryMsg);
-        if (res.success) console.log('[SCHEDULE] Evening summary sent successfully.');
-        else console.error('[SCHEDULE] Failed to send evening summary:', res.reason || res.error);
-      } catch (e) {
-        console.error('[SCHEDULE] Exception while generating summary:', e);
-      }
-    }
+  if (isSunday) {
+    return res.json({ success: true, skipped: true, reason: 'Sunday' });
   }
-}, 60000); // Check every 60 seconds
+  if (hour < 20) {
+    return res.json({ success: true, skipped: true, reason: 'Before 20:00 Cambodia time' });
+  }
+
+  const enabled = await getSetting('telegram_enabled');
+  const token = await getTelegramToken();
+  const chatId = await getSetting('telegram_chat_id');
+  if (enabled !== 'true' || !token || !chatId) {
+    return res.json({ success: true, skipped: true, reason: 'Telegram disabled or incomplete settings' });
+  }
+
+  const claim = await db.run(`
+    INSERT INTO settings (key, value) VALUES ('daily_summary_last_sent', ?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value
+    WHERE settings.value <> excluded.value
+  `, [todayDateStr]);
+
+  if (claim.changes === 0) {
+    return res.json({ success: true, skipped: true, reason: 'Already sent today' });
+  }
+
+  try {
+    const report = await generateDailySummaryReport();
+    const result = await sendTelegramMessage(report.summaryMsg);
+    if (!result.success) {
+      await db.run("DELETE FROM settings WHERE key = 'daily_summary_last_sent' AND value = ?", [todayDateStr]);
+      return res.status(502).json({ error: result.reason || result.error || 'Telegram send failed' });
+    }
+    console.log(`[CRON] Daily summary sent for ${todayDateStr} at 20:00 Cambodia time.`);
+    return res.json({ success: true, sent: true, stats: report.stats });
+  } catch (error) {
+    await db.run("DELETE FROM settings WHERE key = 'daily_summary_last_sent' AND value = ?", [todayDateStr]);
+    console.error('[CRON] Daily summary failed:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
 
 // Catch-all for undefined /api routes so it ALWAYS returns JSON and NEVER HTML
 app.use('/api', (req, res) => {
