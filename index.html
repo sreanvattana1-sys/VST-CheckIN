@@ -1484,6 +1484,33 @@
         </div>
       </div>
 
+      <!-- Team totals and punctuality ranking (staff-safe aggregate only) -->
+      <section class="acleda-card p-4 sm:p-5 rounded-3xl mb-6 border border-white/10 space-y-3" aria-labelledby="staffTeamOverviewTitle">
+        <div class="flex items-center justify-between gap-2">
+          <h3 id="staffTeamOverviewTitle" class="text-sm font-bold text-white" data-i18n="teamOverviewTitle">ស្ថិតិក្រុមការងារ</h3>
+          <i data-lucide="users-round" class="w-4 h-4 text-cyan-300"></i>
+        </div>
+        <div class="grid grid-cols-2 gap-2.5">
+          <div class="rounded-2xl bg-cyan-500/10 border border-cyan-400/20 p-3">
+            <div class="text-[11px] text-slate-300" data-i18n="teamMembersLabel">សមាជិកសរុប</div>
+            <div id="staffTeamMembers" class="text-2xl font-black text-white font-mono mt-1">—</div>
+          </div>
+          <div class="rounded-2xl bg-emerald-500/10 border border-emerald-400/20 p-3">
+            <div class="text-[11px] text-slate-300" data-i18n="teamPresentLabel">មានវត្តមានថ្ងៃនេះ</div>
+            <div id="staffTeamPresent" class="text-2xl font-black text-emerald-300 font-mono mt-1">—</div>
+          </div>
+        </div>
+        <div class="flex items-center justify-between gap-2 pt-1 border-t border-white/10">
+          <h4 class="text-xs font-bold text-white" data-i18n="rankingTitle">ចំណាត់ថ្នាក់គោរពពេលវេលា</h4>
+          <div class="flex gap-1 rounded-xl bg-white/5 p-1" role="group" aria-label="Ranking period">
+            <button type="button" id="rankingWeekBtn" onclick="setTeamRankingPeriod('week')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-cyan-500 text-slate-950" data-i18n="thisWeek">សប្ដាហ៍</button>
+            <button type="button" id="rankingMonthBtn" onclick="setTeamRankingPeriod('month')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold text-slate-300" data-i18n="thisMonth">ខែ</button>
+          </div>
+        </div>
+        <p class="text-[10px] text-slate-400" data-i18n="rankingRule">ពិន្ទុ = កត់ត្រាទាន់ម៉ោង ១ ពិន្ទុ/វេន + បំពេញ ៤ វេន ២ ពិន្ទុ/ថ្ងៃ។ ការចុចស្ទួនមិនបន្ថែមពិន្ទុ។</p>
+        <div id="staffTeamRanking" class="space-y-2 text-xs text-slate-300" aria-live="polite">កំពុងទាញយក...</div>
+      </section>
+
       <!-- Recent 5 logs list -->
       <div class="acleda-card p-4 sm:p-5 rounded-3xl mb-6 border border-white/10 space-y-3">
         <div class="flex items-center justify-between pb-2 border-b border-white/10">
@@ -2737,14 +2764,23 @@
           <span class="text-[11px] text-slate-400">ដាក់រូបថតផ្ទាល់ខ្លួន (Photo / Selfie)</span>
         </div>
 
-        <!-- Full Name -->
+        <!-- Khmer and Latin names -->
         <div>
-          <label class="block text-xs font-semibold text-slate-300 mb-1">
-            ឈ្មោះពេញ (Full Name) <span class="text-rose-400">*</span>
+          <label for="selfRegNameKm" class="block text-xs font-semibold text-slate-300 mb-1">
+            <span data-i18n="regNameKm">ឈ្មោះជាភាសាខ្មែរ</span> <span class="text-rose-400">*</span>
           </label>
           <div class="relative">
             <i data-lucide="user" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
-            <input type="text" id="selfRegName" required placeholder="ឧទាហរណ៍៖ សុខ សាន្ត" class="w-full text-xs bg-slate-800/80 border border-white/10 rounded-xl pl-10 pr-3 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition">
+            <input type="text" id="selfRegNameKm" required maxlength="100" placeholder="ឧទាហរណ៍៖ សុខ សាន្ត" class="w-full text-xs bg-slate-800/80 border border-white/10 rounded-xl pl-10 pr-3 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition">
+          </div>
+        </div>
+        <div>
+          <label for="selfRegNameLatin" class="block text-xs font-semibold text-slate-300 mb-1">
+            <span data-i18n="regNameLatin">ឈ្មោះជាអក្សរឡាតាំង</span> <span class="text-rose-400">*</span>
+          </label>
+          <div class="relative">
+            <i data-lucide="languages" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
+            <input type="text" id="selfRegNameLatin" required maxlength="100" placeholder="ឧទាហរណ៍៖ Sok San" class="w-full text-xs bg-slate-800/80 border border-white/10 rounded-xl pl-10 pr-3 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition">
           </div>
         </div>
 
@@ -2756,6 +2792,18 @@
           <div class="relative">
             <i data-lucide="phone" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
             <input type="tel" id="selfRegPhone" required placeholder="ឧទាហរណ៍៖ 012345678" class="w-full text-xs bg-slate-800/80 border border-white/10 rounded-xl pl-10 pr-3 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition">
+          </div>
+        </div>
+
+        <!-- Role / Department -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="selfRegDob" class="block text-xs font-semibold text-slate-300 mb-1"><span data-i18n="regDob">ថ្ងៃខែឆ្នាំកំណើត</span> <span class="text-rose-400">*</span></label>
+            <input type="date" id="selfRegDob" required class="w-full text-xs bg-slate-800/80 border border-white/10 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-cyan-400 transition">
+          </div>
+          <div>
+            <label for="selfRegJoinDate" class="block text-xs font-semibold text-slate-300 mb-1"><span data-i18n="regJoinDate">ថ្ងៃចូលធ្វើការ</span> <span class="text-rose-400">*</span></label>
+            <input type="date" id="selfRegJoinDate" required class="w-full text-xs bg-slate-800/80 border border-white/10 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-cyan-400 transition">
           </div>
         </div>
 

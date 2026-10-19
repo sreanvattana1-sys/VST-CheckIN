@@ -190,6 +190,17 @@ const translations = {
     adminSystem: "ប្រព័ន្ធគ្រប់គ្រង",
     adminPortalLabel: "ចូលផ្នែក Admin",
     companyTelegram: "Telegram ក្រុមហ៊ុន",
+    teamOverviewTitle: "ស្ថិតិក្រុមការងារ",
+    teamMembersLabel: "សមាជិកសរុប",
+    teamPresentLabel: "មានវត្តមានថ្ងៃនេះ",
+    rankingTitle: "ចំណាត់ថ្នាក់គោរពពេលវេលា",
+    thisWeek: "សប្ដាហ៍",
+    thisMonth: "ខែ",
+    rankingRule: "ពិន្ទុ = កត់ត្រាទាន់ម៉ោង ១ ពិន្ទុ/វេន + បំពេញ ៤ វេន ២ ពិន្ទុ/ថ្ងៃ។ ការចុចស្ទួនមិនបន្ថែមពិន្ទុ។",
+    regNameKm: "ឈ្មោះជាភាសាខ្មែរ",
+    regNameLatin: "ឈ្មោះជាអក្សរឡាតាំង",
+    regDob: "ថ្ងៃខែឆ្នាំកំណើត",
+    regJoinDate: "ថ្ងៃចូលធ្វើការ",
   },
   en: {
     appSubtitle: "Smart Digital Attendance Hub",
@@ -346,6 +357,17 @@ const translations = {
     adminSystem: "Admin & System",
     adminPortalLabel: "Open Admin Portal",
     companyTelegram: "Company Telegram",
+    teamOverviewTitle: "Team Overview",
+    teamMembersLabel: "Total staff",
+    teamPresentLabel: "Present today",
+    rankingTitle: "Punctuality ranking",
+    thisWeek: "Week",
+    thisMonth: "Month",
+    rankingRule: "Score = 1 per punctual slot + 2 per day with all 4 slots. Duplicate taps do not add points.",
+    regNameKm: "Name in Khmer",
+    regNameLatin: "Name in Latin letters",
+    regDob: "Date of birth",
+    regJoinDate: "Employment start date",
   }
 };
 
@@ -422,6 +444,7 @@ function setLanguage(lang) {
 
   // Dynamic greetings based on time
   updateGreeting();
+  renderTeamRanking();
 
   // Refresh Lucide icons
   if (window.lucide) {
@@ -713,6 +736,7 @@ async function refreshStaffDashboard(button) {
   try {
     await Promise.allSettled([
       loadMyAttendanceActivity(),
+      loadTeamOverview(),
       fetchNetworkStatus(false),
       currentStaff ? loadMyAttendanceHistory() : Promise.resolve()
     ]);
@@ -968,6 +992,65 @@ function showStaffView() {
   
   if (currentStaff) {
     loadMyAttendanceActivity();
+    loadTeamOverview();
+  }
+}
+
+let teamOverview = null;
+let teamRankingPeriod = 'week';
+
+function setTeamRankingPeriod(period) {
+  if (period !== 'week' && period !== 'month') return;
+  teamRankingPeriod = period;
+  renderTeamRanking();
+}
+
+function renderTeamRanking() {
+  const container = document.getElementById('staffTeamRanking');
+  if (!container) return;
+  for (const period of ['week', 'month']) {
+    const button = document.getElementById(period === 'week' ? 'rankingWeekBtn' : 'rankingMonthBtn');
+    if (!button) continue;
+    button.classList.toggle('bg-cyan-500', period === teamRankingPeriod);
+    button.classList.toggle('text-slate-950', period === teamRankingPeriod);
+    button.classList.toggle('text-slate-300', period !== teamRankingPeriod);
+    button.setAttribute('aria-pressed', String(period === teamRankingPeriod));
+  }
+  if (!teamOverview) return;
+  const members = document.getElementById('staffTeamMembers');
+  const present = document.getElementById('staffTeamPresent');
+  if (members) members.textContent = teamOverview.totalMembers ?? 0;
+  if (present) present.textContent = teamOverview.todayPresent ?? 0;
+  const leaders = teamOverview[teamRankingPeriod]?.leaders || [];
+  if (!leaders.length) {
+    container.textContent = currentLang === 'km' ? 'មិនទាន់មានទិន្នន័យវត្តមានក្នុងរយៈពេលនេះ' : 'No attendance records for this period yet';
+    return;
+  }
+  container.innerHTML = leaders.map((leader, index) => `
+    <div class="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white/5 border border-white/10">
+      <div class="min-w-0 flex items-center gap-2">
+        <span class="w-7 h-7 rounded-lg bg-cyan-500/15 text-cyan-300 flex items-center justify-center font-black flex-shrink-0">${index + 1}</span>
+        <div class="min-w-0">
+          <div class="font-bold text-white truncate">${escapeHtml(leader.name)}${leader.nameLatin ? ` <span class="text-slate-400 font-normal">(${escapeHtml(leader.nameLatin)})</span>` : ''}</div>
+          <div class="text-[10px] text-slate-400">${currentLang === 'km' ? `វត្តមាន ${leader.daysPresent} ថ្ងៃ · ពេញ ៤ វេន ${leader.completedDays} ថ្ងៃ` : `${leader.daysPresent} days present · ${leader.completedDays} complete days`}</div>
+        </div>
+      </div>
+      <span class="text-cyan-300 font-bold font-mono flex-shrink-0">${leader.score} ${currentLang === 'km' ? 'ពិន្ទុ' : 'pts'}</span>
+    </div>
+  `).join('');
+}
+
+async function loadTeamOverview() {
+  const container = document.getElementById('staffTeamRanking');
+  if (!container || !currentStaff) return;
+  try {
+    const response = await fetch('/api/staff/team-overview');
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    teamOverview = await response.json();
+    renderTeamRanking();
+  } catch (err) {
+    console.warn('Team overview unavailable:', err);
+    container.textContent = currentLang === 'km' ? 'មិនអាចទាញយកស្ថិតិក្រុមបានទេ' : 'Team overview is unavailable';
   }
 }
 
@@ -2073,8 +2156,10 @@ async function onOfficeQrCodeScanned(decodedText) {
           ${reasonDisplay}
           ${sundayBadge}
           <div class="text-[10px] ${data.telegramSent === true ? 'text-sky-400' : 'text-amber-300'} pt-2 border-t border-white/10 flex items-center gap-1.5 font-medium">
-            <i class="fa-brands fa-telegram text-sm text-sky-400"></i>
-            <span>${data.telegramSent === true ? (currentLang === 'km' ? 'បានផ្ញើទៅ Telegram រួចរាល់' : 'Sent to Telegram') : (currentLang === 'km' ? 'វត្តមានបានកត់ត្រា ប៉ុន្តែមិនអាចបញ្ជាក់ការផ្ញើទៅ Telegram បាន។ សូមកុំចុចម្ដងទៀត។' : 'Attendance saved, but Telegram delivery was not confirmed. Please do not check in again.')}</span>
+            <i class="fa-brands fa-telegram text-sm"></i>
+            <span>${data.telegramSent === true
+              ? (currentLang === 'km' ? 'បានផ្ញើទៅ Telegram រួចរាល់' : 'Sent to Telegram')
+              : (currentLang === 'km' ? 'វត្តមានបានកត់ត្រា ប៉ុន្តែមិនអាចបញ្ជាក់ការផ្ញើទៅ Telegram បាន។ សូមកុំចុចម្ដងទៀត។' : 'Attendance saved, but Telegram delivery was not confirmed. Please do not check in again.')}</span>
           </div>
         </div>
       `,
@@ -2725,9 +2810,10 @@ function renderPendingMembers(list) {
 
   section.classList.remove('hidden');
   container.innerHTML = list.map(m => {
+    const safeName = escapeHtml(m.name_km || m.name);
     const avatarHtml = (m.avatar && m.avatar.trim())
-      ? `<div class="w-12 h-12 rounded-xl overflow-hidden border border-amber-400/30 flex-shrink-0 shadow-sm"><img src="${m.avatar}" alt="${m.name}" class="w-full h-full object-cover"></div>`
-      : `<div class="w-12 h-12 rounded-xl bg-amber-500/20 text-amber-300 font-bold flex items-center justify-center text-base border border-amber-400/30 flex-shrink-0">${m.name.charAt(0)}</div>`;
+      ? `<div class="w-12 h-12 rounded-xl overflow-hidden border border-amber-400/30 flex-shrink-0 shadow-sm"><img src="${escapeHtml(m.avatar)}" alt="${safeName}" class="w-full h-full object-cover"></div>`
+      : `<div class="w-12 h-12 rounded-xl bg-amber-500/20 text-amber-300 font-bold flex items-center justify-center text-base border border-amber-400/30 flex-shrink-0">${safeName.charAt(0)}</div>`;
 
     return `
       <div class="p-4 rounded-2xl bg-slate-900/90 border-2 border-amber-400/40 shadow-lg flex flex-col justify-between space-y-3">
@@ -2735,17 +2821,20 @@ function renderPendingMembers(list) {
           ${avatarHtml}
           <div class="min-w-0 flex-1">
             <div class="flex items-center justify-between gap-1">
-              <h5 class="font-bold text-white text-sm truncate">${m.name}</h5>
-              <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30 font-bold">${m.code}</span>
+              <h5 class="font-bold text-white text-sm truncate">${safeName}</h5>
+              <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30 font-bold">${escapeHtml(m.code)}</span>
             </div>
+            ${m.name_latin ? `<p class="text-[11px] text-slate-300 mt-0.5">${escapeHtml(m.name_latin)}</p>` : ''}
             <p class="text-xs text-slate-300 mt-0.5 flex items-center gap-1 font-medium">
               <i data-lucide="briefcase" class="w-3.5 h-3.5 text-slate-400"></i>
-              <span>${m.role || 'សមាជិកថ្មី'}</span>
+              <span>${escapeHtml(m.role || 'សមាជិកថ្មី')}</span>
             </p>
             <p class="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
               <i data-lucide="phone" class="w-3 h-3 text-slate-500"></i>
-              <span>${m.phone || 'គ្មានលេខ'}</span>
+              <span>${escapeHtml(m.phone || 'គ្មានលេខ')}</span>
             </p>
+            ${m.dob ? `<p class="text-[11px] text-slate-400 mt-0.5">ថ្ងៃកំណើត៖ ${escapeHtml(m.dob)}</p>` : ''}
+            ${m.join_date ? `<p class="text-[11px] text-slate-400 mt-0.5">ថ្ងៃចូលធ្វើការ៖ ${escapeHtml(m.join_date)}</p>` : ''}
             <div class="mt-1.5 flex items-center gap-1 text-[10px] text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded-md border border-cyan-500/20 w-fit">
               <i data-lucide="smartphone" class="w-3 h-3"></i>
               <span>Device Locked (1 Device)</span>
@@ -2885,6 +2974,8 @@ function openSelfRegisterModal() {
   if (form) form.reset();
   const pwdInput = document.getElementById('selfRegPassword');
   if (pwdInput) pwdInput.value = '1234';
+  const dobInput = document.getElementById('selfRegDob');
+  if (dobInput) dobInput.max = getKhDateString();
   selfRegAvatarBase64 = '';
   const preview = document.getElementById('selfRegAvatarPreview');
   if (preview) {
@@ -2940,17 +3031,24 @@ function handleSelfRegisterAvatarSelected(e) {
 
 async function handleSelfRegisterSubmit(e) {
   e.preventDefault();
-  const name = (document.getElementById('selfRegName').value || '').trim();
+  const nameKm = (document.getElementById('selfRegNameKm').value || '').trim();
+  const nameLatin = (document.getElementById('selfRegNameLatin').value || '').trim();
   const phone = (document.getElementById('selfRegPhone').value || '').trim();
+  const dob = document.getElementById('selfRegDob').value;
+  const joinDate = document.getElementById('selfRegJoinDate').value;
   const role = (document.getElementById('selfRegRole').value || '').trim();
   const password = (document.getElementById('selfRegPassword').value || '').trim();
 
-  if (!name) {
-    Swal.fire({ icon: 'warning', title: 'សូមបញ្ចូលឈ្មោះពេញ' });
+  if (!nameKm || !nameLatin) {
+    Swal.fire({ icon: 'warning', title: currentLang === 'km' ? 'សូមបញ្ចូលឈ្មោះខ្មែរ និងឡាតាំង' : 'Enter both Khmer and Latin names' });
     return;
   }
   if (!phone) {
     Swal.fire({ icon: 'warning', title: 'សូមបញ្ចូលលេខទូរស័ព្ទ' });
+    return;
+  }
+  if (!dob || !joinDate || dob > getKhDateString()) {
+    Swal.fire({ icon: 'warning', title: currentLang === 'km' ? 'សូមពិនិត្យថ្ងៃកំណើត និងថ្ងៃចូលធ្វើការ' : 'Check birth and employment dates' });
     return;
   }
   if (!password || password.length < 4) {
@@ -2970,8 +3068,11 @@ async function handleSelfRegisterSubmit(e) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        name,
+        name_km: nameKm,
+        name_latin: nameLatin,
         phone,
+        dob,
+        join_date: joinDate,
         role,
         password,
         avatar: selfRegAvatarBase64,
@@ -3001,7 +3102,7 @@ async function handleSelfRegisterSubmit(e) {
       title: 'បានផ្ញើសំណើចុះឈ្មោះជោគជ័យ!',
       html: `
         <div class="text-left text-xs space-y-2 mt-2 p-3 bg-slate-900 rounded-xl border border-white/10">
-          <p>ឈ្មោះ៖ <b class="text-white">${data.member.name}</b></p>
+          <p>ឈ្មោះ៖ <b class="text-white">${escapeHtml(data.member.name)} (${escapeHtml(data.member.nameLatin)})</b></p>
           <p>លេខសម្គាល់ ID៖ <b class="text-cyan-400 font-mono">${data.member.code}</b></p>
           <p class="text-amber-300 font-semibold">⏳ សំណើរបស់អ្នកបានផ្ញើទៅ Telegram របស់ Admin រួចហើយ! សូមរង់ចាំ Admin ពិនិត្យនិងអនុម័ត (Approve) ទើបអាច Login បាន។</p>
           <p class="text-slate-400 text-[11px]">* ទូរស័ព្ទដៃនេះត្រូវបានចងភ្ជាប់សុវត្ថិភាព (1 Device Policy) មិនអាចប្តូរទូរស័ព្ទដោយគ្មានការអនុញ្ញាតឡើយ។</p>
@@ -3898,10 +3999,12 @@ async function executeStaffCheckIn() {
           <!-- Telegram broadcast status -->
           <div class="p-2.5 rounded-2xl ${data.telegramSent === true ? 'bg-sky-500/10 border-sky-500/20 text-sky-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-300'} border text-[11px] flex items-center justify-between">
             <div class="flex items-center gap-2">
-              <i class="fa-brands fa-telegram text-base text-sky-400"></i>
-              <span class="font-medium">${data.telegramSent === true ? (currentLang === 'km' ? 'បានផ្ញើទៅ Telegram រួចរាល់' : 'Sent to Telegram') : (currentLang === 'km' ? 'វត្តមានបានកត់ត្រា ប៉ុន្តែមិនអាចបញ្ជាក់ការផ្ញើទៅ Telegram បាន។ សូមកុំចុចម្ដងទៀត។' : 'Attendance saved, but Telegram delivery was not confirmed. Please do not check in again.')}</span>
+              <i class="fa-brands fa-telegram text-base"></i>
+              <span class="font-medium">${data.telegramSent === true
+                ? (currentLang === 'km' ? 'បានផ្ញើទៅ Telegram រួចរាល់' : 'Sent to Telegram')
+                : (currentLang === 'km' ? 'វត្តមានបានកត់ត្រា ប៉ុន្តែមិនអាចបញ្ជាក់ការផ្ញើទៅ Telegram បាន។ សូមកុំចុចម្ដងទៀត។' : 'Attendance saved, but Telegram delivery was not confirmed. Please do not check in again.')}</span>
             </div>
-            <span class="text-[10px] font-mono text-sky-300/80 uppercase font-bold tracking-wider">${data.telegramSent === true ? 'OK' : '⚠'}</span>
+            <span class="text-[10px] font-mono uppercase font-bold tracking-wider">${data.telegramSent === true ? 'OK' : '⚠'}</span>
           </div>
         </div>
       `,

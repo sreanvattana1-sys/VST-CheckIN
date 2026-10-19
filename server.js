@@ -78,6 +78,8 @@ async function initDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       code TEXT UNIQUE NOT NULL,
       name TEXT NOT NULL,
+      name_km TEXT,
+      name_latin TEXT,
       role TEXT,
       phone TEXT,
       password TEXT DEFAULT '1234',
@@ -146,6 +148,14 @@ async function initDb() {
     await db.execute("ALTER TABLE members ADD COLUMN avatar TEXT");
   } catch (e) {
     // Column already exists
+  }
+
+  for (const column of ['name_km', 'name_latin']) {
+    try {
+      await db.execute(`ALTER TABLE members ADD COLUMN ${column} TEXT`);
+    } catch (e) {
+      // Existing databases may already have this column.
+    }
   }
 
   try {
@@ -966,6 +976,89 @@ app.get('/api/dashboard', async (req, res) => {
   }
 });
 
+// Staff-facing aggregate: no phone numbers, birthdays, passwords or private notes.
+app.get('/api/staff/team-overview', async (req, res) => {
+  try {
+    const today = getCambodiaDateString();
+    const todayDate = new Date(`${today}T00:00:00Z`);
+    const day = todayDate.getUTCDay();
+    const weekStartDate = new Date(todayDate);
+    weekStartDate.setUTCDate(todayDate.getUTCDate() - (day === 0 ? 6 : day - 1));
+    const weekStart = weekStartDate.toISOString().slice(0, 10);
+    const monthStart = `${today.slice(0, 7)}-01`;
+
+    const members = await db.all("SELECT id, name, name_km, name_latin FROM members WHERE status = 'active'");
+    const logs = await db.all(`
+      SELECT a.member_id, a.type, a.timestamp, date(a.timestamp, '+7 hours') AS work_date
+      FROM attendance a JOIN members m ON m.id = a.member_id
+      WHERE m.status = 'active' AND date(a.timestamp, '+7 hours') BETWEEN ? AND ?
+      ORDER BY a.timestamp ASC
+    `, [monthStart < weekStart ? monthStart : weekStart, today]);
+
+    const todayPresent = new Set(logs.filter(log => log.work_date === today).map(log => Number(log.member_id))).size;
+    const slotAliases = {
+      check_in: 'morning_in', morning_in: 'morning_in',
+      lunch_out: 'lunch_out', afternoon_in: 'afternoon_in',
+      check_out: 'evening_out', evening_out: 'evening_out'
+    };
+    const isPunctual = (slot, minutes) =>
+      (slot === 'morning_in' && minutes <= 490) ||
+      (slot === 'lunch_out' && minutes >= 650) ||
+      (slot === 'afternoon_in' && minutes <= 790) ||
+      (slot === 'evening_out' && minutes >= 1010);
+
+    const rankFor = (startDate) => {
+      const byMember = new Map();
+      for (const log of logs) {
+        if (log.work_date < startDate) continue;
+        const slot = slotAliases[log.type];
+        if (!slot) continue;
+        const memberId = Number(log.member_id);
+        if (!byMember.has(memberId)) byMember.set(memberId, new Map());
+        const days = byMember.get(memberId);
+        if (!days.has(log.work_date)) days.set(log.work_date, new Map());
+        const slots = days.get(log.work_date);
+        // The first entry for each slot counts; repeat taps never add points.
+        if (!slots.has(slot)) slots.set(slot, getCambodiaHoursAndMinutes(log.timestamp).totalMinutes);
+      }
+      return members.map(member => {
+        const days = byMember.get(Number(member.id)) || new Map();
+        let completedDays = 0;
+        let punctualSlots = 0;
+        for (const slots of days.values()) {
+          if (slots.size === 4) completedDays++;
+          for (const [slot, minutes] of slots) {
+            if (isPunctual(slot, minutes)) punctualSlots++;
+          }
+        }
+        const daysPresent = days.size;
+        return {
+          name: member.name_km || member.name,
+          nameLatin: member.name_latin || '',
+          daysPresent,
+          completedDays,
+          punctualSlots,
+          score: punctualSlots + completedDays * 2,
+          punctualityPercent: daysPresent ? Math.round(100 * punctualSlots / (daysPresent * 4)) : 0
+        };
+      }).filter(row => row.daysPresent > 0)
+        .sort((a, b) => b.score - a.score || b.completedDays - a.completedDays || b.punctualSlots - a.punctualSlots || b.daysPresent - a.daysPresent || a.name.localeCompare(b.name))
+        .slice(0, 5);
+    };
+
+    res.json({
+      totalMembers: members.length,
+      todayPresent,
+      today,
+      week: { startDate: weekStart, endDate: today, leaders: rankFor(weekStart) },
+      month: { startDate: monthStart, endDate: today, leaders: rankFor(monthStart) }
+    });
+  } catch (err) {
+    console.error('Team overview error:', err);
+    res.status(500).json({ error: 'មិនអាចទាញយកស្ថិតិក្រុមបានទេ' });
+  }
+});
+
 // 2. Members Management (Admin)
 app.get('/api/members', async (req, res) => {
   try {
@@ -1106,19 +1199,27 @@ app.delete('/api/members/:id', async (req, res) => {
 // 1. Staff Self-Registration (starts in 'pending' status for Admin approval)
 app.post('/api/members/self-register', async (req, res) => {
   try {
-    const { name, phone, role, password, avatar, device_id } = req.body;
-    if (!name || !name.trim()) {
-      return res.status(400).json({ error: 'សូមបញ្ចូលឈ្មោះពេញរបស់បុគ្គលិក (Full Name)' });
+    const { name_km, name_latin, phone, dob, join_date, role, password, avatar, device_id } = req.body;
+    const nameKm = String(name_km || '').trim();
+    const nameLatin = String(name_latin || '').trim();
+    const validDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+      !Number.isNaN(Date.parse(`${value}T00:00:00Z`)) &&
+      new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+    if (!nameKm || !nameLatin) {
+      return res.status(400).json({ error: 'សូមបញ្ចូលឈ្មោះជាភាសាខ្មែរ និងឈ្មោះជាអក្សរឡាតាំង' });
     }
     if (!phone || !phone.trim()) {
       return res.status(400).json({ error: 'សូមបញ្ចូលលេខទូរស័ព្ទបុគ្គលិក (Phone Number)' });
+    }
+    if (!validDate(dob) || dob > getCambodiaDateString() || !validDate(join_date)) {
+      return res.status(400).json({ error: 'សូមបញ្ចូលថ្ងៃកំណើត និងថ្ងៃចូលធ្វើការឱ្យបានត្រឹមត្រូវ' });
     }
 
     // Check duplicate phone or name
     const cleanPhone = phone.trim().replace(/\s+/g, '');
     const existing = await db.get(
-      "SELECT id, code, name, status FROM members WHERE replace(phone, ' ', '') = ? OR name = ? COLLATE NOCASE",
-      [cleanPhone, name.trim()]
+      "SELECT id, code, name, status FROM members WHERE replace(phone, ' ', '') = ? OR name = ? COLLATE NOCASE OR name_latin = ? COLLATE NOCASE",
+      [cleanPhone, nameKm, nameLatin]
     );
     if (existing) {
       if (existing.status === 'pending') {
@@ -1146,13 +1247,17 @@ app.post('/api/members/self-register', async (req, res) => {
     const memberPwd = (password && password.trim()) ? password.trim() : '1234';
 
     const insertResult = await db.run(`
-      INSERT INTO members (code, name, role, phone, password, avatar, device_id, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
+      INSERT INTO members (code, name, name_km, name_latin, role, phone, dob, join_date, password, avatar, device_id, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
     `, [
       nextCode,
-      name.trim(),
+      nameKm,
+      nameKm,
+      nameLatin,
       role ? role.trim() : 'បុគ្គលិក',
       phone.trim(),
+      dob,
+      join_date,
       memberPwd,
       avatar || '',
       device_id || null
@@ -1161,7 +1266,7 @@ app.post('/api/members/self-register', async (req, res) => {
     // Send Instant Alert to Telegram
     const tgMsg = `
 🔔 <b>New staff · Pending</b>
-👤 <b>${tgText(name)}</b> · <code>${tgText(nextCode)}</code>
+👤 <b>${tgText(nameKm)}</b> (${tgText(nameLatin)}) · <code>${tgText(nextCode)}</code>
 💼 ${tgShortChoice(role, 'Staff')}
 📱 ${tgText(phone)}
     `.trim();
@@ -1173,7 +1278,8 @@ app.post('/api/members/self-register', async (req, res) => {
       member: {
         id: insertResult.lastInsertRowid,
         code: nextCode,
-        name: name.trim(),
+        name: nameKm,
+        nameLatin,
         role: role ? role.trim() : 'បុគ្គលិក',
         status: 'pending'
       },
@@ -1188,7 +1294,7 @@ app.post('/api/members/self-register', async (req, res) => {
 // 2. Admin: Get all pending registration requests
 app.get('/api/members/pending', async (req, res) => {
   try {
-    const list = await db.all("SELECT id, code, name, role, phone, avatar, device_id, created_at FROM members WHERE status = 'pending' ORDER BY id DESC");
+    const list = await db.all("SELECT id, code, name, name_km, name_latin, role, phone, dob, join_date, avatar, device_id, created_at FROM members WHERE status = 'pending' ORDER BY id DESC");
     res.json(list);
   } catch (err) {
     res.status(500).json({ error: err.message });
