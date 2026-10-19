@@ -1551,12 +1551,24 @@ app.post('/api/attendance/check', async (req, res) => {
       trimmedNote ? `Reason: ${tgText(trimmedNote)}` : null
     ].filter(Boolean).join('\n');
 
-    sendTelegramMessage(telegramMsg).catch(err => {
-      console.error('Background Telegram send error:', err);
-    });
+    // Finish the notification before returning: serverless runtimes may pause
+    // background work as soon as the HTTP response has been sent.
+    let telegramSent = false;
+    try {
+      const telegramResult = await sendTelegramMessage(telegramMsg);
+      telegramSent = telegramResult.success === true;
+      if (!telegramSent) {
+        console.warn('Attendance Telegram notification was not confirmed for record', recordResult.lastInsertRowid);
+      }
+    } catch (err) {
+      // The attendance row is already saved. Never report it as failed or
+      // encourage another check-in solely because Telegram was unavailable.
+      console.error('Attendance Telegram notification failed for record', recordResult.lastInsertRowid, err);
+    }
 
     res.json({
       success: true,
+      telegramSent,
       message: `${typeLabel} ជោគជ័យ!`,
       attendanceId: recordResult.lastInsertRowid,
       member: {
