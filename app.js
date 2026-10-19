@@ -3553,16 +3553,82 @@ function selectHistoryExportFormat(format) {
   });
 }
 
+function khWorkDate(timestamp) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Phnom_Penh', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(new Date(timestamp));
+  const value = type => parts.find(part => part.type === type)?.value || '';
+  return `${value('year')}-${value('month')}-${value('day')}`;
+}
+
+function countReportWorkdays(startValue, endValue) {
+  if (!startValue || !endValue) return 0;
+  const start = new Date(`${startValue}T00:00:00`);
+  const end = new Date(`${endValue}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return 0;
+  let count = 0;
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    if (cursor.getDay() !== 0) count++;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return count;
+}
+
+function buildEmployeeAttendanceSummary() {
+  const selectedCode = document.getElementById('adminHistoryMemberFilter')?.value || '';
+  const start = document.getElementById('adminHistoryStartDate')?.value || '';
+  const end = document.getElementById('adminHistoryEndDate')?.value || start;
+  const expectedDays = countReportWorkdays(start, end);
+  const knownMembers = Array.isArray(allAdminMembers) ? allAdminMembers : [];
+  const memberMap = new Map();
+
+  knownMembers.forEach(member => {
+    if (selectedCode && member.code !== selectedCode) return;
+    memberMap.set(member.code, {
+      name: member.name || member.name_latin || '-',
+      code: member.code || '-',
+      role: member.role || '-',
+      presentDates: new Set(),
+      lateCount: 0,
+      recordCount: 0
+    });
+  });
+
+  adminHistoryLogs.forEach(record => {
+    const code = record.member_code || record.member_name || '-';
+    if (selectedCode && code !== selectedCode) return;
+    if (!memberMap.has(code)) {
+      memberMap.set(code, {
+        name: record.member_name || '-', code,
+        role: record.member_role || '-', presentDates: new Set(), lateCount: 0, recordCount: 0
+      });
+    }
+    const summary = memberMap.get(code);
+    summary.presentDates.add(khWorkDate(record.timestamp));
+    summary.recordCount++;
+    if (isLateAttendance(record)) summary.lateCount++;
+  });
+
+  return [...memberMap.values()].map(summary => ({
+    ...summary,
+    daysPresent: summary.presentDates.size,
+    absentDays: Math.max(0, expectedDays - summary.presentDates.size)
+  })).sort((a, b) => b.absentDays - a.absentDays || b.lateCount - a.lateCount || a.name.localeCompare(b.name));
+}
+
 function buildPrintableHistoryReport() {
   const includeSummary = document.getElementById('exportIncludeSummary')?.checked;
   const includeDetails = document.getElementById('exportIncludeDetails')?.checked;
   const range = `${document.getElementById('adminHistoryStartDate')?.value || '-'} to ${document.getElementById('adminHistoryEndDate')?.value || '-'}`;
   const lateCount = adminHistoryLogs.filter(isLateAttendance).length;
   const members = new Set(adminHistoryLogs.map(r => r.member_code || r.member_name).filter(Boolean)).size;
+  const employeeSummary = buildEmployeeAttendanceSummary();
+  const employeeSummaryRows = employeeSummary.map((member, index) => `<tr><td>${index + 1}</td><td><b>${escapeHtml(member.name)}</b></td><td>${escapeHtml(member.code)}</td><td>${escapeHtml(member.role)}</td><td style="text-align:center;color:#047857;font-weight:700">${member.daysPresent}</td><td style="text-align:center;color:#b45309;font-weight:700">${member.lateCount}</td><td style="text-align:center;color:${member.absentDays ? '#e11d48' : '#047857'};font-weight:800">${member.absentDays}</td><td style="text-align:center">${member.recordCount}</td></tr>`).join('');
   const rows = adminHistoryLogs.map((r, i) => `<tr><td>${i + 1}</td>${includeDetails ? `<td>${escapeHtml(r.member_name || '-')}</td><td>${escapeHtml(r.member_code || '-')}</td><td>${escapeHtml(r.member_role || '-')}</td>` : ''}<td>${escapeHtml(historyActionLabel(r.type))}${isLateAttendance(r) ? ' (Late)' : ''}</td><td>${escapeHtml(new Date(r.timestamp).toLocaleString('en-GB', { timeZone: 'Asia/Phnom_Penh' }))}</td></tr>`).join('');
   const el = document.createElement('div');
   el.style.cssText = 'background:#fff;color:#0f172a;padding:32px;width:1050px;font-family:"Noto Sans Khmer",Arial,sans-serif;';
-  el.innerHTML = `<div style="border-bottom:3px solid #0891b2;padding-bottom:16px;margin-bottom:20px"><h1 style="margin:0;font-size:25px">VANN SITHA TRADING CO.,LTD</h1><h2 style="margin:6px 0;color:#0891b2;font-size:18px">Attendance Report / របាយការណ៍វត្តមាន</h2><p style="margin:0;color:#64748b;font-size:12px">Date range: ${range} · Generated: ${new Date().toLocaleString('en-GB')}</p></div>${includeSummary ? `<div style="display:flex;gap:12px;margin:18px 0"><div style="padding:12px;border:1px solid #cbd5e1;flex:1"><b>Total Records</b><div style="font-size:22px">${adminHistoryLogs.length}</div></div><div style="padding:12px;border:1px solid #cbd5e1;flex:1"><b>Members Present</b><div style="font-size:22px">${members}</div></div><div style="padding:12px;border:1px solid #cbd5e1;flex:1"><b>On Time</b><div style="font-size:22px">${adminHistoryLogs.length - lateCount}</div></div><div style="padding:12px;border:1px solid #cbd5e1;flex:1"><b>Late</b><div style="font-size:22px;color:#e11d48">${lateCount}</div></div></div>` : ''}<table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="background:#0f172a;color:#fff"><th style="padding:9px;border:1px solid #334155">#</th>${includeDetails ? '<th style="padding:9px;border:1px solid #334155">Name</th><th style="padding:9px;border:1px solid #334155">Code</th><th style="padding:9px;border:1px solid #334155">Role</th>' : ''}<th style="padding:9px;border:1px solid #334155">Action</th><th style="padding:9px;border:1px solid #334155">Date & Time</th></tr></thead><tbody>${rows.replaceAll('<td>', '<td style="padding:8px;border:1px solid #cbd5e1">')}</tbody></table><p style="text-align:center;color:#64748b;font-size:10px;margin-top:22px">VANN SITHA TRADING · Smart Digital Attendance Hub</p>`;
+  el.innerHTML = `<div style="border-bottom:3px solid #0891b2;padding-bottom:16px;margin-bottom:20px"><h1 style="margin:0;font-size:25px">VANN SITHA TRADING CO.,LTD</h1><h2 style="margin:6px 0;color:#0891b2;font-size:18px">Attendance Report / របាយការណ៍វត្តមាន</h2><p style="margin:0;color:#64748b;font-size:12px">Date range: ${range} · Generated: ${new Date().toLocaleString('en-GB')}</p></div>${includeSummary ? `<div style="display:flex;gap:12px;margin:18px 0"><div style="padding:12px;border:1px solid #cbd5e1;flex:1"><b>Total Records</b><div style="font-size:22px">${adminHistoryLogs.length}</div></div><div style="padding:12px;border:1px solid #cbd5e1;flex:1"><b>Members Present</b><div style="font-size:22px">${members}</div></div><div style="padding:12px;border:1px solid #cbd5e1;flex:1"><b>On Time</b><div style="font-size:22px">${adminHistoryLogs.length - lateCount}</div></div><div style="padding:12px;border:1px solid #cbd5e1;flex:1"><b>Late</b><div style="font-size:22px;color:#e11d48">${lateCount}</div></div></div><h3 style="margin:22px 0 8px;color:#0f172a;font-size:16px">Employee Summary / សង្ខេបតាមបុគ្គលិក</h3><table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:24px"><thead><tr style="background:#0e7490;color:#fff"><th>#</th><th>Name</th><th>Code</th><th>Role</th><th>Present Days</th><th>Late Times</th><th>Absent Days</th><th>Records</th></tr></thead><tbody>${employeeSummaryRows.replaceAll('<td>', '<td style="padding:8px;border:1px solid #cbd5e1">')}</tbody></table>` : ''}<h3 style="margin:14px 0 8px;color:#0f172a;font-size:15px">Detailed Attendance / កំណត់ត្រាលម្អិត</h3><table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="background:#0f172a;color:#fff"><th style="padding:9px;border:1px solid #334155">#</th>${includeDetails ? '<th style="padding:9px;border:1px solid #334155">Name</th><th style="padding:9px;border:1px solid #334155">Code</th><th style="padding:9px;border:1px solid #334155">Role</th>' : ''}<th style="padding:9px;border:1px solid #334155">Action</th><th style="padding:9px;border:1px solid #334155">Date & Time</th></tr></thead><tbody>${rows.replaceAll('<td>', '<td style="padding:8px;border:1px solid #cbd5e1">')}</tbody></table><p style="text-align:center;color:#64748b;font-size:10px;margin-top:22px">VANN SITHA TRADING · Smart Digital Attendance Hub</p>`;
   return el;
 }
 
