@@ -3649,6 +3649,11 @@ async function downloadHistoryReport() {
   const btn = document.getElementById('historyDownloadBtn');
   btn.disabled = true; btn.classList.add('opacity-60');
   try {
+    // Load every employee before calculating absences, even if the Members
+    // screen has not been opened during this admin session.
+    if (!Array.isArray(allAdminMembers) || !allAdminMembers.length) {
+      await loadAdminMembers();
+    }
     if (adminHistoryExportFormat === 'pdf') await exportHistoryPDF();
     else if (adminHistoryExportFormat === 'word') exportHistoryWord();
     else exportHistoryCSV();
