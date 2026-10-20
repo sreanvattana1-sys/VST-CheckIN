@@ -3,6 +3,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const PDFDocument = require('pdfkit');
 const { createClient } = require('@libsql/client');
 
 const app = express();
@@ -745,6 +746,135 @@ async function sendTelegramMessage(text) {
     console.error('Failed to send Telegram message:', err.message);
     return { success: false, error: err.message };
   }
+}
+
+function getLatinMemberName(member) {
+  const sources = [member?.name_latin, member?.name].filter(Boolean).map(value => String(value));
+  for (const source of sources) {
+    const parenthetical = source.match(/\(([A-Za-z][A-Za-z .'-]{1,100})\)/);
+    if (parenthetical) return cleanPlainText(parenthetical[1], 160);
+    const latinOnly = source.replace(/[^A-Za-z .'-]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (/[A-Za-z]{2}/.test(latinOnly)) return cleanPlainText(latinOnly, 160);
+  }
+  return cleanPlainText(member?.code ? `Staff ${member.code}` : 'Unknown Staff', 160);
+}
+
+async function sendTelegramDocument(pdfBuffer, filename, caption = '') {
+  const token = await getTelegramToken();
+  const chatId = await getSetting('telegram_chat_id');
+  const enabled = await getSetting('telegram_enabled');
+  const targetChatId = (chatId && chatId.trim()) ? chatId.trim() : '-5037746251';
+  if (enabled === 'false' || !token || !targetChatId) {
+    return { success: false, reason: 'Telegram is not configured or disabled' };
+  }
+
+  try {
+    const form = new FormData();
+    form.append('chat_id', targetChatId);
+    form.append('document', new Blob([pdfBuffer], { type: 'application/pdf' }), filename);
+    if (caption) {
+      form.append('caption', caption.slice(0, 1024));
+      form.append('parse_mode', 'HTML');
+    }
+    const response = await fetch(`https://api.telegram.org/bot${token}/sendDocument`, {
+      method: 'POST',
+      body: form,
+      signal: AbortSignal.timeout(15000)
+    });
+    const result = await response.json();
+    return { success: result.ok === true, data: result };
+  } catch (error) {
+    console.error('Failed to send Telegram PDF:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+function createPdfBuffer(drawPdf) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: 'A4', margin: 36, info: { Author: 'VANN SITHA TRADING CO., LTD' } });
+    const chunks = [];
+    doc.on('data', chunk => chunks.push(chunk));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+    try {
+      drawPdf(doc);
+      doc.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+function drawPdfHeader(doc, reportTitle, periodText) {
+  const logoPath = path.join(__dirname, 'public', 'logo.png');
+  if (fs.existsSync(logoPath)) {
+    doc.image(logoPath, 273, 28, { fit: [48, 48], align: 'center' });
+  }
+  doc.fillColor('#071B3B').font('Helvetica-Bold').fontSize(16)
+    .text('VANN SITHA TRADING CO., LTD', 36, 82, { align: 'center' });
+  doc.fontSize(15).text(reportTitle, { align: 'center' });
+  doc.fillColor('#65758B').font('Helvetica').fontSize(8.5)
+    .text(periodText, { align: 'center' });
+  doc.moveDown(1.1);
+}
+
+function drawPdfFooter(doc) {
+  const y = 788;
+  doc.strokeColor('#12BDEB').lineWidth(1).moveTo(36, y).lineTo(559, y).stroke();
+  doc.fillColor('#65758B').font('Helvetica').fontSize(7)
+    .text('VANN SITHA TRADING - Smart Digital Attendance Hub', 36, y + 5, { lineBreak: false });
+  const pageNumber = doc.__vstPageNumber || 1;
+  doc.text(`Page ${pageNumber}`, 500, y + 5, { width: 59, align: 'right', lineBreak: false });
+  doc.__vstPageNumber = pageNumber + 1;
+}
+
+function drawSummaryCards(doc, cards, y) {
+  const width = 523 / cards.length;
+  cards.forEach((card, index) => {
+    const x = 36 + index * width;
+    doc.fillColor('#F4F7FB').strokeColor('#D8E0EA').lineWidth(0.5).rect(x, y, width, 47).fillAndStroke();
+    doc.fillColor('#071B3B').font('Helvetica-Bold').fontSize(7.5).text(card.label, x + 6, y + 7, { width: width - 12, align: 'center' });
+    doc.fillColor(card.color || '#071B3B').fontSize(16).text(String(card.value), x + 6, y + 22, { width: width - 12, align: 'center' });
+  });
+  return y + 59;
+}
+
+function drawPdfTable(doc, columns, rows, y, repeatTitle) {
+  const left = 36;
+  const headerHeight = 27;
+  const rowHeight = 22;
+  const drawHeader = () => {
+    let x = left;
+    for (const col of columns) {
+      doc.fillColor('#071B3B').strokeColor('#D8E0EA').rect(x, y, col.width, headerHeight).fillAndStroke();
+      doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(6.7)
+        .text(col.label, x + 2, y + 8, { width: col.width - 4, align: col.align || 'center', lineBreak: false });
+      x += col.width;
+    }
+    y += headerHeight;
+  };
+  drawHeader();
+
+  rows.forEach((row, rowIndex) => {
+    if (y + rowHeight > 770) {
+      drawPdfFooter(doc);
+      doc.addPage();
+      y = 42;
+      doc.fillColor('#071B3B').font('Helvetica-Bold').fontSize(11).text(repeatTitle, 36, y);
+      y += 20;
+      drawHeader();
+    }
+    let x = left;
+    columns.forEach((col, colIndex) => {
+      doc.fillColor(rowIndex % 2 ? '#F4F7FB' : '#FFFFFF').strokeColor('#D8E0EA').lineWidth(0.35)
+        .rect(x, y, col.width, rowHeight).fillAndStroke();
+      doc.fillColor('#071B3B').font('Helvetica').fontSize(6.8)
+        .text(String(row[col.key] ?? '-'), x + 3, y + 7, { width: col.width - 6, align: col.align || 'left', lineBreak: false, ellipsis: true });
+      x += col.width;
+    });
+    y += rowHeight;
+  });
+  return y;
 }
 
 // Helper: Send Telegram notification to dedicated Leave / Late Permissions Group (-5352852483)
@@ -1871,8 +2001,9 @@ app.post('/api/attendance/check', requireAuth, requireStaffOrAdmin, async (req, 
       attendanceStatus = `Early ${tgDuration(targetMinutes - totalMinutes)}`;
     }
 
+    const latinMemberName = getLatinMemberName(member);
     const telegramMsg = [
-      `<b>${tgText(member.name)}</b> ${isCheckIn ? 'checked in' : 'checked out'} ${statusIcon} <b>${attendanceStatus}</b>`,
+      `<b>${tgText(latinMemberName)}</b> ${isCheckIn ? 'checked in' : 'checked out'} ${statusIcon} <b>${attendanceStatus}</b>`,
       `Date Time: ${formatTelegramDate(now)} ${formatTelegramTime(now)}`,
       trimmedNote ? `Reason: ${tgText(trimmedNote)}` : null
     ].filter(Boolean).join('\n');
@@ -2329,6 +2460,13 @@ async function generateDailySummaryReport() {
     ORDER BY timestamp ASC
   `, [todayKhDate]);
 
+  const approvedLeaves = await db.all(`
+    SELECT member_id FROM leave_requests
+    WHERE status = 'approved' AND request_type = 'leave'
+      AND date_start <= ? AND COALESCE(NULLIF(date_end, ''), date_start) >= ?
+  `, [todayKhDate, todayKhDate]);
+  const approvedLeaveIds = new Set(approvedLeaves.map(item => Number(item.member_id)));
+
   // Group logs by member
   const memberLogsMap = {};
   for (const log of todayLogs) {
@@ -2343,13 +2481,15 @@ async function generateDailySummaryReport() {
   const onTimeList = [];
   const absentList = [];
   const incompleteList = [];
+  const reportRows = [];
 
   for (const member of activeMembers) {
     const logs = memberLogsMap[member.id] || [];
-    if (logs.length === 0) {
+    const isOnLeave = approvedLeaveIds.has(Number(member.id));
+    if (logs.length === 0 && !isOnLeave) {
       // Absent (no scans at all)
       absentList.push(member);
-    } else {
+    } else if (logs.length > 0) {
       presentList.push(member);
 
       // Find first morning_in scan
@@ -2384,6 +2524,24 @@ async function generateDailySummaryReport() {
         });
       }
     }
+
+    const slot = type => logs.find(log => log.type === type || (type === 'morning_in' && log.type === 'check_in') || (type === 'evening_out' && log.type === 'check_out'));
+    const morning = slot('morning_in');
+    const lunch = slot('lunch_out');
+    const afternoon = slot('afternoon_in');
+    const evening = slot('evening_out');
+    const lateItem = lateList.find(item => Number(item.member.id) === Number(member.id));
+    reportRows.push({
+      index: reportRows.length + 1,
+      staff: getLatinMemberName(member),
+      code: member.code,
+      in1: morning ? formatTelegramTime(morning.timestamp) : '-',
+      out1: lunch ? formatTelegramTime(lunch.timestamp) : '-',
+      in2: afternoon ? formatTelegramTime(afternoon.timestamp) : '-',
+      out2: evening ? formatTelegramTime(evening.timestamp) : '-',
+      status: isOnLeave ? 'Leave' : logs.length === 0 ? 'Absent' : lateItem ? 'Late' : 'On time',
+      late: lateItem ? `${lateItem.lateMinutes}m` : '-'
+    });
   }
 
   // Format Latecomers Text
@@ -2393,12 +2551,13 @@ async function generateDailySummaryReport() {
   ];
   if (lateList.length) {
     summaryLines.push('', '<b>មកយឺត</b>', ...lateList.map(item =>
-      `• ${tgText(item.member.name)} · ${tgKhTime(item.time)} (${tgKhDuration(item.lateMinutes)})${item.reason || ''}`
+      `• ${tgText(getLatinMemberName(item.member))} · ${tgKhTime(item.time)} (${tgKhDuration(item.lateMinutes)})${item.reason || ''}`
     ));
   }
   if (absentList.length) {
-    summaryLines.push('', '<b>អវត្តមាន</b>', ...absentList.map(item => `• ${tgText(item.name)}`));
+    summaryLines.push('', '<b>អវត្តមាន</b>', ...absentList.map(item => `• ${tgText(getLatinMemberName(item))}`));
   }
+  summaryLines.push('', '📎 ព័ត៌មានលម្អិតសូមមើលក្នុងឯកសារ PDF។');
   const summaryMsg = summaryLines.join('\n');
 
   return {
@@ -2409,18 +2568,211 @@ async function generateDailySummaryReport() {
       onTime: onTimeList.length,
       late: lateList.length,
       absent: absentList.length,
+      leave: approvedLeaveIds.size,
       incomplete: incompleteList.length
     },
     lateList,
-    absentList
+    absentList,
+    reportRows,
+    reportDate: todayKhDate
   };
+}
+
+async function buildDailyReportPdf(report) {
+  const companyName = (await getSetting('company_name')) || 'VANN SITHA TRADING CO., LTD';
+  return createPdfBuffer(doc => {
+    doc.info.Title = `${companyName} Daily Attendance Report ${report.reportDate}`;
+    drawPdfHeader(doc, 'DAILY ATTENDANCE REPORT', `Report date: ${report.reportDate}  |  Generated at: 08:00 PM`);
+    let y = drawSummaryCards(doc, [
+      { label: 'ACTIVE STAFF', value: report.stats.total },
+      { label: 'PRESENT', value: report.stats.present, color: '#0F9D72' },
+      { label: 'LATE', value: report.stats.late, color: '#E59D16' },
+      { label: 'ABSENT', value: report.stats.absent, color: '#E5484D' },
+      { label: 'LEAVE', value: report.stats.leave, color: '#12BDEB' }
+    ], doc.y + 5);
+    doc.fillColor('#071B3B').font('Helvetica-Bold').fontSize(9).text('ATTENDANCE DETAILS', 36, y);
+    y += 15;
+    const columns = [
+      { key: 'index', label: '#', width: 20, align: 'center' },
+      { key: 'staff', label: 'STAFF', width: 105 },
+      { key: 'code', label: 'CODE', width: 54, align: 'center' },
+      { key: 'in1', label: 'IN 1', width: 51, align: 'center' },
+      { key: 'out1', label: 'OUT 1', width: 51, align: 'center' },
+      { key: 'in2', label: 'IN 2', width: 51, align: 'center' },
+      { key: 'out2', label: 'OUT 2', width: 51, align: 'center' },
+      { key: 'status', label: 'STATUS', width: 78, align: 'center' },
+      { key: 'late', label: 'LATE', width: 42, align: 'center' }
+    ];
+    y = drawPdfTable(doc, columns, report.reportRows, y, 'DAILY ATTENDANCE REPORT - CONTINUED');
+    if (y + 75 > 770) {
+      drawPdfFooter(doc); doc.addPage(); y = 42;
+    }
+    doc.fillColor('#FDECEF').strokeColor('#D8E0EA').rect(36, y + 10, 255, 50).fillAndStroke();
+    doc.fillColor('#071B3B').font('Helvetica-Bold').fontSize(8).text(`ABSENT STAFF (${report.absentList.length})`, 44, y + 18);
+    doc.font('Helvetica').fontSize(7).text(report.absentList.map(getLatinMemberName).join(', ') || 'None', 44, y + 32, { width: 239 });
+    doc.fillColor('#FFF7E6').strokeColor('#D8E0EA').rect(291, y + 10, 268, 50).fillAndStroke();
+    doc.fillColor('#071B3B').font('Helvetica-Bold').fontSize(8).text(`LATE SUMMARY (${report.lateList.length})`, 299, y + 18);
+    doc.font('Helvetica').fontSize(7).text(report.lateList.map(item => `${getLatinMemberName(item.member)} - ${item.lateMinutes}m`).join(', ') || 'None', 299, y + 32, { width: 252 });
+    drawPdfFooter(doc);
+  });
+}
+
+async function sendDailyReportToTelegram(report) {
+  const pdf = await buildDailyReportPdf(report);
+  const filename = `VST_Daily_Report_${report.reportDate}.pdf`;
+  return sendTelegramDocument(pdf, filename, report.summaryMsg);
+}
+
+function getMonthRange(dateStr = getCambodiaDateString()) {
+  const [year, month] = dateStr.split('-').map(Number);
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const calendarEnd = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+  return {
+    year,
+    month,
+    monthKey: `${year}-${String(month).padStart(2, '0')}`,
+    start: `${year}-${String(month).padStart(2, '0')}-01`,
+    end: dateStr < calendarEnd ? dateStr : calendarEnd,
+    calendarEnd,
+    lastDay
+  };
+}
+
+function countWorkingDays(start, end) {
+  let count = 0;
+  const current = new Date(`${start}T00:00:00Z`);
+  const finish = new Date(`${end}T00:00:00Z`);
+  while (current <= finish) {
+    if (current.getUTCDay() !== 0) count += 1;
+    current.setUTCDate(current.getUTCDate() + 1);
+  }
+  return count;
+}
+
+function countApprovedLeaveDays(requests, monthStart, monthEnd) {
+  const dates = new Set();
+  for (const request of requests) {
+    const start = new Date(`${request.date_start < monthStart ? monthStart : request.date_start}T00:00:00Z`);
+    const rawEnd = request.date_end || request.date_start;
+    const endValue = rawEnd > monthEnd ? monthEnd : rawEnd;
+    const end = new Date(`${endValue}T00:00:00Z`);
+    while (start <= end) {
+      if (start.getUTCDay() !== 0) dates.add(start.toISOString().slice(0, 10));
+      start.setUTCDate(start.getUTCDate() + 1);
+    }
+  }
+  return dates.size;
+}
+
+async function generateMonthlySummaryReport(dateStr = getCambodiaDateString()) {
+  const range = getMonthRange(dateStr);
+  const activeMembers = await db.all("SELECT * FROM members WHERE status = 'active' ORDER BY name ASC");
+  const logs = await db.all(`
+    SELECT * FROM attendance
+    WHERE date(timestamp, '+7 hours') BETWEEN ? AND ?
+    ORDER BY timestamp ASC
+  `, [range.start, range.end]);
+  const leaveRequests = await db.all(`
+    SELECT * FROM leave_requests
+    WHERE status = 'approved' AND request_type = 'leave'
+      AND date_start <= ? AND COALESCE(NULLIF(date_end, ''), date_start) >= ?
+  `, [range.end, range.start]);
+  const workingDays = countWorkingDays(range.start, range.end);
+  const rows = activeMembers.map(member => {
+    const memberLogs = logs.filter(log => Number(log.member_id) === Number(member.id));
+    const presentDates = new Set(memberLogs.map(log => {
+      const d = new Date(log.timestamp);
+      return new Date(d.getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    }));
+    let lateTimes = 0;
+    let lateMinutes = 0;
+    for (const log of memberLogs) {
+      if (log.type !== 'morning_in' && log.type !== 'check_in' && log.type !== 'afternoon_in') continue;
+      const { totalMinutes } = getCambodiaHoursAndMinutes(log.timestamp);
+      const target = log.type === 'afternoon_in' ? 780 : 480;
+      const graceEnd = target + 10;
+      if (totalMinutes > graceEnd) {
+        lateTimes += 1;
+        lateMinutes += totalMinutes - target;
+      }
+    }
+    const memberLeaves = leaveRequests.filter(item => Number(item.member_id) === Number(member.id));
+    const leaveDays = countApprovedLeaveDays(memberLeaves, range.start, range.end);
+    const present = presentDates.size;
+    const absent = Math.max(0, workingDays - present - leaveDays);
+    const score = Math.max(0, 100 - lateTimes * 2 - absent * 5);
+    return {
+      staff: getLatinMemberName(member), code: member.code, workingDays, present,
+      lateTimes, lateMinutes, absent, leave: leaveDays, score
+    };
+  }).sort((a, b) => b.score - a.score || a.lateMinutes - b.lateMinutes || a.staff.localeCompare(b.staff));
+  rows.forEach((row, index) => { row.index = index + 1; });
+  const totals = rows.reduce((acc, row) => {
+    acc.present += row.present; acc.late += row.lateTimes; acc.absent += row.absent; acc.leave += row.leave;
+    return acc;
+  }, { present: 0, late: 0, absent: 0, leave: 0 });
+  const attendanceRate = rows.length && workingDays ? ((totals.present / (rows.length * workingDays)) * 100).toFixed(1) : '0.0';
+  const summaryMsg = [
+    `📊 <b>របាយការណ៍វត្តមានប្រចាំខែ ${range.monthKey}</b>`,
+    `👥 បុគ្គលិក ${rows.length} នាក់ · ✅ វត្តមានមធ្យម ${attendanceRate}%`,
+    `⏰ មកយឺត ${totals.late} ដង · ❌ អវត្តមាន ${totals.absent} ថ្ងៃ · 📝 សុំច្បាប់ ${totals.leave} ថ្ងៃ`,
+    '',
+    '🏆 <b>អ្នកគោរពពេលវេលាល្អជាងគេ</b>',
+    ...rows.slice(0, 3).map((row, index) => `${index + 1}. ${tgText(row.staff)} · ${row.score} ពិន្ទុ`),
+    '',
+    '📎 ព័ត៌មានលម្អិតសូមមើលក្នុងឯកសារ PDF។'
+  ].join('\n');
+  return { range, workingDays, rows, totals, attendanceRate, summaryMsg };
+}
+
+async function buildMonthlyReportPdf(report) {
+  return createPdfBuffer(doc => {
+    doc.info.Title = `VST Monthly Attendance Report ${report.range.monthKey}`;
+    drawPdfHeader(doc, 'MONTHLY ATTENDANCE REPORT', `${report.range.monthKey}  |  ${report.workingDays} working days  |  Generated at: 08:00 PM`);
+    let y = drawSummaryCards(doc, [
+      { label: 'ACTIVE STAFF', value: report.rows.length },
+      { label: 'AVG. ATTENDANCE', value: `${report.attendanceRate}%`, color: '#0F9D72' },
+      { label: 'TOTAL LATE', value: report.totals.late, color: '#E59D16' },
+      { label: 'TOTAL ABSENT', value: report.totals.absent, color: '#E5484D' },
+      { label: 'LEAVE', value: report.totals.leave, color: '#12BDEB' }
+    ], doc.y + 5);
+    doc.fillColor('#071B3B').font('Helvetica-Bold').fontSize(9).text('STAFF MONTHLY SUMMARY', 36, y);
+    y += 15;
+    const columns = [
+      { key: 'index', label: '#', width: 20, align: 'center' },
+      { key: 'staff', label: 'STAFF', width: 95 },
+      { key: 'code', label: 'CODE', width: 53, align: 'center' },
+      { key: 'workingDays', label: 'WORK DAYS', width: 50, align: 'center' },
+      { key: 'present', label: 'PRESENT', width: 48, align: 'center' },
+      { key: 'lateTimes', label: 'LATE TIMES', width: 50, align: 'center' },
+      { key: 'lateMinutes', label: 'LATE MINS', width: 53, align: 'center' },
+      { key: 'absent', label: 'ABSENT', width: 45, align: 'center' },
+      { key: 'leave', label: 'LEAVE', width: 43, align: 'center' },
+      { key: 'score', label: 'SCORE', width: 50, align: 'center' }
+    ];
+    y = drawPdfTable(doc, columns, report.rows, y, 'MONTHLY ATTENDANCE REPORT - CONTINUED');
+    if (y + 80 > 770) { drawPdfFooter(doc); doc.addPage(); y = 42; }
+    const attention = [...report.rows].sort((a, b) => b.absent - a.absent || b.lateMinutes - a.lateMinutes).slice(0, 3);
+    doc.fillColor('#EAFBF5').strokeColor('#D8E0EA').rect(36, y + 10, 255, 58).fillAndStroke();
+    doc.fillColor('#071B3B').font('Helvetica-Bold').fontSize(8).text('TOP DISCIPLINE', 44, y + 18);
+    doc.font('Helvetica').fontSize(7).text(report.rows.slice(0, 3).map((row, i) => `${i + 1}. ${row.staff} - Score ${row.score}`).join('\n'), 44, y + 32, { width: 239 });
+    doc.fillColor('#FFF1F2').strokeColor('#D8E0EA').rect(291, y + 10, 268, 58).fillAndStroke();
+    doc.fillColor('#071B3B').font('Helvetica-Bold').fontSize(8).text('NEEDS ATTENTION', 299, y + 18);
+    doc.font('Helvetica').fontSize(7).text(attention.map((row, i) => `${i + 1}. ${row.staff} - ${row.absent} absent, ${row.lateMinutes}m late`).join('\n'), 299, y + 32, { width: 252 });
+    drawPdfFooter(doc);
+  });
+}
+
+async function sendMonthlyReportToTelegram(report) {
+  const pdf = await buildMonthlyReportPdf(report);
+  return sendTelegramDocument(pdf, `VST_Monthly_Report_${report.range.monthKey}.pdf`, report.summaryMsg);
 }
 
 // 8. API to Send Daily Summary to Telegram
 app.post('/api/attendance/send-daily-summary', requireAuth, requireAdmin, async (req, res) => {
   try {
     const report = await generateDailySummaryReport();
-    const result = await sendTelegramMessage(report.summaryMsg);
+    const result = await sendDailyReportToTelegram(report);
     if (result.success) {
       res.json({
         success: true,
@@ -2435,6 +2787,22 @@ app.post('/api/attendance/send-daily-summary', requireAuth, requireAdmin, async 
   } catch (err) {
     console.error('Error generating daily summary:', err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/attendance/send-monthly-summary', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const requestedMonth = /^\d{4}-\d{2}$/.test(String(req.body?.month || '')) ? String(req.body.month) : '';
+    const reportDate = requestedMonth ? getMonthRange(`${requestedMonth}-01`).calendarEnd : undefined;
+    const report = await generateMonthlySummaryReport(reportDate);
+    const result = await sendMonthlyReportToTelegram(report);
+    if (!result.success) {
+      return res.status(400).json({ error: result.reason || result.error || 'មិនអាចផ្ញើរបាយការណ៍ប្រចាំខែទៅ Telegram បានទេ។' });
+    }
+    res.json({ success: true, message: 'របាយការណ៍ប្រចាំខែ និង PDF បានផ្ញើទៅ Telegram ដោយជោគជ័យ!', month: report.range.monthKey });
+  } catch (error) {
+    console.error('Error generating monthly summary:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -2456,8 +2824,11 @@ app.get('/api/cron/daily-summary', async (req, res) => {
   const isSunday = getCambodiaDayOfWeek() === 0;
   const { hour } = getCambodiaHoursAndMinutes();
   const todayDateStr = getCambodiaDateString();
+  const range = getMonthRange(todayDateStr);
+  const currentDay = Number(todayDateStr.slice(-2));
+  const isMonthEnd = currentDay === range.lastDay;
 
-  if (isSunday) {
+  if (isSunday && !isMonthEnd) {
     return res.json({ success: true, skipped: true, reason: 'Sunday' });
   }
   if (hour < 20) {
@@ -2469,6 +2840,29 @@ app.get('/api/cron/daily-summary', async (req, res) => {
   const chatId = await getSetting('telegram_chat_id');
   if (enabled !== 'true' || !token || !chatId) {
     return res.json({ success: true, skipped: true, reason: 'Telegram disabled or incomplete settings' });
+  }
+
+  if (isSunday && isMonthEnd) {
+    const monthlyClaim = await db.run(`
+      INSERT INTO settings (key, value) VALUES ('monthly_summary_last_sent', ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value
+      WHERE settings.value <> excluded.value
+    `, [range.monthKey]);
+    if (monthlyClaim.changes === 0) {
+      return res.json({ success: true, skipped: true, reason: 'Monthly report already sent' });
+    }
+    try {
+      const monthlyReport = await generateMonthlySummaryReport(todayDateStr);
+      const monthlyResult = await sendMonthlyReportToTelegram(monthlyReport);
+      if (!monthlyResult.success) {
+        await db.run("DELETE FROM settings WHERE key = 'monthly_summary_last_sent' AND value = ?", [range.monthKey]);
+        return res.status(502).json({ error: monthlyResult.reason || monthlyResult.error || 'Monthly Telegram send failed' });
+      }
+      return res.json({ success: true, sent: true, monthly: true, month: range.monthKey });
+    } catch (error) {
+      await db.run("DELETE FROM settings WHERE key = 'monthly_summary_last_sent' AND value = ?", [range.monthKey]);
+      return res.status(500).json({ error: error.message });
+    }
   }
 
   const claim = await db.run(`
@@ -2483,13 +2877,34 @@ app.get('/api/cron/daily-summary', async (req, res) => {
 
   try {
     const report = await generateDailySummaryReport();
-    const result = await sendTelegramMessage(report.summaryMsg);
+    const result = await sendDailyReportToTelegram(report);
     if (!result.success) {
       await db.run("DELETE FROM settings WHERE key = 'daily_summary_last_sent' AND value = ?", [todayDateStr]);
       return res.status(502).json({ error: result.reason || result.error || 'Telegram send failed' });
     }
-    console.log(`[CRON] Daily summary sent for ${todayDateStr} at 20:00 Cambodia time.`);
-    return res.json({ success: true, sent: true, stats: report.stats });
+    let monthly = null;
+    if (currentDay === range.lastDay) {
+      const monthlyClaim = await db.run(`
+        INSERT INTO settings (key, value) VALUES ('monthly_summary_last_sent', ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+        WHERE settings.value <> excluded.value
+      `, [range.monthKey]);
+      if (monthlyClaim.changes > 0) {
+        try {
+          const monthlyReport = await generateMonthlySummaryReport(todayDateStr);
+          monthly = await sendMonthlyReportToTelegram(monthlyReport);
+          if (!monthly.success) {
+            await db.run("DELETE FROM settings WHERE key = 'monthly_summary_last_sent' AND value = ?", [range.monthKey]);
+          }
+        } catch (monthlyError) {
+          await db.run("DELETE FROM settings WHERE key = 'monthly_summary_last_sent' AND value = ?", [range.monthKey]);
+          console.error('[CRON] Monthly summary failed:', monthlyError);
+          monthly = { success: false, error: monthlyError.message };
+        }
+      }
+    }
+    console.log(`[CRON] Daily PDF report sent for ${todayDateStr} at 20:00 Cambodia time.`);
+    return res.json({ success: true, sent: true, stats: report.stats, monthly });
   } catch (error) {
     await db.run("DELETE FROM settings WHERE key = 'daily_summary_last_sent' AND value = ?", [todayDateStr]);
     console.error('[CRON] Daily summary failed:', error);
@@ -2537,6 +2952,14 @@ if (!process.env.VERCEL) {
   });
 }
 
-module.exports = app;
+if (process.env.NODE_ENV === 'test') {
+  app.__reporting = {
+    ensureDb,
+    generateDailySummaryReport,
+    buildDailyReportPdf,
+    generateMonthlySummaryReport,
+    buildMonthlyReportPdf
+  };
+}
 
 module.exports = app;
