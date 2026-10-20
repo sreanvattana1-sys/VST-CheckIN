@@ -3564,8 +3564,17 @@ function khWorkDate(timestamp) {
 function countReportWorkdays(startValue, endValue) {
   if (!startValue || !endValue) return 0;
   const start = new Date(`${startValue}T00:00:00`);
-  const end = new Date(`${endValue}T00:00:00`);
+  let end = new Date(`${endValue}T00:00:00`);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) return 0;
+  const nowParts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Phnom_Penh', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23'
+  }).formatToParts(new Date());
+  const nowValue = type => nowParts.find(part => part.type === type)?.value || '';
+  const todayValue = `${nowValue('year')}-${nowValue('month')}-${nowValue('day')}`;
+  const completedThrough = new Date(`${todayValue}T00:00:00`);
+  if (Number(nowValue('hour')) < 17) completedThrough.setDate(completedThrough.getDate() - 1);
+  if (end > completedThrough) end = completedThrough;
+  if (end < start) return 0;
   let count = 0;
   const cursor = new Date(start);
   while (cursor <= end) {
@@ -3623,25 +3632,55 @@ function buildPrintableHistoryReport() {
   const range = `${document.getElementById('adminHistoryStartDate')?.value || '-'} to ${document.getElementById('adminHistoryEndDate')?.value || '-'}`;
   const lateCount = adminHistoryLogs.filter(isLateAttendance).length;
   const members = new Set(adminHistoryLogs.map(r => r.member_code || r.member_name).filter(Boolean)).size;
+  const arrivalRecords = adminHistoryLogs.filter(r => ['morning_in', 'check_in'].includes(r.type));
+  const onTimeArrivals = arrivalRecords.filter(r => !isLateAttendance(r)).length;
   const employeeSummary = buildEmployeeAttendanceSummary();
-  const employeeSummaryRows = employeeSummary.map((member, index) => `<tr><td>${index + 1}</td><td><b>${escapeHtml(member.name)}</b></td><td>${escapeHtml(member.code)}</td><td>${escapeHtml(member.role)}</td><td style="text-align:center;color:#047857;font-weight:700">${member.daysPresent}</td><td style="text-align:center;color:#b45309;font-weight:700">${member.lateCount}</td><td style="text-align:center;color:${member.absentDays ? '#e11d48' : '#047857'};font-weight:800">${member.absentDays}</td><td style="text-align:center">${member.recordCount}</td></tr>`).join('');
-  const rows = adminHistoryLogs.map((r, i) => `<tr><td>${i + 1}</td>${includeDetails ? `<td>${escapeHtml(r.member_name || '-')}</td><td>${escapeHtml(r.member_code || '-')}</td><td>${escapeHtml(r.member_role || '-')}</td>` : ''}<td>${escapeHtml(historyActionLabel(r.type))}${isLateAttendance(r) ? ' (Late)' : ''}</td><td>${escapeHtml(new Date(r.timestamp).toLocaleString('en-GB', { timeZone: 'Asia/Phnom_Penh' }))}</td></tr>`).join('');
+  const km = currentLang === 'km';
+  const text = km ? {
+    title: 'របាយការណ៍វត្តមានបុគ្គលិក', period: 'រយៈពេល', generated: 'ចេញរបាយការណ៍', records: 'កំណត់ត្រាសរុប',
+    present: 'បុគ្គលិកមានវត្តមានក្នុងរយៈពេលនេះ', onTime: 'ចូលព្រឹកទាន់ពេល', late: 'មកយឺត', summary: 'សេចក្ដីសង្ខេបតាមបុគ្គលិក',
+    details: 'កំណត់ត្រាវត្តមានលម្អិត', name: 'ឈ្មោះ', code: 'កូដ', role: 'តួនាទី', presentDays: 'ថ្ងៃមក', lateTimes: 'យឺត',
+    absentDays: 'អវត្តមាន', action: 'សកម្មភាព', dateTime: 'កាលបរិច្ឆេទ និងម៉ោង', note: 'គិតថ្ងៃអវត្តមានត្រឹមថ្ងៃការងារដែលបានបញ្ចប់ និងមិនរាប់ថ្ងៃអាទិត្យ។', page: 'ទំព័រ'
+  } : {
+    title: 'Employee Attendance Report', period: 'Period', generated: 'Generated', records: 'Total records',
+    present: 'Members present in selected period', onTime: 'On-time morning arrivals', late: 'Late arrivals', summary: 'Employee summary',
+    details: 'Detailed attendance', name: 'Name', code: 'Code', role: 'Role', presentDays: 'Present days', lateTimes: 'Late times',
+    absentDays: 'Absent days', action: 'Action', dateTime: 'Date & time', note: 'Absence is counted only for completed workdays; Sundays are excluded.', page: 'Page'
+  };
+  const summaryRows = employeeSummary.map((member, index) => `<tr><td>${index + 1}</td><td class="name"><b>${escapeHtml(member.name)}</b></td><td>${escapeHtml(member.code)}</td><td>${escapeHtml(member.role)}</td><td class="good">${member.daysPresent}</td><td class="warn">${member.lateCount}</td><td class="bad">${member.absentDays}</td></tr>`).join('');
+  const detailChunks = [];
+  for (let i = 0; i < adminHistoryLogs.length; i += 12) detailChunks.push(adminHistoryLogs.slice(i, i + 12));
+  const totalPages = (includeSummary ? 1 : 0) + (includeDetails ? Math.max(1, detailChunks.length) : 0);
+  let pageNumber = 0;
+  const pageHeader = () => `<header><div class="logo">VST</div><div><h1>VANN SITHA TRADING CO.,LTD</h1><h2>${text.title}</h2></div></header>`;
+  const pageFooter = () => `<footer><span>VANN SITHA TRADING CO.,LTD</span><b>${text.page} ${pageNumber} / ${totalPages}</b></footer>`;
+  const summaryPage = includeSummary ? (() => {
+    pageNumber++;
+    return `<section class="report-page">${pageHeader()}<div class="meta"><span>${text.period}: ${range}</span><span>${text.generated}: ${new Date().toLocaleString(km ? 'km-KH' : 'en-GB', { timeZone: 'Asia/Phnom_Penh' })}</span></div><div class="kpis"><div><small>${text.records}</small><strong>${adminHistoryLogs.length}</strong></div><div><small>${text.present}</small><strong>${members}</strong></div><div><small>${text.onTime}</small><strong>${onTimeArrivals}</strong></div><div><small>${text.late}</small><strong class="bad">${lateCount}</strong></div></div><h3>${text.summary}</h3><table><thead><tr><th>#</th><th>${text.name}</th><th>${text.code}</th><th>${text.role}</th><th>${text.presentDays}</th><th>${text.lateTimes}</th><th>${text.absentDays}</th></tr></thead><tbody>${summaryRows}</tbody></table><p class="note"><b>${km ? 'ចំណាំ' : 'Note'}:</b> ${text.note}</p>${pageFooter()}</section>`;
+  })() : '';
+  const detailPages = includeDetails ? (detailChunks.length ? detailChunks : [[]]).map((chunk, chunkIndex) => {
+    pageNumber++;
+    const startIndex = chunkIndex * 12;
+    const rows = chunk.map((r, index) => `<tr><td>${startIndex + index + 1}</td><td class="name">${escapeHtml(r.member_name || '-')}</td><td>${escapeHtml(r.member_code || '-')}</td><td>${escapeHtml(r.member_role || '-')}</td><td>${escapeHtml(historyActionLabel(r.type))}${isLateAttendance(r) ? ` <b class="bad">(${km ? 'យឺត' : 'Late'})</b>` : ''}</td><td>${escapeHtml(new Date(r.timestamp).toLocaleString(km ? 'km-KH' : 'en-GB', { timeZone: 'Asia/Phnom_Penh' }))}</td></tr>`).join('');
+    return `<section class="report-page detail-page">${pageHeader()}<div class="meta"><span>${text.period}: ${range}</span><span>${text.details}${detailChunks.length > 1 ? ` · ${chunkIndex + 1}/${detailChunks.length}` : ''}</span></div><h3>${text.details}</h3><table><thead><tr><th>#</th><th>${text.name}</th><th>${text.code}</th><th>${text.role}</th><th>${text.action}</th><th>${text.dateTime}</th></tr></thead><tbody>${rows}</tbody></table>${pageFooter()}</section>`;
+  }).join('') : '';
   const el = document.createElement('div');
-  el.style.cssText = 'background:#fff;color:#0f172a;padding:32px;width:1050px;font-family:"Noto Sans Khmer",Arial,sans-serif;';
-  el.innerHTML = `<div style="border-bottom:3px solid #0891b2;padding-bottom:16px;margin-bottom:20px"><h1 style="margin:0;font-size:25px">VANN SITHA TRADING CO.,LTD</h1><h2 style="margin:6px 0;color:#0891b2;font-size:18px">Attendance Report / របាយការណ៍វត្តមាន</h2><p style="margin:0;color:#64748b;font-size:12px">Date range: ${range} · Generated: ${new Date().toLocaleString('en-GB')}</p></div>${includeSummary ? `<div style="display:flex;gap:12px;margin:18px 0"><div style="padding:12px;border:1px solid #cbd5e1;flex:1"><b>Total Records</b><div style="font-size:22px">${adminHistoryLogs.length}</div></div><div style="padding:12px;border:1px solid #cbd5e1;flex:1"><b>Members Present</b><div style="font-size:22px">${members}</div></div><div style="padding:12px;border:1px solid #cbd5e1;flex:1"><b>On Time</b><div style="font-size:22px">${adminHistoryLogs.length - lateCount}</div></div><div style="padding:12px;border:1px solid #cbd5e1;flex:1"><b>Late</b><div style="font-size:22px;color:#e11d48">${lateCount}</div></div></div><h3 style="margin:22px 0 8px;color:#0f172a;font-size:16px">Employee Summary / សង្ខេបតាមបុគ្គលិក</h3><table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:24px"><thead><tr style="background:#0e7490;color:#fff"><th>#</th><th>Name</th><th>Code</th><th>Role</th><th>Present Days</th><th>Late Times</th><th>Absent Days</th><th>Records</th></tr></thead><tbody>${employeeSummaryRows.replaceAll('<td>', '<td style="padding:8px;border:1px solid #cbd5e1">')}</tbody></table>` : ''}<h3 style="margin:14px 0 8px;color:#0f172a;font-size:15px">Detailed Attendance / កំណត់ត្រាលម្អិត</h3><table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="background:#0f172a;color:#fff"><th style="padding:9px;border:1px solid #334155">#</th>${includeDetails ? '<th style="padding:9px;border:1px solid #334155">Name</th><th style="padding:9px;border:1px solid #334155">Code</th><th style="padding:9px;border:1px solid #334155">Role</th>' : ''}<th style="padding:9px;border:1px solid #334155">Action</th><th style="padding:9px;border:1px solid #334155">Date & Time</th></tr></thead><tbody>${rows.replaceAll('<td>', '<td style="padding:8px;border:1px solid #cbd5e1">')}</tbody></table><p style="text-align:center;color:#64748b;font-size:10px;margin-top:22px">VANN SITHA TRADING · Smart Digital Attendance Hub</p>`;
+  el.className = 'portrait-report';
+  el.style.cssText = 'background:#fff;color:#0f172a;width:760px;font-family:"Noto Sans Khmer",Arial,sans-serif;';
+  el.innerHTML = `<style>.portrait-report *{box-sizing:border-box}.portrait-report .report-page{width:760px;height:1060px;padding:40px 42px 34px;background:#fff;overflow:hidden;page-break-after:always;break-after:page}.portrait-report .report-page:last-child{page-break-after:auto;break-after:auto}.portrait-report header{display:flex;align-items:center;gap:13px;border-bottom:3px solid #0891b2;padding-bottom:14px}.portrait-report .logo{width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,#0891b2,#2563eb);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800}.portrait-report h1{font-size:20px;margin:0}.portrait-report h2{font-size:14px;color:#0e7490;margin:4px 0 0}.portrait-report h3{font-size:16px;margin:24px 0 10px}.portrait-report .meta{display:flex;justify-content:space-between;gap:16px;font-size:10px;color:#64748b;padding:11px 0}.portrait-report .kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:5px 0 16px}.portrait-report .kpis div{padding:11px 13px;background:#f1f5f9;border-radius:8px}.portrait-report .kpis small{display:block;color:#64748b;font-size:10px}.portrait-report .kpis strong{font-size:22px}.portrait-report table{width:100%;border-collapse:collapse;font-size:10px}.portrait-report th{background:#0e7490;color:#fff;padding:8px 6px}.portrait-report td{padding:8px 6px;border-bottom:1px solid #cbd5e1;text-align:center;page-break-inside:avoid;break-inside:avoid}.portrait-report td.name{text-align:left;font-weight:700}.portrait-report tr{page-break-inside:avoid;break-inside:avoid}.portrait-report .good{color:#047857;font-weight:700}.portrait-report .warn{color:#b45309;font-weight:700}.portrait-report .bad{color:#e11d48;font-weight:800}.portrait-report .note{font-size:10px;color:#64748b;background:#f1f5f9;padding:10px 12px;border-radius:7px;margin-top:16px}.portrait-report footer{margin-top:22px;border-top:1px solid #cbd5e1;padding-top:9px;display:flex;justify-content:space-between;color:#64748b;font-size:9px}.portrait-report footer b{color:#0f172a}.portrait-report .detail-page h3{margin-top:15px}</style>${summaryPage}${detailPages}`;
   return el;
 }
 
 async function exportHistoryPDF() {
   if (typeof html2pdf === 'undefined') throw new Error('PDF exporter is not ready. Please refresh and try again.');
   const report = buildPrintableHistoryReport(); document.body.appendChild(report);
-  try { await html2pdf().set({ margin: 8, filename: historyExportFileName('pdf'), image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }, pagebreak: { mode: ['avoid-all', 'css', 'legacy'] } }).from(report).save(); }
+  try { await html2pdf().set({ margin: 0, filename: historyExportFileName('pdf'), image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['css', 'legacy'], avoid: ['tr'] } }).from(report).save(); }
   finally { report.remove(); }
 }
 
 function exportHistoryWord() {
   const report = buildPrintableHistoryReport();
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>@page{size:A4 landscape;margin:15mm}body{font-family:"Noto Sans Khmer",Arial,sans-serif}table{width:100%;border-collapse:collapse}td,th{border:1px solid #cbd5e1;padding:7px}</style></head><body>${report.innerHTML}</body></html>`;
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>@page{size:A4 portrait;margin:0}body{margin:0;font-family:"Noto Sans Khmer",Arial,sans-serif}.report-page{page-break-after:always}.report-page:last-child{page-break-after:auto}tr{page-break-inside:avoid}</style></head><body>${report.innerHTML}</body></html>`;
   downloadBlob(new Blob(['\uFEFF', html], { type: 'application/msword' }), historyExportFileName('doc'));
 }
 
