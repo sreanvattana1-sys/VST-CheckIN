@@ -1470,6 +1470,46 @@ app.get('/api/members/pending', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
+// Staff device checks its own registration request while waiting for Admin.
+// The device UUID acts as the possession proof and is only accepted when it
+// exactly matches the UUID saved with the original registration request.
+app.post('/api/members/registration-status', async (req, res) => {
+  try {
+    const code = cleanPlainText(req.body && req.body.code, 40).trim();
+    const deviceId = cleanPlainText(req.body && req.body.device_id, 160).trim();
+    if (!code || !deviceId) {
+      return res.status(400).json({ error: 'Missing registration or device information.' });
+    }
+
+    const member = await db.get('SELECT * FROM members WHERE code = ? COLLATE NOCASE', [code]);
+    if (!member || !member.device_id || member.device_id !== deviceId) {
+      return res.status(404).json({ error: 'Registration request was not found on this device.' });
+    }
+
+    if (member.status === 'pending') {
+      return res.json({ success: true, status: 'pending' });
+    }
+    if (member.status !== 'active' && member.status !== null) {
+      return res.json({ success: true, status: member.status || 'inactive' });
+    }
+
+    const safeMember = { ...member };
+    delete safeMember.password;
+    delete safeMember.session_version;
+    const token = await createSessionToken({
+      role: 'staff',
+      memberId: member.id,
+      code: member.code,
+      deviceId: member.device_id,
+      sessionVersion: Number(member.session_version || 0)
+    }, 30 * 24 * 60 * 60);
+    res.json({ success: true, status: 'approved', member: safeMember, token });
+  } catch (err) {
+    console.error('Error in /api/members/registration-status:', err);
+    res.status(500).json({ error: 'Could not check registration status.' });
+  }
+});
+
 // 3. Admin: Approve pending member
 app.post('/api/members/:id/approve', requireAuth, requireAdmin, async (req, res) => {
   try {

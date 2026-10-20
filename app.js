@@ -12,6 +12,8 @@ let allAdminMembers = [];
 let allPendingMembers = [];
 let adminSessionToken = sessionStorage.getItem('vst_admin_token') || '';
 let staffSessionToken = localStorage.getItem('vst_staff_token') || '';
+let pendingRegistrationTimer = null;
+let pendingRegistrationCheckInFlight = false;
 const nativeFetch = window.fetch.bind(window);
 
 function apiFetch(input, options = {}) {
@@ -747,6 +749,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadPublicInfo();
     if (!currentStaff) {
       initStaffProfile();
+      startPendingRegistrationWatcher();
     }
   } catch (err) {
     console.error('Error loading public info:', err);
@@ -758,6 +761,78 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 });
+
+function getPendingRegistration() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('vst_pending_registration') || 'null');
+    if (saved && saved.code && saved.device_id) return saved;
+  } catch (e) {}
+  return null;
+}
+
+function clearPendingRegistration() {
+  localStorage.removeItem('vst_pending_registration');
+  if (pendingRegistrationTimer) window.clearInterval(pendingRegistrationTimer);
+  pendingRegistrationTimer = null;
+}
+
+async function checkPendingRegistrationStatus(showWaitingToast = false) {
+  const pending = getPendingRegistration();
+  if (!pending || staffSessionToken || pendingRegistrationCheckInFlight) return;
+  pendingRegistrationCheckInFlight = true;
+  try {
+    const res = await nativeFetch('/api/members/registration-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: pending.code, device_id: getOrCreateDeviceId() })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.status === 'pending') {
+      if (showWaitingToast && data.status === 'pending') {
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'info',
+          title: currentLang === 'km' ? 'កំពុងរង់ចាំ Admin អនុម័ត…' : 'Waiting for Admin approval…',
+          showConfirmButton: false,
+          timer: 2200
+        });
+      }
+      return;
+    }
+    if (data.status !== 'approved' || !data.member || !data.token) {
+      if (['rejected', 'inactive'].includes(data.status)) clearPendingRegistration();
+      return;
+    }
+
+    staffSessionToken = data.token;
+    localStorage.setItem('vst_staff_token', staffSessionToken);
+    clearPendingRegistration();
+    Swal.close();
+    setStaffProfile(data.member);
+    showStaffView();
+    Swal.fire({
+      icon: 'success',
+      title: currentLang === 'km' ? 'Admin បានអនុម័តរួចរាល់! ✅' : 'Admin approved your account! ✅',
+      text: currentLang === 'km'
+        ? 'ទូរសព្ទនេះត្រូវបានភ្ជាប់ដោយស្វ័យប្រវត្តិ ហើយអ្នកបានចូល Workspace រួចហើយ។'
+        : 'This device is now linked and you are signed in automatically.',
+      timer: 3200,
+      showConfirmButton: false
+    });
+  } catch (err) {
+    console.warn('Pending registration check failed:', err);
+  } finally {
+    pendingRegistrationCheckInFlight = false;
+  }
+}
+
+function startPendingRegistrationWatcher(showWaitingToast = false) {
+  if (!getPendingRegistration() || staffSessionToken) return;
+  checkPendingRegistrationStatus(showWaitingToast);
+  if (pendingRegistrationTimer) window.clearInterval(pendingRegistrationTimer);
+  pendingRegistrationTimer = window.setInterval(() => checkPendingRegistrationStatus(false), 5000);
+}
 
 let staffDashboardRefreshInFlight = false;
 async function refreshStaffDashboard(button) {
@@ -3147,6 +3222,12 @@ async function handleSelfRegisterSubmit(e) {
 
     closeSelfRegisterModal();
 
+    localStorage.setItem('vst_pending_registration', JSON.stringify({
+      code: data.member.code,
+      device_id: deviceId,
+      created_at: new Date().toISOString()
+    }));
+
     Swal.fire({
       icon: 'success',
       title: 'បានផ្ញើសំណើចុះឈ្មោះជោគជ័យ!',
@@ -3154,7 +3235,7 @@ async function handleSelfRegisterSubmit(e) {
         <div class="text-left text-xs space-y-2 mt-2 p-3 bg-slate-900 rounded-xl border border-white/10">
           <p>ឈ្មោះ៖ <b class="text-white">${escapeHtml(data.member.name)} (${escapeHtml(data.member.nameLatin)})</b></p>
           <p>លេខសម្គាល់ ID៖ <b class="text-cyan-400 font-mono">${data.member.code}</b></p>
-          <p class="text-amber-300 font-semibold">⏳ សំណើរបស់អ្នកបានផ្ញើទៅ Telegram របស់ Admin រួចហើយ! សូមរង់ចាំ Admin ពិនិត្យនិងអនុម័ត (Approve) ទើបអាច Login បាន។</p>
+          <p class="text-amber-300 font-semibold">⏳ សំណើរបស់អ្នកបានផ្ញើទៅ Telegram របស់ Admin រួចហើយ។ សូមទុកទំព័រនេះបើក—ពេល Admin អនុម័ត ប្រព័ន្ធនឹងចូល Workspace ដោយស្វ័យប្រវត្តិ។</p>
           <p class="text-slate-400 text-[11px]">* ទូរស័ព្ទដៃនេះត្រូវបានចងភ្ជាប់សុវត្ថិភាព (1 Device Policy) មិនអាចប្តូរទូរស័ព្ទដោយគ្មានការអនុញ្ញាតឡើយ។</p>
         </div>
       `,
@@ -3167,6 +3248,7 @@ async function handleSelfRegisterSubmit(e) {
     if (loginInput) loginInput.value = data.member.code;
     const pwdInput = document.getElementById('loginInputPassword');
     if (pwdInput) pwdInput.value = password;
+    startPendingRegistrationWatcher(false);
 
   } catch (err) {
     Swal.fire({ icon: 'error', title: 'Error', text: err.message });
