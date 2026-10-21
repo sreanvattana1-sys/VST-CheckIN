@@ -3279,6 +3279,10 @@ async function loadAdminSettings() {
       const el = document.getElementById('inputCompanyWifiIps');
       if (el) el.value = s.company_wifi_ips;
     }
+    if (s.company_wifi_ddns_hosts) {
+      const el = document.getElementById('inputCompanyWifiDdnsHosts');
+      if (el) el.value = s.company_wifi_ddns_hosts;
+    }
     if (s.wifi_check_enabled !== undefined) {
       const el = document.getElementById('inputWifiCheckEnabled');
       if (el) el.checked = s.wifi_check_enabled === 'true';
@@ -3349,6 +3353,7 @@ async function saveGeofenceSettings() {
   const radius = document.getElementById('inputAllowedRadius').value;
   const pin = document.getElementById('inputAdminPin').value;
   const wifiIps = document.getElementById('inputCompanyWifiIps') ? document.getElementById('inputCompanyWifiIps').value : '';
+  const wifiDdnsHosts = document.getElementById('inputCompanyWifiDdnsHosts') ? document.getElementById('inputCompanyWifiDdnsHosts').value : '';
   const wifiEnabled = document.getElementById('inputWifiCheckEnabled') ? (document.getElementById('inputWifiCheckEnabled').checked ? 'true' : 'false') : 'true';
 
   await fetch('/api/settings', {
@@ -3361,6 +3366,7 @@ async function saveGeofenceSettings() {
       allowed_radius: radius, 
       admin_pin: pin,
       company_wifi_ips: wifiIps,
+      company_wifi_ddns_hosts: wifiDdnsHosts,
       wifi_check_enabled: wifiEnabled
     })
   });
