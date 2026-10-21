@@ -3,6 +3,8 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const dns = require('dns').promises;
+const net = require('net');
 const PDFDocument = require('pdfkit');
 const { createClient } = require('@libsql/client');
 
@@ -102,6 +104,53 @@ function getClientIp(req) {
     return forwarded.split(',')[0].trim();
   }
   return req.headers['x-real-ip'] || req.socket.remoteAddress || '';
+}
+
+function normalizeIp(value) {
+  const ip = String(value || '').trim();
+  return ip.startsWith('::ffff:') ? ip.slice(7) : ip;
+}
+
+function parseCommaList(value) {
+  return String(value || '').split(',').map(item => item.trim()).filter(Boolean);
+}
+
+const ddnsCache = new Map();
+const DDNS_CACHE_MS = 60 * 1000;
+
+async function resolveOfficeDdns(hosts) {
+  const resolved = new Map();
+  await Promise.all(hosts.map(async (host) => {
+    const safeHost = String(host || '').trim().toLowerCase();
+    if (!safeHost || safeHost.length > 253 || !/^[a-z0-9.-]+$/.test(safeHost)) return;
+    const cached = ddnsCache.get(safeHost);
+    if (cached && Date.now() - cached.time < DDNS_CACHE_MS) {
+      cached.ips.forEach(ip => resolved.set(ip, safeHost));
+      return;
+    }
+    try {
+      const records = await dns.resolve4(safeHost);
+      const ips = records.map(normalizeIp).filter(ip => net.isIP(ip) === 4);
+      ddnsCache.set(safeHost, { time: Date.now(), ips });
+      ips.forEach(ip => resolved.set(ip, safeHost));
+    } catch (err) {
+      console.warn(`DDNS lookup failed for ${safeHost}:`, err.code || err.message);
+      if (cached) cached.ips.forEach(ip => resolved.set(ip, safeHost));
+    }
+  }));
+  return resolved;
+}
+
+async function getOfficeNetworkMatch(rawClientIp) {
+  const clientIp = normalizeIp(rawClientIp);
+  const wifiCheckEnabled = (await getSetting('wifi_check_enabled')) !== 'false';
+  const allowedIps = parseCommaList((await getSetting('company_wifi_ips')) || '45.119.135.171, 36.37.169.199').map(normalizeIp);
+  const ddnsHosts = parseCommaList((await getSetting('company_wifi_ddns_hosts')) || 'vst-office.ddns.net');
+  const ddnsIps = await resolveOfficeDdns(ddnsHosts);
+  const isLocal = clientIp === '127.0.0.1' || clientIp === '::1' || clientIp.startsWith('192.168.') || clientIp.startsWith('10.');
+  const matchedDdnsHost = ddnsIps.get(clientIp) || null;
+  const isAllowed = !wifiCheckEnabled || allowedIps.includes(clientIp) || Boolean(matchedDdnsHost) || isLocal;
+  return { clientIp, wifiCheckEnabled, allowedIps, ddnsHosts, ddnsIps, matchedDdnsHost, isLocal, isAllowed };
 }
 
 // Database Initialization & Migration
@@ -230,7 +279,8 @@ async function initDb() {
     ['admin_pin', ''],
     ['session_secret', crypto.randomBytes(32).toString('hex')],
     ['wifi_check_enabled', 'true'],
-    ['company_wifi_ips', '45.119.135.171, 36.37.169.199']
+    ['company_wifi_ips', '45.119.135.171, 36.37.169.199'],
+    ['company_wifi_ddns_hosts', 'vst-office.ddns.net']
   ];
 
   for (const [k, v] of initSettings) {
@@ -1170,16 +1220,13 @@ app.get('/api/public-info', async (req, res) => {
 // Real-time Network Status (Check client IP against Company Wi-Fis)
 app.get('/api/network-status', async (req, res) => {
   try {
-    const clientIp = getClientIp(req);
-    const wifiCheckEnabled = (await getSetting('wifi_check_enabled')) !== 'false';
-    const allowedIpsStr = (await getSetting('company_wifi_ips')) || '45.119.135.171, 36.37.169.199';
-    const allowedIps = allowedIpsStr.split(',').map(s => s.trim()).filter(Boolean);
-
-    const isLocal = clientIp === '127.0.0.1' || clientIp === '::1' || clientIp.startsWith('192.168.') || clientIp.startsWith('10.');
-    const isAllowed = !wifiCheckEnabled || allowedIps.includes(clientIp) || isLocal;
+    const network = await getOfficeNetworkMatch(getClientIp(req));
+    const { clientIp, wifiCheckEnabled, allowedIps, ddnsHosts, ddnsIps, matchedDdnsHost, isLocal, isAllowed } = network;
 
     let matchedName = null;
-    if (clientIp === '45.119.135.171') {
+    if (matchedDdnsHost) {
+      matchedName = `Wi-Fi ក្រុមហ៊ុន (${matchedDdnsHost})`;
+    } else if (clientIp === '45.119.135.171') {
       matchedName = 'Wi-Fi ទី ១ (45.119.135.171)';
     } else if (clientIp === '36.37.169.199') {
       matchedName = 'Wi-Fi ទី ២ (36.37.169.199)';
@@ -1194,7 +1241,8 @@ app.get('/api/network-status', async (req, res) => {
       isCompanyWifi: isAllowed,
       matchedName,
       wifiCheckEnabled,
-      allowedNetworkCount: allowedIps.length
+      allowedNetworkCount: allowedIps.length + ddnsIps.size,
+      ddnsHosts
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1766,12 +1814,9 @@ app.post('/api/attendance/check', requireAuth, requireStaffOrAdmin, async (req, 
     if (!ensureStaffOwnsCode(req, res, code)) return;
 
     // Client IP & Company Wi-Fi verification
-    const clientIp = getClientIp(req);
-    const wifiCheckEnabled = (await getSetting('wifi_check_enabled')) !== 'false';
-    const allowedIpsStr = (await getSetting('company_wifi_ips')) || '45.119.135.171, 36.37.169.199';
-    const allowedIps = allowedIpsStr.split(',').map(s => s.trim()).filter(Boolean);
-    const isLocal = clientIp === '127.0.0.1' || clientIp === '::1' || clientIp.startsWith('192.168.') || clientIp.startsWith('10.');
-    const isCompanyWifi = !wifiCheckEnabled || allowedIps.includes(clientIp) || isLocal;
+    const network = await getOfficeNetworkMatch(getClientIp(req));
+    const { clientIp, wifiCheckEnabled } = network;
+    const isCompanyWifi = network.isAllowed;
 
     const isButtonCheck = check_method === 'wifi_button' || !qr_token;
 
@@ -2177,7 +2222,7 @@ app.post('/api/settings', requireAuth, requireAdmin, async (req, res) => {
     telegram_token, telegram_chat_id, telegram_enabled,
     telegram_leave_chat_id, telegram_leave_enabled,
     office_qr_token, company_name, admin_pin,
-    wifi_check_enabled, company_wifi_ips
+    wifi_check_enabled, company_wifi_ips, company_wifi_ddns_hosts
   } = req.body;
 
   const saveSetting = async (k, v) => {
@@ -2203,6 +2248,7 @@ app.post('/api/settings', requireAuth, requireAdmin, async (req, res) => {
   }
   await saveSetting('wifi_check_enabled', wifi_check_enabled);
   await saveSetting('company_wifi_ips', company_wifi_ips);
+  await saveSetting('company_wifi_ddns_hosts', company_wifi_ddns_hosts);
 
   res.json({ success: true, message: 'បានរក្សាទុកការកំណត់ជោគជ័យ' });
 });
