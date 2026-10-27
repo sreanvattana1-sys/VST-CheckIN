@@ -166,20 +166,20 @@ const translations = {
     colNotes: "កំណត់សម្គាល់បន្ថែម",
     logout: "ចាកចេញ",
     slotMorningIn: "1. ព្រឹកចូល (08:00)",
-    slotLunchOut: "2. សម្រាកបាយ (11:00)",
-    slotAfternoonIn: "3. ចូលវិញ (13:00)",
+    slotLunchOut: "2. ចេញវគ្គទី១ (11:00)",
+    slotAfternoonIn: "3. ចូលវគ្គទី២ (13:00)",
     slotEveningOut: "4. ល្ងាចចេញ (17:00)",
     slotTitleMorning: "ប៉ះប៊ូតុងដើម្បីស្កេន ព្រឹកចូលធ្វើការ (Scan 1/4)",
-    slotTitleLunch: "ប៉ះប៊ូតុងដើម្បីស្កេន ចេញសម្រាកបាយ (Scan 2/4)",
-    slotTitleAfternoon: "ប៉ះប៊ូតុងដើម្បីស្កេន ចូលធ្វើការវិញ (Scan 3/4)",
+    slotTitleLunch: "ប៉ះប៊ូតុងដើម្បីស្កេន ចេញពីការងារវគ្គទី១ (Scan 2/4)",
+    slotTitleAfternoon: "ប៉ះប៊ូតុងដើម្បីស្កេន ចូលធ្វើការវគ្គទី២ (Scan 3/4)",
     slotTitleEvening: "ប៉ះប៊ូតុងដើម្បីស្កេន ល្ងាចចេញពីធ្វើការ (Scan 4/4)",
     scheduleBadge: "ចន្ទ - សៅរិ៍",
     sundayOffBadge: "🏖️ ថ្ងៃអាទិត្យសម្រាកការងារ (Sunday Off / OT)",
     scanProgress: "ស្កេន:",
     allScansCompleted: "✨ គ្រប់ 4 ដងថ្ងៃនេះហើយ!",
     slot1Title: "1. ព្រឹកចូល",
-    slot2Title: "2. សម្រាកបាយ",
-    slot3Title: "3. ចូលវិញ",
+    slot2Title: "2. ចេញវគ្គទី១",
+    slot3Title: "3. ចូលវគ្គទី២",
     slot4Title: "4. ល្ងាចចេញ",
     nextScanLbl: "ស្កេនបន្ទាប់:",
     waiting: "រង់ចាំ",
@@ -336,20 +336,20 @@ const translations = {
     colNotes: "Additional Notes",
     logout: "Log Out",
     slotMorningIn: "1. Morning In (08:00)",
-    slotLunchOut: "2. Lunch Break (11:00)",
-    slotAfternoonIn: "3. Return In (13:00)",
+    slotLunchOut: "2. Session 1 Out (11:00)",
+    slotAfternoonIn: "3. Session 2 In (13:00)",
     slotEveningOut: "4. Evening Out (17:00)",
     slotTitleMorning: "Tap button to scan Morning Check-In (1/4)",
-    slotTitleLunch: "Tap button to scan Lunch Break (2/4)",
-    slotTitleAfternoon: "Tap button to scan Afternoon Return (3/4)",
+    slotTitleLunch: "Tap button to scan Session 1 Out (2/4)",
+    slotTitleAfternoon: "Tap button to scan Session 2 In (3/4)",
     slotTitleEvening: "Tap button to scan Evening Check-Out (4/4)",
     scheduleBadge: "Mon - Sat",
     sundayOffBadge: "🏖️ Sunday Day Off (Work Break / OT)",
     scanProgress: "Scans:",
     allScansCompleted: "✨ All 4 scans done today!",
     slot1Title: "1. Morning In",
-    slot2Title: "2. Lunch Break",
-    slot3Title: "3. Return In",
+    slot2Title: "2. Session 1 Out",
+    slot3Title: "3. Session 2 In",
     slot4Title: "4. Evening Out",
     nextScanLbl: "Next Scan:",
     waiting: "Pending",
@@ -1321,8 +1321,8 @@ async function loadMyAttendanceHistory(period = staffHistoryCurrentPeriod) {
 
     const slotLabels = {
       morning_in: { text: '1/4 ព្រឹកចូល (08:00)', enText: '1/4 Morning In', badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-      lunch_out: { text: '2/4 សម្រាកបាយ (11:00)', enText: '2/4 Lunch Break', badge: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-      afternoon_in: { text: '3/4 ចូលវិញ (13:00)', enText: '3/4 Return In', badge: 'bg-sky-500/10 text-sky-400 border-sky-500/20' },
+      lunch_out: { text: '2/4 ចេញវគ្គទី១ (11:00)', enText: '2/4 Session 1 Out', badge: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+      afternoon_in: { text: '3/4 ចូលវគ្គទី២ (13:00)', enText: '3/4 Session 2 In', badge: 'bg-sky-500/10 text-sky-400 border-sky-500/20' },
       evening_out: { text: '4/4 ល្ងាចចេញ (17:00)', enText: '4/4 Evening Out', badge: 'bg-purple-500/10 text-purple-400 border-purple-500/20' },
       check_in: { text: 'Check-In', enText: 'Check-In', badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
       check_out: { text: 'Check-Out', enText: 'Check-Out', badge: 'bg-sky-500/10 text-sky-400 border-sky-500/20' }
@@ -1853,13 +1853,13 @@ function setAttendanceSlot(slot) {
     },
     lunch_out: {
       icon: '2.',
-      textKm: '2/4 សម្រាកបាយ (11:00)',
-      textEn: '2/4 Lunch Break (11:00)',
+      textKm: '2/4 ចេញវគ្គទី១ (11:00)',
+      textEn: '2/4 Session 1 Out (11:00)',
     },
     afternoon_in: {
       icon: '3.',
-      textKm: '3/4 ចូលវិញ (13:00)',
-      textEn: '3/4 Return In (13:00)',
+      textKm: '3/4 ចូលវគ្គទី២ (13:00)',
+      textEn: '3/4 Session 2 In (13:00)',
     },
     evening_out: {
       icon: '4.',
@@ -2032,7 +2032,7 @@ async function openStaffScannerModal(actionType) {
   const badge = document.getElementById('staffScanModalBadge');
   const slotBadges = {
     morning_in: { text: currentLang === 'km' ? '🌅 1/4 ព្រឹកចូល' : '🌅 1/4 Morning In', class: 'px-3 py-1 rounded-full text-xs font-black bg-cyan-500 text-white' },
-    lunch_out: { text: currentLang === 'km' ? '🍱 2/4 ចេញបាយ' : '🍱 2/4 Lunch Out', class: 'px-3 py-1 rounded-full text-xs font-black bg-amber-500 text-white' },
+    lunch_out: { text: currentLang === 'km' ? '🍱 2/4 ចេញវគ្គទី១' : '🍱 2/4 Session 1 Out', class: 'px-3 py-1 rounded-full text-xs font-black bg-amber-500 text-white' },
     afternoon_in: { text: currentLang === 'km' ? '☕ 3/4 រសៀលចូល' : '☕ 3/4 Afternoon In', class: 'px-3 py-1 rounded-full text-xs font-black bg-sky-500 text-white' },
     evening_out: { text: currentLang === 'km' ? '🏠 4/4 ល្ងាចចេញ' : '🏠 4/4 Evening Out', class: 'px-3 py-1 rounded-full text-xs font-black bg-rose-500 text-white' },
     check_in: { text: '🟢 Check-In', class: 'px-3 py-1 rounded-full text-xs font-black bg-cyan-500 text-white' },
@@ -2143,7 +2143,7 @@ async function onOfficeQrCodeScanned(decodedText) {
     promptReason = true;
     promptTitle = currentLang === 'km' ? `🏃💨 អ្នកចេញមុនម៉ោង ${diffStr}` : `🏃💨 Early leave by ${diffStr}`;
     promptSubtitle = currentLang === 'km' 
-      ? 'ម៉ោងចេញសម្រាកបាយគឺ 11:00 AM (អនុញ្ញាតចាប់ពី 10:50)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកចេញមុន:' 
+      ? 'ម៉ោងចេញពីការងារវគ្គទី១ គឺ 11:00 AM (អនុញ្ញាតចាប់ពី 10:50)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកចេញមុន:'
       : 'Lunch break is at 11:00 AM. Please state your reason for leaving early:';
   } else if (currentScanAction === 'afternoon_in' && totalMins > 790) { // After 13:10
     const lateMins = totalMins - 780;
@@ -2159,7 +2159,7 @@ async function onOfficeQrCodeScanned(decodedText) {
     promptReason = true;
     promptTitle = currentLang === 'km' ? `🏃💨 អ្នកចេញមុនម៉ោង ${diffStr}` : `🏃💨 Early leave by ${diffStr}`;
     promptSubtitle = currentLang === 'km' 
-      ? 'ម៉ោងចេញធ្វើការគឺ 05:00 PM (អនុញ្ញាតចាប់ពី 04:50)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកចេញមុន:' 
+      ? 'ម៉ោងចេញធ្វើការគឺ 05:00 PM (អនុញ្ញាតចាប់ពី 04:50)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកចេញមុន:'
       : 'End of work is at 05:00 PM. Please state your reason for leaving early:';
   }
 
@@ -2232,8 +2232,8 @@ async function onOfficeQrCodeScanned(decodedText) {
 
     const slotLabels = {
       morning_in: { km: '🌅 1/4 ព្រឹកចូល (08:00)', en: '🌅 1/4 Morning In (08:00)' },
-      lunch_out: { km: '🍱 2/4 សម្រាកបាយ (11:00)', en: '🍱 2/4 Lunch Break (11:00)' },
-      afternoon_in: { km: '☕ 3/4 ចូលវិញ (13:00)', en: '☕ 3/4 Return In (13:00)' },
+      lunch_out: { km: '🍱 2/4 ចេញវគ្គទី១ (11:00)', en: '🍱 2/4 Session 1 Out (11:00)' },
+      afternoon_in: { km: '☕ 3/4 ចូលវគ្គទី២ (13:00)', en: '☕ 3/4 Session 2 In (13:00)' },
       evening_out: { km: '🏠 4/4 ល្ងាចចេញ (17:00)', en: '🏠 4/4 Evening Out (17:00)' }
     };
     const slotLabel = slotLabels[data.actionType] ? (currentLang === 'km' ? slotLabels[data.actionType].km : slotLabels[data.actionType].en) : data.actionType;
@@ -2343,16 +2343,17 @@ async function loadMyAttendanceActivity() {
 
     // Update Total Scans badge & 4-Segment Progress Bar
     const totalDone = summary.totalScansToday || 0;
+    const progressDone = Number.isFinite(Number(summary.progressStep)) ? Number(summary.progressStep) : totalDone;
     // ACLEDA Circular Progress & Working Duration Updates
     const circleEl = document.getElementById('acledaProgressCircle');
     const circleTxt = document.getElementById('acledaProgressText');
     const miniBadge = document.getElementById('todayScansMiniBadge');
     if (circleEl) {
-      const circOffset = 201 - (Math.min(4, totalDone) / 4) * 201;
+      const circOffset = 201 - (Math.min(4, progressDone) / 4) * 201;
       circleEl.style.strokeDashoffset = circOffset;
     }
-    if (circleTxt) circleTxt.textContent = totalDone + '/4';
-    if (miniBadge) miniBadge.textContent = totalDone + '/4';
+    if (circleTxt) circleTxt.textContent = progressDone + '/4';
+    if (miniBadge) miniBadge.textContent = progressDone + '/4';
 
     // Calculate Working Duration (Hours & Minutes)
     let workedMinutes = 0;
@@ -2398,7 +2399,7 @@ async function loadMyAttendanceActivity() {
       const nextSlot = summary.nextSuggestedSlot || 'morning_in';
       const slotTitles = {
         morning_in: 'ចុចចូលព្រឹក (08:00)',
-        lunch_out: 'ចុចចេញបាយ (11:00)',
+        lunch_out: 'ចុចចេញវគ្គទី១ (11:00)',
         afternoon_in: 'ចុចចូលរសៀល (13:00)',
         evening_out: 'ចុចចេញល្ងាច (17:00)'
       };
@@ -2422,7 +2423,7 @@ async function loadMyAttendanceActivity() {
     for (let i = 1; i <= 4; i++) {
       const segEl = document.getElementById(`progBarSeg${i}`);
       if (segEl) {
-        if (i <= totalDone) {
+        if (i <= progressDone) {
           segEl.className = 'h-2 rounded-full bg-gradient-to-r from-brand-blue to-brand-cyan shadow-xs shadow-brand-blue/30 transition-all duration-300';
         } else {
           segEl.className = 'h-2 rounded-full bg-slate-200/80 transition-all duration-300';
@@ -2507,8 +2508,8 @@ async function loadMyAttendanceActivity() {
     }
 
     updateSlotCard('morning_in', 'cardSlotMorningIn', 'timeSlotMorningIn', 'statusSlotMorningIn', 'ព្រឹកចូល', 'Morning In', 1);
-    updateSlotCard('lunch_out', 'cardSlotLunchOut', 'timeSlotLunchOut', 'statusSlotLunchOut', 'សម្រាកបាយ', 'Lunch Break', 2);
-    updateSlotCard('afternoon_in', 'cardSlotAfternoonIn', 'timeSlotAfternoonIn', 'statusSlotAfternoonIn', 'ចូលវិញ', 'Return In', 3);
+    updateSlotCard('lunch_out', 'cardSlotLunchOut', 'timeSlotLunchOut', 'statusSlotLunchOut', 'ចេញវគ្គទី១', 'Session 1 Out', 2);
+    updateSlotCard('afternoon_in', 'cardSlotAfternoonIn', 'timeSlotAfternoonIn', 'statusSlotAfternoonIn', 'ចូលវគ្គទី២', 'Session 2 In', 3);
     updateSlotCard('evening_out', 'cardSlotEveningOut', 'timeSlotEveningOut', 'statusSlotEveningOut', 'ល្ងាចចេញ', 'Evening Out', 4);
 
     // Update Top Right Status Badge
@@ -2554,8 +2555,8 @@ async function loadMyAttendanceActivity() {
 
     const slotLabels = {
       morning_in: { text: '1/4 ព្រឹកចូល (08:00)', enText: '1/4 Morning In (08:00)', icon: 'log-in' },
-      lunch_out: { text: '2/4 សម្រាកបាយ (11:00)', enText: '2/4 Lunch Break (11:00)', icon: 'utensils' },
-      afternoon_in: { text: '3/4 ចូលវិញ (13:00)', enText: '3/4 Return In (13:00)', icon: 'coffee' },
+      lunch_out: { text: '2/4 ចេញវគ្គទី១ (11:00)', enText: '2/4 Session 1 Out (11:00)', icon: 'utensils' },
+      afternoon_in: { text: '3/4 ចូលវគ្គទី២ (13:00)', enText: '3/4 Session 2 In (13:00)', icon: 'coffee' },
       evening_out: { text: '4/4 ល្ងាចចេញ (17:00)', enText: '4/4 Evening Out (17:00)', icon: 'log-out' },
       check_in: { text: 'Check-In', enText: 'Check-In', icon: 'log-in' },
       check_out: { text: 'Check-Out', enText: 'Check-Out', icon: 'log-out' }
@@ -2754,8 +2755,8 @@ async function loadAdminDashboard() {
 
     const slotBadgeMap = {
       morning_in: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>1/4 ព្រឹកចូល</span>`,
-      lunch_out: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>2/4 សម្រាកបាយ</span>`,
-      afternoon_in: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20"><span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>3/4 ចូលវិញ</span>`,
+      lunch_out: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>2/4 ចេញវគ្គទី១</span>`,
+      afternoon_in: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20"><span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>3/4 ចូលវគ្គទី២</span>`,
       evening_out: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20"><span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span>4/4 ល្ងាចចេញ</span>`,
       check_in: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>Check-In</span>`,
       check_out: `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-sky-500/10 text-sky-400 border border-sky-500/20"><span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>Check-Out</span>`
@@ -3552,8 +3553,8 @@ function isLateAttendance(record) {
 
 function historyActionLabel(type) {
   const labels = currentLang === 'km'
-    ? { morning_in: '1/4 ព្រឹកចូល', lunch_out: '2/4 សម្រាកបាយ', afternoon_in: '3/4 ចូលវិញ', evening_out: '4/4 ល្ងាចចេញ', check_in: 'ចូល', check_out: 'ចេញ' }
-    : { morning_in: '1/4 Morning In', lunch_out: '2/4 Lunch Out', afternoon_in: '3/4 Return In', evening_out: '4/4 Evening Out', check_in: 'Check In', check_out: 'Check Out' };
+    ? { morning_in: '1/4 ព្រឹកចូល', lunch_out: '2/4 ចេញវគ្គទី១', afternoon_in: '3/4 ចូលវគ្គទី២', evening_out: '4/4 ល្ងាចចេញ', check_in: 'ចូល', check_out: 'ចេញ' }
+    : { morning_in: '1/4 Morning In', lunch_out: '2/4 Session 1 Out', afternoon_in: '3/4 Session 2 In', evening_out: '4/4 Evening Out', check_in: 'Check In', check_out: 'Check Out' };
   return labels[type] || type || '-';
 }
 
@@ -4308,7 +4309,7 @@ async function executeStaffCheckIn() {
     const earlyMins = 660 - totalMins;
     promptReason = true;
     promptTitle = `🏃💨 អ្នកចេញមុនម៉ោង ${formatDiffUi(earlyMins)}`;
-    promptSubtitle = 'ម៉ោងចេញសម្រាកបាយគឺ 11:00 AM (អនុញ្ញាតចាប់ពី 10:50)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកចេញមុន:';
+    promptSubtitle = 'ម៉ោងចេញពីការងារវគ្គទី១ គឺ 11:00 AM (អនុញ្ញាតចាប់ពី 10:50)។ សូមបញ្ជាក់មូលហេតុដែលអ្នកចេញមុន:';
   } else if (currentScanAction === 'afternoon_in' && totalMins > 790) { // After 13:10
     const lateMins = totalMins - 780;
     promptReason = true;
@@ -4383,8 +4384,8 @@ async function executeStaffCheckIn() {
 
     const slotLabels = {
       morning_in: '🌅 1/4 ព្រឹកចូល (08:00)',
-      lunch_out: '🍱 2/4 សម្រាកបាយ (11:00)',
-      afternoon_in: '☕ 3/4 ចូលវិញ (13:00)',
+      lunch_out: '🍱 2/4 ចេញវគ្គទី១ (11:00)',
+      afternoon_in: '☕ 3/4 ចូលវគ្គទី២ (13:00)',
       evening_out: '🏠 4/4 ល្ងាចចេញ (17:00)'
     };
     const slotLabel = slotLabels[data.actionType] || data.actionType;
@@ -4521,7 +4522,7 @@ function showScheduleModal() {
         </div>
         <div class="space-y-1.5 text-xs text-slate-700">
           <div>🌅 <b>ព្រឹកចូល:</b> 08:00 AM (អនុគ្រោះដល់ 08:10)</div>
-          <div>🍱 <b>សម្រាកបាយ:</b> 11:00 AM (អនុញ្ញាតចាប់ពី 10:50)</div>
+          <div>🍱 <b>ចេញវគ្គទី១:</b> 11:00 AM (អនុញ្ញាតចាប់ពី 10:50)</div>
           <div>☕ <b>រសៀលចូល:</b> 01:00 PM (អនុគ្រោះដល់ 01:10)</div>
           <div>🏠 <b>ល្ងាចចេញ:</b> 05:00 PM (អនុញ្ញាតចាប់ពី 04:50)</div>
         </div>
@@ -4539,7 +4540,7 @@ function showAcledaNoticeModal() {
       <div class="text-left text-xs space-y-2 p-2 text-slate-600">
         <p>✅ ប្រព័ន្ធវត្តមានថ្មី គាំទ្រការ <b>ចុចប៊ូតុង Check-in ផ្ទាល់</b> ដោយភ្ជាប់ Wi-Fi ក្រុមហ៊ុន។</p>
         <p>📶 Wi-Fi ក្រុមហ៊ុនដែលអនុញ្ញាត: <b>Wi-Fi ទី១</b> និង <b>Wi-Fi ទី២</b>។</p>
-        <p>📊 ម្នាក់អាចកត់ត្រាបាន <b>៤ ដងក្នុងមួយថ្ងៃ</b> (ព្រឹកចូល, ចេញបាយ, ចូលវិញ, ល្ងាចចេញ)។</p>
+        <p>📊 ម្នាក់អាចកត់ត្រាបាន <b>៤ ដងក្នុងមួយថ្ងៃ</b> (ព្រឹកចូល, ចេញវគ្គទី១, ចូលវគ្គទី២, ល្ងាចចេញ)។</p>
       </div>
     `,
     confirmButtonText: 'យល់ព្រម',

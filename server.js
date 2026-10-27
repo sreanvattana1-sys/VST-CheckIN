@@ -502,10 +502,17 @@ async function getAttendanceModeState() {
   };
 }
 
-function getScheduledAttendanceSlot(totalMinutes) {
-  if (totalMinutes < 660) return 'morning_in';
-  if (totalMinutes < 780) return 'lunch_out';
-  if (totalMinutes < 1020) return 'afternoon_in';
+function getScheduledAttendanceSlot(totalMinutes, existingLogs = []) {
+  const hasMorningIn = existingLogs.some(log => log.type === 'morning_in' || log.type === 'check_in');
+  const hasSessionOneOut = existingLogs.some(log => log.type === 'lunch_out');
+
+  if (totalMinutes < 650) return 'morning_in';
+  if (totalMinutes < 660) return hasMorningIn ? 'lunch_out' : 'morning_in';
+  if (totalMinutes < 780) {
+    if (!hasMorningIn) return 'afternoon_in';
+    return hasSessionOneOut ? 'afternoon_in' : 'lunch_out';
+  }
+  if (totalMinutes < 1010) return 'afternoon_in';
   return 'evening_out';
 }
 
@@ -1926,7 +1933,7 @@ app.post('/api/attendance/check', requireAuth, requireStaffOrAdmin, async (req, 
     // The server selects the slot from Cambodia time. Missed slots are closed
     // permanently instead of being back-filled by a later tap.
     const { hour: hours, minute: minutes, totalMinutes } = getCambodiaHoursAndMinutes();
-    const actionType = getScheduledAttendanceSlot(totalMinutes);
+    const actionType = getScheduledAttendanceSlot(totalMinutes, todayExisting);
     const slotAlreadyRecorded = todayExisting.some(log => {
       if (actionType === 'morning_in') return log.type === 'morning_in' || log.type === 'check_in';
       if (actionType === 'evening_out') return log.type === 'evening_out' || log.type === 'check_out';
@@ -2013,7 +2020,7 @@ app.post('/api/attendance/check', requireAuth, requireStaffOrAdmin, async (req, 
         diffMinutes = 660 - totalMinutes;
         statusText = `🟠🏃💨 <b>ស្ថានភាព:</b> ចេញមុនម៉ោង (${formatDurationKm(diffMinutes)})`;
       } else {
-        statusText = `🟢🍱 <b>ស្ថានភាព:</b> ចេញសម្រាកបាយតាមកាលវិភាគ`;
+        statusText = `🟢🍱 <b>ស្ថានភាព:</b> ចេញពីការងារវគ្គទី១តាមកាលវិភាគ`;
       }
     } else if (actionType === 'afternoon_in') {
       if (totalMinutes > 790) { // After 13:10
@@ -2084,8 +2091,8 @@ app.post('/api/attendance/check', requireAuth, requireStaffOrAdmin, async (req, 
 
     const slotMeta = {
       morning_in: { labelKm: 'ព្រឹកចូលធ្វើការ (08:00)', labelEn: 'Morning Check-In', num: '1/4', badge: '🌅' },
-      lunch_out: { labelKm: 'ចេញសម្រាកបាយ (11:00)', labelEn: 'Lunch Break Out', num: '2/4', badge: '🍱' },
-      afternoon_in: { labelKm: 'រសៀលចូលធ្វើការវិញ (13:00)', labelEn: 'Afternoon Return In', num: '3/4', badge: '☕' },
+      lunch_out: { labelKm: 'ចេញពីការងារវគ្គទី១ (11:00)', labelEn: 'Session 1 Out', num: '2/4', badge: '🍱' },
+      afternoon_in: { labelKm: 'ចូលធ្វើការវគ្គទី២ (13:00)', labelEn: 'Session 2 In', num: '3/4', badge: '☕' },
       evening_out: { labelKm: 'ល្ងាចចេញធ្វើការ (17:00)', labelEn: 'Evening Check-Out', num: '4/4', badge: '🏠' }
     };
 
@@ -2203,11 +2210,12 @@ app.get('/api/attendance/today-summary', requireAuth, requireStaffOrAdmin, async
 
   // Select only the slot belonging to the current Cambodia-time window.
   const { totalMinutes } = getCambodiaHoursAndMinutes();
-  const currentScheduledSlot = getScheduledAttendanceSlot(totalMinutes);
+  const currentScheduledSlot = getScheduledAttendanceSlot(totalMinutes, todayLogs);
   const slotOrder = ['morning_in', 'lunch_out', 'afternoon_in', 'evening_out'];
   const currentIndex = slotOrder.indexOf(currentScheduledSlot);
   const missedSlots = slotOrder.slice(0, currentIndex).filter(slot => !slots[slot]);
   const canScanCurrentSlot = !slots[currentScheduledSlot];
+  const progressStep = Math.min(4, currentIndex + (canScanCurrentSlot ? 0 : 1));
   const nextSuggestedSlot = canScanCurrentSlot ? currentScheduledSlot : (currentScheduledSlot === 'evening_out' ? 'completed' : 'waiting');
   const halfDayInfo = getHalfDayStatus(todayLogs);
   const isSunday = getCambodiaDayOfWeek() === 0;
@@ -2220,6 +2228,7 @@ app.get('/api/attendance/today-summary', requireAuth, requireStaffOrAdmin, async
     nextSuggestedSlot,
     currentScheduledSlot,
     canScanCurrentSlot,
+    progressStep,
     missedSlots,
     isHalfDay: halfDayInfo.isHalfDay,
     workCredit: halfDayInfo.workCredit,
