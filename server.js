@@ -193,6 +193,8 @@ async function initDb() {
       longitude REAL,
       distance_meters REAL,
       is_within_range INTEGER DEFAULT 1,
+      verification_method TEXT DEFAULT 'office_wifi',
+      gps_accuracy REAL,
       note TEXT
     )
   `);
@@ -264,6 +266,16 @@ async function initDb() {
     // Column already exists
   }
 
+  for (const columnSql of [
+    "ALTER TABLE attendance ADD COLUMN verification_method TEXT DEFAULT 'office_wifi'",
+    "ALTER TABLE attendance ADD COLUMN gps_accuracy REAL"
+  ]) {
+    try {
+      await db.execute(columnSql);
+    } catch (e) {
+      // Existing databases may already have these columns.
+    }
+  }
   // Seed default settings if not exists
   const initSettings = [
     ['office_lat', '11.536445'],
@@ -280,7 +292,10 @@ async function initDb() {
     ['session_secret', crypto.randomBytes(32).toString('hex')],
     ['wifi_check_enabled', 'true'],
     ['company_wifi_ips', '45.119.135.171, 36.37.169.199'],
-    ['company_wifi_ddns_hosts', 'vst-office.ddns.net']
+    ['company_wifi_ddns_hosts', 'vst-office.ddns.net'],
+    ['attendance_mode', 'wifi'],
+    ['emergency_mode_expires_at', ''],
+    ['emergency_gps_accuracy_limit', '50']
   ];
 
   for (const [k, v] of initSettings) {
@@ -343,11 +358,7 @@ app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 app.get('/', (req, res) => {
   const rootIndex = path.join(__dirname, 'index.html');
   const pubIndex = path.join(__dirname, 'public', 'index.html');
-  if (fs.existsSync(rootIndex) && fs.existsSync(pubIndex)) {
-    const rootMtime = fs.statSync(rootIndex).mtimeMs;
-    const pubMtime = fs.statSync(pubIndex).mtimeMs;
-    return res.sendFile(rootMtime >= pubMtime ? rootIndex : pubIndex);
-  }
+
   if (fs.existsSync(rootIndex)) return res.sendFile(rootIndex);
   if (fs.existsSync(pubIndex)) return res.sendFile(pubIndex);
   res.send('VST Attendance Web App');
@@ -358,11 +369,7 @@ app.get('/app.js', (req, res) => {
   const rootApp = path.join(__dirname, 'app.js');
   const pubApp = path.join(__dirname, 'public', 'app.js');
   res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
-  if (fs.existsSync(rootApp) && fs.existsSync(pubApp)) {
-    const rootMtime = fs.statSync(rootApp).mtimeMs;
-    const pubMtime = fs.statSync(pubApp).mtimeMs;
-    return res.sendFile(rootMtime >= pubMtime ? rootApp : pubApp);
-  }
+
   if (fs.existsSync(rootApp)) return res.sendFile(rootApp);
   if (fs.existsSync(pubApp)) return res.sendFile(pubApp);
   res.status(404).send('console.error("app.js not found");');
@@ -483,6 +490,30 @@ async function getSetting(key) {
   return row ? row.value : null;
 }
 
+async function getAttendanceModeState() {
+  const configuredMode = (await getSetting('attendance_mode')) || 'wifi';
+  const expiresAt = (await getSetting('emergency_mode_expires_at')) || '';
+  const expiryMs = expiresAt ? Date.parse(expiresAt) : NaN;
+  const active = configuredMode === 'emergency_gps' && (!Number.isFinite(expiryMs) || expiryMs > Date.now());
+  return {
+    mode: active ? 'emergency_gps' : 'wifi',
+    emergencyActive: active,
+    expiresAt: active ? expiresAt : ''
+  };
+}
+
+function getScheduledAttendanceSlot(totalMinutes) {
+  if (totalMinutes < 660) return 'morning_in';
+  if (totalMinutes < 780) return 'lunch_out';
+  if (totalMinutes < 1020) return 'afternoon_in';
+  return 'evening_out';
+}
+
+function getHalfDayStatus(logs) {
+  if (!Array.isArray(logs) || logs.length === 0) return { isHalfDay: false, workCredit: 0 };
+  const hasMorning = logs.some(log => log.type === 'morning_in' || log.type === 'check_in');
+  return { isHalfDay: !hasMorning, workCredit: hasMorning ? 1 : 0.5 };
+}
 async function getTelegramToken() {
   return ENV_TELEGRAM_BOT_TOKEN || await getSetting('telegram_token');
 }
@@ -1221,6 +1252,7 @@ app.get('/api/public-info', async (req, res) => {
 app.get('/api/network-status', async (req, res) => {
   try {
     const network = await getOfficeNetworkMatch(getClientIp(req));
+    const modeState = await getAttendanceModeState();
     const { clientIp, wifiCheckEnabled, allowedIps, ddnsHosts, ddnsIps, matchedDdnsHost, isLocal, isAllowed } = network;
 
     let matchedName = null;
@@ -1239,8 +1271,12 @@ app.get('/api/network-status', async (req, res) => {
     res.json({
       clientIp,
       isCompanyWifi: isAllowed,
+      canCheckIn: isAllowed || modeState.emergencyActive || !wifiCheckEnabled,
       matchedName,
       wifiCheckEnabled,
+      attendanceMode: modeState.mode,
+      emergencyGpsActive: modeState.emergencyActive,
+      emergencyModeExpiresAt: modeState.expiresAt,
       allowedNetworkCount: allowedIps.length + ddnsIps.size,
       ddnsHosts
     });
@@ -1806,31 +1842,31 @@ app.post('/api/members/login', loginRateLimit, async (req, res) => {
 
 app.post('/api/attendance/check', requireAuth, requireStaffOrAdmin, async (req, res) => {
   try {
-    const { code, type, qr_token, latitude, longitude, note, check_method } = req.body;
+    const { code, type, qr_token, latitude, longitude, accuracy, note, check_method } = req.body;
     
     if (!code) {
       return res.status(400).json({ error: 'សូមបញ្ជាក់លេខកូដសមាជិក (Member Code)' });
     }
     if (!ensureStaffOwnsCode(req, res, code)) return;
 
-    // Client IP & Company Wi-Fi verification
+    // Office Wi-Fi is the default. Admin can temporarily switch everyone to
+    // approved-device + strict GPS verification when the office Wi-Fi is down.
     const network = await getOfficeNetworkMatch(getClientIp(req));
     const { clientIp, wifiCheckEnabled } = network;
     const isCompanyWifi = network.isAllowed;
+    const attendanceMode = await getAttendanceModeState();
+    const emergencyGpsActive = attendanceMode.emergencyActive;
+    const verificationMethod = emergencyGpsActive ? 'emergency_gps' : 'office_wifi';
 
     const isButtonCheck = check_method === 'wifi_button' || !qr_token;
-
-    // If using One-Click Button or Wi-Fi is strictly enabled:
-    if (isButtonCheck) {
-      if (wifiCheckEnabled && !isCompanyWifi) {
-        return res.status(403).json({
-          error: `⚠️ មិនទាន់ភ្ជាប់ Wi-Fi ក្រុមហ៊ុនទេ! (IP របស់អ្នក: ${clientIp || 'មិនស្គាល់'})\nសូមភ្ជាប់ Wi-Fi ទី១ ឬទី២ របស់ក្រុមហ៊ុនដើម្បីចុចកត់ត្រាវត្តមាន។`,
-          isWifiBlocked: true,
-          clientIp
-        });
-      }
-    } else {
-      // Verify Office QR token if provided
+    if (isButtonCheck && !emergencyGpsActive && wifiCheckEnabled && !isCompanyWifi) {
+      return res.status(403).json({
+        error: `⚠️ មិនទាន់ភ្ជាប់ Wi-Fi ក្រុមហ៊ុនទេ! (IP របស់អ្នក: ${clientIp || 'មិនស្គាល់'})\nសូមភ្ជាប់ Wi-Fi ក្រុមហ៊ុន ឬស្នើឱ្យ Admin បើក Emergency GPS Mode ពេល Wi-Fi ដាច់។`,
+        isWifiBlocked: true,
+        clientIp
+      });
+    }
+    if (!isButtonCheck && !emergencyGpsActive) {
       const expectedToken = (await getSetting('office_qr_token')) || 'OFFICE-ATTENDANCE-HQ-2026';
       if (qr_token && qr_token.trim() !== expectedToken.trim()) {
         return res.status(400).json({ error: 'QR Code មិនត្រឹមត្រូវទេ! សូមស្កេន QR Code ការិយាល័យផ្លូវការ។' });
@@ -1887,46 +1923,65 @@ app.post('/api/attendance/check', requireAuth, requireStaffOrAdmin, async (req, 
       });
     }
 
-    let actionType = type;
-    if (!actionType || actionType === 'auto') {
-      if (todayExisting.length === 0) actionType = 'morning_in';
-      else if (todayExisting.length === 1) actionType = 'lunch_out';
-      else if (todayExisting.length === 2) actionType = 'afternoon_in';
-      else if (todayExisting.length === 3) actionType = 'evening_out';
-    } else {
-      if (type === 'morning_in' || type === 'check_in') actionType = 'morning_in';
-      else if (type === 'lunch_out') actionType = 'lunch_out';
-      else if (type === 'afternoon_in') actionType = 'afternoon_in';
-      else if (type === 'evening_out' || type === 'check_out') actionType = 'evening_out';
-    }
-
-    // Strict Geofencing Check
-    const officeLat = parseFloat(await getSetting('office_lat'));
-    const officeLng = parseFloat(await getSetting('office_lng'));
-    const allowedRadius = parseFloat(await getSetting('allowed_radius')) || 200;
-
-    let distance = null;
-    let isWithinRange = 1;
-
-    if (latitude !== undefined && longitude !== undefined && latitude !== null && longitude !== null && !isNaN(officeLat) && !isNaN(officeLng)) {
-      distance = calculateDistance(latitude, longitude, officeLat, officeLng);
-      if (!isCompanyWifi && distance !== null && distance > allowedRadius) {
-        isWithinRange = 0;
-        return res.status(400).json({
-          error: `អ្នកនៅក្រៅបរិវេណការិយាល័យ (${distance} ម៉ែត្រ)! ប្រព័ន្ធអនុញ្ញាតត្រឹមតែ ${allowedRadius} ម៉ែត្រប៉ុណ្ណោះ។ សូមចូលទៅក្នុងបរិវេណការិយាល័យដើម្បីស្កេនវត្តមាន។`,
-          distance: distance,
-          allowedRadius: allowedRadius
-        });
-      }
-    } else if (!isCompanyWifi && !isNaN(officeLat) && !isNaN(officeLng) && officeLat !== 0 && officeLng !== 0) {
-      // If user did not provide GPS and is not on company Wi-Fi
-      return res.status(400).json({
-        error: 'សូមបើក Location (GPS Permission) លើទូរស័ព្ទរបស់អ្នក ដើម្បីផ្ទៀងផ្ទាត់ចម្ងាយការិយាល័យមុនពេលស្កេន!'
+    // The server selects the slot from Cambodia time. Missed slots are closed
+    // permanently instead of being back-filled by a later tap.
+    const { hour: hours, minute: minutes, totalMinutes } = getCambodiaHoursAndMinutes();
+    const actionType = getScheduledAttendanceSlot(totalMinutes);
+    const slotAlreadyRecorded = todayExisting.some(log => {
+      if (actionType === 'morning_in') return log.type === 'morning_in' || log.type === 'check_in';
+      if (actionType === 'evening_out') return log.type === 'evening_out' || log.type === 'check_out';
+      return log.type === actionType;
+    });
+    if (slotAlreadyRecorded) {
+      return res.status(409).json({
+        error: 'វគ្គបច្ចុប្បន្នបានកត់ត្រារួចហើយ។ សូមរង់ចាំដល់វគ្គបន្ទាប់។',
+        alreadySlot: true,
+        actionType
       });
     }
 
-    // Calculate Cambodia Time (UTC+7) & Punctual / Late / Early departure status
-    const { hour: hours, minute: minutes, totalMinutes } = getCambodiaHoursAndMinutes();
+    // GPS is mandatory and strict only while Emergency GPS Mode is active.
+    const officeLat = parseFloat(await getSetting('office_lat'));
+    const officeLng = parseFloat(await getSetting('office_lng'));
+    const allowedRadius = parseFloat(await getSetting('allowed_radius')) || 200;
+    const emergencyRadius = Math.min(100, allowedRadius);
+    const accuracyLimit = parseFloat(await getSetting('emergency_gps_accuracy_limit')) || 50;
+    const gpsAccuracy = Number(accuracy);
+    const hasGps = Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude));
+
+    let distance = null;
+    let isWithinRange = 1;
+    if (hasGps && Number.isFinite(officeLat) && Number.isFinite(officeLng)) {
+      distance = calculateDistance(Number(latitude), Number(longitude), officeLat, officeLng);
+    }
+
+    if (emergencyGpsActive) {
+      if (!hasGps || !Number.isFinite(officeLat) || !Number.isFinite(officeLng)) {
+        return res.status(400).json({
+          error: 'Emergency GPS Mode កំពុងបើក។ សូមបើក Location និងចុច Refresh GPS មុនចុះវត្តមាន។',
+          isGpsRequired: true
+        });
+      }
+      if (!Number.isFinite(gpsAccuracy) || gpsAccuracy > accuracyLimit) {
+        return res.status(400).json({
+          error: `GPS មិនទាន់ច្បាស់គ្រប់គ្រាន់ (${Number.isFinite(gpsAccuracy) ? Math.round(gpsAccuracy) + 'm' : 'មិនស្គាល់'})។ សូមទៅកន្លែងបើកចំហ ហើយ Refresh GPS ម្តងទៀត។`,
+          isGpsAccuracyBlocked: true,
+          accuracy: Number.isFinite(gpsAccuracy) ? gpsAccuracy : null,
+          accuracyLimit
+        });
+      }
+      if (distance === null || distance > emergencyRadius) {
+        isWithinRange = 0;
+        return res.status(403).json({
+          error: `អ្នកនៅក្រៅបរិវេណ Office (${distance === null ? 'មិនស្គាល់' : distance + 'm'})។ Emergency Mode អនុញ្ញាតត្រឹម ${emergencyRadius}m ប៉ុណ្ណោះ។`,
+          isGpsBlocked: true,
+          distance,
+          allowedRadius: emergencyRadius
+        });
+      }
+    }
+
+    // Calculate punctual / late / early departure status for the server-selected slot.
 
     let isLate = false;
     let isEarlyLeave = false;
@@ -1999,12 +2054,15 @@ app.post('/api/attendance/check', requireAuth, requireStaffOrAdmin, async (req, 
       });
     }
 
-    // Record attendance
+    const halfDayInfo = getHalfDayStatus([...todayExisting, { type: actionType }]);
+
+    // Record attendance with its verification path for later audit/reporting.
     const recordResult = await db.run(`
       INSERT INTO attendance (
         member_id, member_name, member_code, member_role,
-        type, latitude, longitude, distance_meters, is_within_range, note
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        type, latitude, longitude, distance_meters, is_within_range,
+        verification_method, gps_accuracy, note
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       member.id,
       member.name,
@@ -2015,6 +2073,8 @@ app.post('/api/attendance/check', requireAuth, requireStaffOrAdmin, async (req, 
       longitude || null,
       distance,
       isWithinRange,
+      verificationMethod,
+      Number.isFinite(gpsAccuracy) ? gpsAccuracy : null,
       trimmedNote
     ]);
 
@@ -2050,6 +2110,8 @@ app.post('/api/attendance/check', requireAuth, requireStaffOrAdmin, async (req, 
     const telegramMsg = [
       `<b>${tgText(latinMemberName)}</b> ${isCheckIn ? 'checked in' : 'checked out'} ${statusIcon} <b>${attendanceStatus}</b>`,
       `Date Time: ${formatTelegramDate(now)} ${formatTelegramTime(now)}`,
+      halfDayInfo.isHalfDay ? 'Work Day: Half Day (0.5)' : null,
+      emergencyGpsActive ? `Verified: Emergency GPS (${distance}m, accuracy ${Math.round(gpsAccuracy)}m)` : null,
       trimmedNote ? `Reason: ${tgText(trimmedNote)}` : null
     ].filter(Boolean).join('\n');
 
@@ -2083,6 +2145,10 @@ app.post('/api/attendance/check', requireAuth, requireStaffOrAdmin, async (req, 
       timestamp: new Date().toISOString(),
       distance,
       isWithinRange,
+      verificationMethod,
+      emergencyGpsActive,
+      isHalfDay: halfDayInfo.isHalfDay,
+      workCredit: halfDayInfo.workCredit,
       isSunday,
       statusText,
       note: trimmedNote
@@ -2135,22 +2201,15 @@ app.get('/api/attendance/today-summary', requireAuth, requireStaffOrAdmin, async
     }
   }
 
-  // Calculate next suggested scan slot
-  let nextSuggestedSlot = 'morning_in';
-  if (todayLogs.length >= 4) {
-    nextSuggestedSlot = 'completed';
-  } else if (!slots.morning_in) {
-    nextSuggestedSlot = 'morning_in';
-  } else if (!slots.lunch_out) {
-    nextSuggestedSlot = 'lunch_out';
-  } else if (!slots.afternoon_in) {
-    nextSuggestedSlot = 'afternoon_in';
-  } else if (!slots.evening_out) {
-    nextSuggestedSlot = 'evening_out';
-  } else {
-    nextSuggestedSlot = 'completed';
-  }
-
+  // Select only the slot belonging to the current Cambodia-time window.
+  const { totalMinutes } = getCambodiaHoursAndMinutes();
+  const currentScheduledSlot = getScheduledAttendanceSlot(totalMinutes);
+  const slotOrder = ['morning_in', 'lunch_out', 'afternoon_in', 'evening_out'];
+  const currentIndex = slotOrder.indexOf(currentScheduledSlot);
+  const missedSlots = slotOrder.slice(0, currentIndex).filter(slot => !slots[slot]);
+  const canScanCurrentSlot = !slots[currentScheduledSlot];
+  const nextSuggestedSlot = canScanCurrentSlot ? currentScheduledSlot : (currentScheduledSlot === 'evening_out' ? 'completed' : 'waiting');
+  const halfDayInfo = getHalfDayStatus(todayLogs);
   const isSunday = getCambodiaDayOfWeek() === 0;
 
   res.json({
@@ -2159,6 +2218,11 @@ app.get('/api/attendance/today-summary', requireAuth, requireStaffOrAdmin, async
     totalScansToday: Math.min(4, todayLogs.length),
     isMaxReached: todayLogs.length >= 4,
     nextSuggestedSlot,
+    currentScheduledSlot,
+    canScanCurrentSlot,
+    missedSlots,
+    isHalfDay: halfDayInfo.isHalfDay,
+    workCredit: halfDayInfo.workCredit,
     isSunday,
     schedule: 'ចន្ទ - សៅរិ៍ (08:00 - 11:00 | 13:00 - 17:00)',
     todayLogs
@@ -2253,6 +2317,45 @@ app.post('/api/settings', requireAuth, requireAdmin, async (req, res) => {
   res.json({ success: true, message: 'បានរក្សាទុកការកំណត់ជោគជ័យ' });
 });
 
+// Admin-only switch between normal Office Wi-Fi and temporary Emergency GPS.
+app.post('/api/settings/attendance-mode', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const requestedMode = req.body && req.body.mode;
+    if (!['wifi', 'emergency_gps'].includes(requestedMode)) {
+      return res.status(400).json({ error: 'Mode មិនត្រឹមត្រូវ' });
+    }
+
+    let expiresAt = '';
+    if (requestedMode === 'emergency_gps') {
+      const durationMinutes = Number(req.body.durationMinutes);
+      if (![0, 30, 60].includes(durationMinutes)) {
+        return res.status(400).json({ error: 'រយៈពេលត្រូវជា 30 នាទី, 60 នាទី ឬរហូតដល់បិទដោយដៃ' });
+      }
+      if (durationMinutes > 0) expiresAt = new Date(Date.now() + durationMinutes * 60 * 1000).toISOString();
+    }
+
+    await db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['attendance_mode', requestedMode]);
+    await db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['emergency_mode_expires_at', expiresAt]);
+
+    const modeLabel = requestedMode === 'emergency_gps' ? 'Emergency GPS Mode' : 'Office Wi-Fi Mode';
+    const expiryLabel = expiresAt ? `\nUntil: ${formatTelegramDate(expiresAt)} ${formatTelegramTime(expiresAt)}` : '';
+    await sendTelegramMessage(`⚙️ <b>Attendance Mode Changed</b>\nMode: ${modeLabel}${expiryLabel}`).catch(err => {
+      console.error('Failed to notify Telegram about attendance mode:', err);
+    });
+
+    res.json({
+      success: true,
+      mode: requestedMode,
+      emergencyActive: requestedMode === 'emergency_gps',
+      expiresAt,
+      message: requestedMode === 'emergency_gps'
+        ? 'បានបើក Emergency GPS Mode។ បុគ្គលិកអាចប្រើ Mobile Data ប៉ុន្តែត្រូវនៅក្នុង Office និង GPS ត្រឹមត្រូវ។'
+        : 'បានប្តូរត្រឡប់ទៅ Office Wi-Fi Mode។'
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 // 6. Test Telegram Connection
 app.post('/api/settings/test-telegram', requireAuth, requireAdmin, async (req, res) => {
   const testMsg = '✅ <b>Attendance alerts connected</b>\nVANN SITHA TRADING';
@@ -2526,6 +2629,7 @@ async function generateDailySummaryReport() {
   const lateList = [];
   const onTimeList = [];
   const absentList = [];
+  const halfDayList = [];
   const incompleteList = [];
   const reportRows = [];
 
@@ -2538,28 +2642,21 @@ async function generateDailySummaryReport() {
     } else if (logs.length > 0) {
       presentList.push(member);
 
-      // Find first morning_in scan
-      const morningLog = logs.find(l => l.type === 'morning_in' || l.type === 'check_in') || logs[0];
-      if (morningLog) {
+      // Missing the morning slot after 11:00 counts as a half work day.
+      const morningLog = logs.find(l => l.type === 'morning_in' || l.type === 'check_in');
+      const halfDayInfo = getHalfDayStatus(logs);
+      if (halfDayInfo.isHalfDay) {
+        halfDayList.push(member);
+      } else if (morningLog) {
         const timeFormat = formatTelegramTime(morningLog.timestamp);
         const { hour: h, minute: m } = getCambodiaHoursAndMinutes(morningLog.timestamp);
-
-        // Schedule is 08:00 with 10 mins grace (late if > 08:10)
         if (h > 8 || (h === 8 && m > 10)) {
           const lateMinutes = (h - 8) * 60 + m;
           const reasonText = morningLog.note ? ` · ${tgText(morningLog.note)}` : '';
-          lateList.push({
-            member,
-            lateMinutes,
-            time: timeFormat,
-            scansCount: logs.length,
-            reason: reasonText
-          });
+          lateList.push({ member, lateMinutes, time: timeFormat, scansCount: logs.length, reason: reasonText });
         } else {
           onTimeList.push(member);
         }
-      } else {
-        onTimeList.push(member);
       }
 
       // Check if finished 4 scans
@@ -2585,7 +2682,7 @@ async function generateDailySummaryReport() {
       out1: lunch ? formatTelegramTime(lunch.timestamp) : '-',
       in2: afternoon ? formatTelegramTime(afternoon.timestamp) : '-',
       out2: evening ? formatTelegramTime(evening.timestamp) : '-',
-      status: isOnLeave ? 'Leave' : logs.length === 0 ? 'Absent' : lateItem ? 'Late' : 'On time',
+      status: isOnLeave ? 'Leave' : logs.length === 0 ? 'Absent' : !morning ? 'Half Day' : lateItem ? 'Late' : 'On time',
       late: lateItem ? `${lateItem.lateMinutes}m` : '-'
     });
   }
@@ -2593,7 +2690,7 @@ async function generateDailySummaryReport() {
   // Format Latecomers Text
   const summaryLines = [
     `📊 <b>សរុបវត្តមាន</b> · ${tgKhDate(todayKhDate)}`,
-    `👥 សរុប ${totalCount} នាក់ · ✅ វត្តមាន ${presentList.length} · ⚠️ មកយឺត ${lateList.length} · ❌ អវត្តមាន ${absentList.length}`
+    `👥 សរុប ${totalCount} នាក់ · ✅ វត្តមាន ${presentList.length} · 🌓 កន្លះថ្ងៃ ${halfDayList.length} · ⚠️ មកយឺត ${lateList.length} · ❌ អវត្តមាន ${absentList.length}`
   ];
   if (lateList.length) {
     summaryLines.push('', '<b>មកយឺត</b>', ...lateList.map(item =>
@@ -2615,10 +2712,12 @@ async function generateDailySummaryReport() {
       late: lateList.length,
       absent: absentList.length,
       leave: approvedLeaveIds.size,
-      incomplete: incompleteList.length
+      incomplete: incompleteList.length,
+      halfDay: halfDayList.length
     },
     lateList,
     absentList,
+    halfDayList,
     reportRows,
     reportDate: todayKhDate
   };
@@ -2726,10 +2825,20 @@ async function generateMonthlySummaryReport(dateStr = getCambodiaDateString()) {
   const workingDays = countWorkingDays(range.start, range.end);
   const rows = activeMembers.map(member => {
     const memberLogs = logs.filter(log => Number(log.member_id) === Number(member.id));
-    const presentDates = new Set(memberLogs.map(log => {
+    const logsByDate = new Map();
+    for (const log of memberLogs) {
       const d = new Date(log.timestamp);
-      return new Date(d.getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    }));
+      const workDate = new Date(d.getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      if (!logsByDate.has(workDate)) logsByDate.set(workDate, []);
+      logsByDate.get(workDate).push(log);
+    }
+    let halfDays = 0;
+    let present = 0;
+    for (const dayLogs of logsByDate.values()) {
+      const dayStatus = getHalfDayStatus(dayLogs);
+      present += dayStatus.workCredit;
+      if (dayStatus.isHalfDay) halfDays += 1;
+    }
     let lateTimes = 0;
     let lateMinutes = 0;
     for (const log of memberLogs) {
@@ -2744,24 +2853,23 @@ async function generateMonthlySummaryReport(dateStr = getCambodiaDateString()) {
     }
     const memberLeaves = leaveRequests.filter(item => Number(item.member_id) === Number(member.id));
     const leaveDays = countApprovedLeaveDays(memberLeaves, range.start, range.end);
-    const present = presentDates.size;
     const absent = Math.max(0, workingDays - present - leaveDays);
     const score = Math.max(0, 100 - lateTimes * 2 - absent * 5);
     return {
-      staff: getLatinMemberName(member), code: member.code, workingDays, present,
+      staff: getLatinMemberName(member), code: member.code, workingDays, present, halfDays,
       lateTimes, lateMinutes, absent, leave: leaveDays, score
     };
   }).sort((a, b) => b.score - a.score || a.lateMinutes - b.lateMinutes || a.staff.localeCompare(b.staff));
   rows.forEach((row, index) => { row.index = index + 1; });
   const totals = rows.reduce((acc, row) => {
-    acc.present += row.present; acc.late += row.lateTimes; acc.absent += row.absent; acc.leave += row.leave;
+    acc.present += row.present; acc.halfDays += row.halfDays; acc.late += row.lateTimes; acc.absent += row.absent; acc.leave += row.leave;
     return acc;
-  }, { present: 0, late: 0, absent: 0, leave: 0 });
+  }, { present: 0, halfDays: 0, late: 0, absent: 0, leave: 0 });
   const attendanceRate = rows.length && workingDays ? ((totals.present / (rows.length * workingDays)) * 100).toFixed(1) : '0.0';
   const summaryMsg = [
     `📊 <b>របាយការណ៍វត្តមានប្រចាំខែ ${range.monthKey}</b>`,
     `👥 បុគ្គលិក ${rows.length} នាក់ · ✅ វត្តមានមធ្យម ${attendanceRate}%`,
-    `⏰ មកយឺត ${totals.late} ដង · ❌ អវត្តមាន ${totals.absent} ថ្ងៃ · 📝 សុំច្បាប់ ${totals.leave} ថ្ងៃ`,
+    `🌓 កន្លះថ្ងៃ ${totals.halfDays} ដង · ⏰ មកយឺត ${totals.late} ដង · ❌ អវត្តមាន ${totals.absent} ថ្ងៃ · 📝 សុំច្បាប់ ${totals.leave} ថ្ងៃ`,
     '',
     '🏆 <b>អ្នកគោរពពេលវេលាល្អជាងគេ</b>',
     ...rows.slice(0, 3).map((row, index) => `${index + 1}. ${tgText(row.staff)} · ${row.score} ពិន្ទុ`),
@@ -2786,10 +2894,11 @@ async function buildMonthlyReportPdf(report) {
     y += 15;
     const columns = [
       { key: 'index', label: '#', width: 20, align: 'center' },
-      { key: 'staff', label: 'STAFF', width: 95 },
-      { key: 'code', label: 'CODE', width: 53, align: 'center' },
-      { key: 'workingDays', label: 'WORK DAYS', width: 50, align: 'center' },
-      { key: 'present', label: 'PRESENT', width: 48, align: 'center' },
+      { key: 'staff', label: 'STAFF', width: 76 },
+      { key: 'code', label: 'CODE', width: 45, align: 'center' },
+      { key: 'workingDays', label: 'WORK DAYS', width: 45, align: 'center' },
+      { key: 'present', label: 'WORK CREDIT', width: 48, align: 'center' },
+      { key: 'halfDays', label: 'HALF DAYS', width: 48, align: 'center' },
       { key: 'lateTimes', label: 'LATE TIMES', width: 50, align: 'center' },
       { key: 'lateMinutes', label: 'LATE MINS', width: 53, align: 'center' },
       { key: 'absent', label: 'ABSENT', width: 45, align: 'center' },
@@ -3004,7 +3113,9 @@ if (process.env.NODE_ENV === 'test') {
     generateDailySummaryReport,
     buildDailyReportPdf,
     generateMonthlySummaryReport,
-    buildMonthlyReportPdf
+    buildMonthlyReportPdf,
+    getScheduledAttendanceSlot,
+    getHalfDayStatus
   };
 }
 

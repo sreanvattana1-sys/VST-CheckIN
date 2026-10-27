@@ -2156,6 +2156,22 @@
               </p>
             </div>
 
+            <!-- Admin-only emergency GPS fallback -->
+            <div class="p-4 rounded-2xl bg-amber-500/10 border border-amber-400/30 space-y-3">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div class="flex items-center gap-2 text-amber-200 font-bold text-xs">
+                    <i data-lucide="shield-alert" class="w-4 h-4"></i>
+                    <span>Emergency GPS Mode</span>
+                  </div>
+                  <p id="attendanceModeStatus" class="text-[11px] text-slate-300 mt-1">កំពុងប្រើ Wi-Fi ក្រុមហ៊ុនធម្មតា</p>
+                </div>
+                <button id="btnToggleEmergencyMode" type="button" onclick="toggleEmergencyGpsMode()" class="px-4 py-2.5 rounded-xl bg-amber-500/20 border border-amber-400/40 text-amber-200 text-xs font-extrabold hover:bg-amber-500/30 active:scale-95 transition">
+                  បើក GPS ពេល Wi-Fi ដាច់
+                </button>
+              </div>
+              <p class="text-[10px] text-slate-400 leading-relaxed">សម្រាប់ Admin ប៉ុណ្ណោះ។ ពេលបើក បុគ្គលិកអាចប្រើ Mobile Data ប៉ុន្តែត្រូវប្រើ Device ដែលបាន Approve និងស្ថិតក្នុងរង្វង់ Office ដោយ GPS មាន Accuracy ≤ 50m។</p>
+            </div>
             <div class="space-y-2">
               <div class="flex items-center justify-between">
                 <label class="block text-xs font-semibold text-slate-200">កូអរដោនេទីតាំងការិយាល័យ (GPS)</label>

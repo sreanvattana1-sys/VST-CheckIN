@@ -2,12 +2,13 @@
 let currentLang = localStorage.getItem('attendance_lang') || 'km';
 let publicInfo = null;
 let currentStaff = null; // { code, name, role }
-let userCoords = { lat: null, lng: null };
+let userCoords = { lat: null, lng: null, accuracy: null };
 let staffScanner = null;
 let currentScanAction = 'morning_in'; // 4-slot attendance
 let isStaffScannerRunning = false;
 let isAdminAuthenticated = false;
 let todayScansTotalCount = 0;
+let currentAttendanceSummary = null;
 let allAdminMembers = [];
 let allPendingMembers = [];
 let adminSessionToken = sessionStorage.getItem('vst_admin_token') || '';
@@ -1918,6 +1919,7 @@ function initStaffGPS() {
     pos => {
       userCoords.lat = pos.coords.latitude;
       userCoords.lng = pos.coords.longitude;
+      userCoords.accuracy = pos.coords.accuracy;
       updateStaffGpsUI(userCoords.lat, userCoords.lng);
     },
     err => {
@@ -1935,6 +1937,7 @@ function refreshStaffGPS() {
     pos => {
       userCoords.lat = pos.coords.latitude;
       userCoords.lng = pos.coords.longitude;
+      userCoords.accuracy = pos.coords.accuracy;
       updateStaffGpsUI(userCoords.lat, userCoords.lng);
       Swal.fire({
         toast: true, position: 'top-end', icon: 'success',
@@ -2325,6 +2328,8 @@ async function loadMyAttendanceActivity() {
     const sumRes = await apiFetch(`/api/attendance/today-summary?code=${encodeURIComponent(currentStaff.code)}`);
     if (!sumRes.ok) return;
     const summary = await sumRes.json();
+    currentAttendanceSummary = summary;
+    todayScansTotalCount = summary.totalScansToday || 0;
 
     // Update Sunday warning banner
     const sundayEl = document.getElementById('sundayWarningBadge');
@@ -2383,9 +2388,12 @@ async function loadMyAttendanceActivity() {
     const heroTitle = document.getElementById('heroBtnActionTitle');
     const heroSub = document.getElementById('heroBtnActionSubtitle');
     const heroIcon = document.getElementById('heroBtnActionIcon');
-    if (totalDone >= 4) {
-      if (heroTitle) heroTitle.textContent = 'គ្រប់ ៤/៤ ដងរួចរាល់';
-      if (heroSub) heroSub.textContent = 'បានបញ្ចប់វត្តមានថ្ងៃនេះ';
+    if (summary.nextSuggestedSlot === 'completed') {
+      if (heroTitle) heroTitle.textContent = summary.isHalfDay ? 'បានបញ្ចប់ · កន្លះថ្ងៃ' : 'បានបញ្ចប់វត្តមានថ្ងៃនេះ';
+      if (heroSub) heroSub.textContent = summary.isHalfDay ? 'Work Credit 0.5 ថ្ងៃ' : 'Work Credit 1 ថ្ងៃ';
+    } else if (summary.nextSuggestedSlot === 'waiting') {
+      if (heroTitle) heroTitle.textContent = 'បានកត់ត្រាម៉ោងនេះរួច';
+      if (heroSub) heroSub.textContent = 'សូមរង់ចាំដល់ម៉ោងបន្ទាប់';
     } else {
       const nextSlot = summary.nextSuggestedSlot || 'morning_in';
       const slotTitles = {
@@ -2457,6 +2465,18 @@ async function loadMyAttendanceActivity() {
         card.className = 'p-3.5 rounded-2xl bg-emerald-500/15 border-2 border-emerald-400/50 shadow-[0_0_20px_rgba(16,185,129,0.2)] flex flex-col justify-between transition-all';
         if (titleEl) titleEl.className = 'text-[11px] font-bold text-emerald-300';
         if (pillEl) pillEl.className = 'text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-200 border border-emerald-400/30';
+      } else if (Array.isArray(summary.missedSlots) && summary.missedSlots.includes(slotKey)) {
+        if (timeEl) {
+          timeEl.textContent = '--:--';
+          timeEl.className = 'text-base font-extrabold text-rose-300 font-mono mt-1';
+        }
+        if (statusEl) {
+          statusEl.textContent = currentLang === 'km' ? 'ខកខាន' : 'Missed';
+          statusEl.className = 'text-xs text-rose-300 font-bold mt-1.5';
+        }
+        card.className = 'p-3.5 rounded-2xl bg-rose-500/10 border border-rose-400/35 flex flex-col justify-between transition-all';
+        if (titleEl) titleEl.className = 'text-[11px] font-bold text-rose-200';
+        if (pillEl) pillEl.className = 'text-[10px] font-mono px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-200';
       } else if (summary.nextSuggestedSlot === slotKey && todayScansTotalCount < 4) {
         // Current step (ដល់ពេលស្កេន): Vibrant Cyan-Blue Glass with Glowing Border (NO WHITE GLARE, HIGH CONTRAST)
         if (timeEl) {
@@ -2497,6 +2517,9 @@ async function loadMyAttendanceActivity() {
       if (!summary.totalScansToday || summary.totalScansToday === 0) {
         badgeEl.textContent = t.notCheckedIn;
         badgeEl.className = 'px-3 py-0.5 rounded-full text-[11px] font-semibold bg-slate-800/80 text-slate-400 border border-slate-700/60 shadow-xs';
+      } else if (summary.isHalfDay) {
+        badgeEl.textContent = currentLang === 'km' ? 'កន្លះថ្ងៃ · 0.5 ថ្ងៃ' : 'Half Day · 0.5 day';
+        badgeEl.className = 'px-3 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/25 shadow-xs';
       } else if (summary.totalScansToday < 4) {
         badgeEl.textContent = `${currentLang === 'km' ? 'កំពុងបំពេញការងារ' : 'On Duty'} (${summary.totalScansToday}/4)`;
         badgeEl.className = 'px-3 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-xs';
@@ -2507,14 +2530,16 @@ async function loadMyAttendanceActivity() {
     }
 
     // Auto-select next suggested slot if available
-    todayScansTotalCount = summary.totalScansToday || 0;
-    if (summary.nextSuggestedSlot && summary.nextSuggestedSlot !== 'completed' && todayScansTotalCount < 4) {
-      setAttendanceSlot(summary.nextSuggestedSlot);
+    if (summary.canScanCurrentSlot && summary.currentScheduledSlot) {
+      setAttendanceSlot(summary.currentScheduledSlot);
     } else {
       const iconEl = document.getElementById('heroSuggestedIcon');
       const textEl = document.getElementById('heroSuggestedText');
-      if (iconEl) iconEl.textContent = '✅';
-      if (textEl) textEl.textContent = currentLang === 'km' ? 'គ្រប់ 4/4 ដងរួចរាល់សម្រាប់ថ្ងៃនេះ' : 'All 4 Scans Completed Today';
+      const waiting = summary.nextSuggestedSlot === 'waiting';
+      if (iconEl) iconEl.textContent = waiting ? '⏳' : '✅';
+      if (textEl) textEl.textContent = waiting
+        ? (currentLang === 'km' ? 'បានកត់ត្រាម៉ោងនេះរួច · រង់ចាំម៉ោងបន្ទាប់' : 'Current slot recorded · Wait for next slot')
+        : (summary.isHalfDay ? (currentLang === 'km' ? 'បានបញ្ចប់ · កន្លះថ្ងៃ (0.5)' : 'Completed · Half Day (0.5)') : (currentLang === 'km' ? 'បានបញ្ចប់វត្តមានថ្ងៃនេះ' : 'Attendance completed today'));
     }
 
     // 2. Fetch Recent 5 activity logs for the member
@@ -3816,11 +3841,95 @@ async function loadAdminSettings() {
       const el = document.getElementById('inputTelegramLeaveEnabled');
       if (el) el.checked = s.telegram_leave_enabled === 'true';
     }
+    updateAttendanceModeAdminUi({
+      attendanceMode: s.attendance_mode || 'wifi',
+      emergencyGpsActive: s.attendance_mode === 'emergency_gps',
+      emergencyModeExpiresAt: s.emergency_mode_expires_at || ''
+    });
   } catch (e) {
     console.error(e);
   }
 }
 
+function updateAttendanceModeAdminUi(state = {}) {
+  const statusEl = document.getElementById('attendanceModeStatus');
+  const btn = document.getElementById('btnToggleEmergencyMode');
+  if (!statusEl || !btn) return;
+
+  const active = Boolean(state.emergencyGpsActive || state.attendanceMode === 'emergency_gps');
+  if (active) {
+    let expiryText = 'រហូតដល់ Admin បិទ';
+    if (state.emergencyModeExpiresAt) {
+      const expiry = new Date(state.emergencyModeExpiresAt);
+      if (!Number.isNaN(expiry.getTime())) {
+        expiryText = `ដល់ ${expiry.toLocaleTimeString('en-US', { timeZone: 'Asia/Phnom_Penh', hour: '2-digit', minute: '2-digit' })}`;
+      }
+    }
+    statusEl.textContent = `កំពុងបើក GPS បន្ទាន់ · ${expiryText}`;
+    statusEl.className = 'text-[11px] text-amber-200 font-bold mt-1';
+    btn.textContent = 'បិទ Emergency GPS';
+    btn.className = 'px-4 py-2.5 rounded-xl bg-rose-500/20 border border-rose-400/40 text-rose-200 text-xs font-extrabold hover:bg-rose-500/30 active:scale-95 transition';
+  } else {
+    statusEl.textContent = 'កំពុងប្រើ Wi-Fi ក្រុមហ៊ុនធម្មតា';
+    statusEl.className = 'text-[11px] text-emerald-300 font-bold mt-1';
+    btn.textContent = 'បើក GPS ពេល Wi-Fi ដាច់';
+    btn.className = 'px-4 py-2.5 rounded-xl bg-amber-500/20 border border-amber-400/40 text-amber-200 text-xs font-extrabold hover:bg-amber-500/30 active:scale-95 transition';
+  }
+}
+
+async function toggleEmergencyGpsMode() {
+  const active = currentNetworkStatus && currentNetworkStatus.emergencyGpsActive;
+  let mode = 'wifi';
+  let durationMinutes = 0;
+
+  if (!active) {
+    const choice = await Swal.fire({
+      icon: 'warning',
+      title: 'បើក Emergency GPS Mode?',
+      html: '<div class="text-sm text-left space-y-2"><p>ប្រើតែពេល Wi-Fi ក្រុមហ៊ុនដាច់។</p><p>បុគ្គលិកត្រូវនៅក្នុង Office, GPS Accuracy ≤ 50m និង Device បាន Approve។</p></div>',
+      input: 'select',
+      inputOptions: {
+        '30': '30 នាទី',
+        '60': '60 នាទី',
+        '0': 'រហូតដល់ Admin បិទដោយដៃ'
+      },
+      inputValue: '30',
+      showCancelButton: true,
+      confirmButtonText: 'បើកឥឡូវនេះ',
+      cancelButtonText: 'បោះបង់',
+      confirmButtonColor: '#f59e0b'
+    });
+    if (!choice.isConfirmed) return;
+    mode = 'emergency_gps';
+    durationMinutes = Number(choice.value || 0);
+  } else {
+    const confirm = await Swal.fire({
+      icon: 'question',
+      title: 'ប្តូរទៅ Wi-Fi Mode វិញ?',
+      text: 'បុគ្គលិកនឹងត្រូវភ្ជាប់ Wi-Fi ក្រុមហ៊ុនវិញ។',
+      showCancelButton: true,
+      confirmButtonText: 'បិទ Emergency GPS',
+      cancelButtonText: 'ទុកដដែល',
+      confirmButtonColor: '#0ea5e9'
+    });
+    if (!confirm.isConfirmed) return;
+  }
+
+  const res = await apiFetch('/api/settings/attendance-mode', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode, durationMinutes })
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    Swal.fire({ icon: 'error', title: 'ប្តូរ Mode មិនបាន', text: data.error || 'សូមសាកល្បងម្ដងទៀត' });
+    return;
+  }
+
+  await fetchNetworkStatus(false);
+  await loadAdminSettings();
+  Swal.fire({ icon: 'success', title: data.message, timer: 2500, showConfirmButton: false });
+}
 async function saveTelegramSettings() {
   const token = document.getElementById('inputTelegramToken').value;
   const chatId = document.getElementById('inputTelegramChatId').value;
@@ -4025,7 +4134,24 @@ async function fetchNetworkStatus(showToast = false) {
     const tileSub = document.getElementById('tileWifiSubtext');
     const tileIconWrap = document.getElementById('tileWifiIconWrap');
 
-    if (data.isCompanyWifi) {
+    updateAttendanceModeAdminUi(data);
+
+    if (data.emergencyGpsActive) {
+      if (badgeWrap) {
+        badgeWrap.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-200 border border-amber-400/40 shadow-xs';
+        badgeWrap.innerHTML = '<i data-lucide="map-pin" class="w-3.5 h-3.5"></i> <span>Emergency GPS Mode</span>';
+      }
+      if (tileSub) tileSub.textContent = 'GPS បន្ទាន់បានបើក';
+      if (tileIconWrap) tileIconWrap.className = 'w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-600/30 to-orange-500/20 border border-amber-400/30 flex items-center justify-center mb-1.5 text-amber-300';
+      if (showToast) {
+        Swal.fire({
+          icon: 'info',
+          title: 'Emergency GPS Mode កំពុងដំណើរការ',
+          text: 'អ្នកអាចប្រើ Mobile Data ប៉ុន្តែត្រូវនៅក្នុង Office និងបើក GPS។',
+          confirmButtonColor: '#f59e0b'
+        });
+      }
+    } else if (data.isCompanyWifi) {
       if (badgeWrap) {
         badgeWrap.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-xs';
         badgeWrap.innerHTML = `<i data-lucide="wifi" class="w-3.5 h-3.5"></i> <span>${data.matchedName || 'Wi-Fi ក្រុមហ៊ុន (បានភ្ជាប់)'}</span>`;
@@ -4097,8 +4223,17 @@ async function executeStaffCheckIn() {
     return;
   }
 
+  if (currentAttendanceSummary && !currentAttendanceSummary.canScanCurrentSlot) {
+    Swal.fire({
+      icon: 'info',
+      title: currentAttendanceSummary.nextSuggestedSlot === 'completed' ? 'បានបញ្ចប់វត្តមានថ្ងៃនេះ' : 'បានកត់ត្រាម៉ោងនេះរួច',
+      text: currentAttendanceSummary.nextSuggestedSlot === 'completed' ? 'មិនមានម៉ោងបន្ថែមសម្រាប់ថ្ងៃនេះទេ។' : 'សូមរង់ចាំដល់ម៉ោងបន្ទាប់ ប្រព័ន្ធនឹងប្តូរដោយស្វ័យប្រវត្តិ។',
+      confirmButtonColor: '#0ea5e9'
+    });
+    return;
+  }
   // 1. Strict Wi-Fi Protection Check
-  if (currentNetworkStatus && currentNetworkStatus.wifiCheckEnabled && !currentNetworkStatus.isCompanyWifi) {
+  if (currentNetworkStatus && currentNetworkStatus.wifiCheckEnabled && !currentNetworkStatus.isCompanyWifi && !currentNetworkStatus.emergencyGpsActive) {
     Swal.fire({
       icon: 'warning',
       title: '⚠️ សូមភ្ជាប់ Wi-Fi ក្រុមហ៊ុន',
@@ -4119,6 +4254,27 @@ async function executeStaffCheckIn() {
       }
     });
     return;
+  }
+
+  if (currentNetworkStatus && currentNetworkStatus.emergencyGpsActive) {
+    if (!navigator.geolocation) {
+      Swal.fire({ icon: 'error', title: 'ទូរស័ព្ទមិនគាំទ្រ GPS', text: 'Emergency GPS Mode ត្រូវការទីតាំងពិតនៅក្នុង Office។' });
+      return;
+    }
+    try {
+      const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge: 0
+      }));
+      userCoords.lat = pos.coords.latitude;
+      userCoords.lng = pos.coords.longitude;
+      userCoords.accuracy = pos.coords.accuracy;
+      updateStaffGpsUI(userCoords.lat, userCoords.lng);
+    } catch (err) {
+      Swal.fire({ icon: 'warning', title: 'មិនអាចទទួល GPS បាន', text: 'សូមបើក Location និងអនុញ្ញាត GPS រួចសាកម្ដងទៀត។' });
+      return;
+    }
   }
 
   isSubmitting = true;
@@ -4201,9 +4357,10 @@ async function executeStaffCheckIn() {
       body: JSON.stringify({
         code: currentStaff.code,
         type: currentScanAction,
-        check_method: 'wifi_button',
+        check_method: currentNetworkStatus && currentNetworkStatus.emergencyGpsActive ? 'emergency_gps' : 'wifi_button',
         latitude: userCoords.lat,
         longitude: userCoords.lng,
+        accuracy: userCoords.accuracy,
         note: staffReason,
         device_id: getOrCreateDeviceId()
       })
