@@ -24,6 +24,17 @@ function apiFetch(input, options = {}) {
   return nativeFetch(input, { ...options, headers });
 }
 
+// SQLite CURRENT_TIMESTAMP is UTC but is returned without a timezone suffix.
+// Treat those values as UTC before formatting them in Cambodia time.
+function parseAppTimestamp(value) {
+  if (!value) return new Date();
+  if (value instanceof Date) return value;
+  if (typeof value === 'string' && !/[zZ]$|[+-]\d{2}:?\d{2}$/.test(value)) {
+    return new Date(value.replace(' ', 'T') + 'Z');
+  }
+  return new Date(value);
+}
+
 // Persistent Device UUID for 1 Staff = 1 Device policy
 function getOrCreateDeviceId() {
   try {
@@ -1313,7 +1324,7 @@ async function loadMyAttendanceHistory(period = staffHistoryCurrentPeriod) {
     // Group logs by Date
     const grouped = {};
     logs.forEach(l => {
-      const d = new Date(l.timestamp);
+      const d = parseAppTimestamp(l.timestamp);
       const dateKey = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Phnom_Penh' }); // YYYY-MM-DD
       if (!grouped[dateKey]) grouped[dateKey] = [];
       grouped[dateKey].push(l);
@@ -1334,8 +1345,8 @@ async function loadMyAttendanceHistory(period = staffHistoryCurrentPeriod) {
     const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
 
     sortedDates.forEach(dateStr => {
-      const dateLogs = grouped[dateStr].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-      const sampleDate = new Date(dateLogs[0].timestamp);
+      const dateLogs = grouped[dateStr].sort((a, b) => parseAppTimestamp(a.timestamp) - parseAppTimestamp(b.timestamp));
+      const sampleDate = parseAppTimestamp(dateLogs[0].timestamp);
       const formattedHeader = sampleDate.toLocaleDateString(loc, { 
         timeZone: 'Asia/Phnom_Penh', 
         weekday: 'long', 
@@ -1362,7 +1373,7 @@ async function loadMyAttendanceHistory(period = staffHistoryCurrentPeriod) {
             ${dateLogs.map(l => {
               const meta = slotLabels[l.type] || { text: l.type, enText: l.type, badge: 'bg-slate-800 text-slate-300 border-slate-700' };
               const label = currentLang === 'km' ? meta.text : meta.enText;
-              const timeFormatted = new Date(l.timestamp).toLocaleTimeString(loc, {
+              const timeFormatted = parseAppTimestamp(l.timestamp).toLocaleTimeString(loc, {
                 timeZone: 'Asia/Phnom_Penh',
                 hour: '2-digit', minute: '2-digit', hour12: true
               });
@@ -2084,6 +2095,33 @@ async function closeStaffScannerModal() {
 }
 
 let isSubmitting = false;
+
+function setCheckInBusy(active) {
+  const button = document.getElementById('heroOneClickBtn');
+  const title = document.getElementById('heroBtnActionTitle');
+  const subtitle = document.getElementById('heroBtnActionSubtitle');
+  if (button) {
+    button.disabled = active;
+    button.setAttribute('aria-busy', active ? 'true' : 'false');
+    button.classList.toggle('opacity-70', active);
+    button.classList.toggle('cursor-wait', active);
+  }
+  if (active) {
+    if (title && !title.dataset.beforeBusy) title.dataset.beforeBusy = title.textContent || '';
+    if (subtitle && !subtitle.dataset.beforeBusy) subtitle.dataset.beforeBusy = subtitle.textContent || '';
+    if (title) title.textContent = currentLang === 'km' ? 'កំពុងកត់ត្រា…' : 'Saving attendance…';
+    if (subtitle) subtitle.textContent = currentLang === 'km' ? 'សូមរង់ចាំបន្តិច' : 'Please wait';
+  } else {
+    if (title && title.dataset.beforeBusy) {
+      title.textContent = title.dataset.beforeBusy;
+      delete title.dataset.beforeBusy;
+    }
+    if (subtitle && subtitle.dataset.beforeBusy) {
+      subtitle.textContent = subtitle.dataset.beforeBusy;
+      delete subtitle.dataset.beforeBusy;
+    }
+  }
+}
 async function onOfficeQrCodeScanned(decodedText) {
   if (isSubmitting) return;
 
@@ -2101,6 +2139,7 @@ async function onOfficeQrCodeScanned(decodedText) {
   }
 
   isSubmitting = true;
+  setCheckInBusy(true);
   playBeep();
   await closeStaffScannerModal();
 
@@ -2186,6 +2225,7 @@ async function onOfficeQrCodeScanned(decodedText) {
 
     if (!reasonResult.isConfirmed) {
       isSubmitting = false;
+      setCheckInBusy(false);
       return;
     }
     staffReason = (reasonResult.value || '').trim();
@@ -2227,6 +2267,7 @@ async function onOfficeQrCodeScanned(decodedText) {
         confirmButtonColor: '#f59e0b'
       });
       isSubmitting = false;
+      setCheckInBusy(false);
       return;
     }
 
@@ -2301,6 +2342,7 @@ async function onOfficeQrCodeScanned(decodedText) {
     });
   } finally {
     isSubmitting = false;
+    setCheckInBusy(false);
   }
 }
 
@@ -2361,18 +2403,18 @@ async function loadMyAttendanceActivity() {
     const now = new Date();
 
     if (slots.morning_in) {
-      const tIn = new Date(slots.morning_in.timestamp);
+      const tIn = parseAppTimestamp(slots.morning_in.timestamp);
       if (slots.lunch_out) {
-        const tOut = new Date(slots.lunch_out.timestamp);
+        const tOut = parseAppTimestamp(slots.lunch_out.timestamp);
         workedMinutes += Math.max(0, Math.round((tOut - tIn) / 60000));
       } else {
         workedMinutes += Math.max(0, Math.round((now - tIn) / 60000));
       }
     }
     if (slots.afternoon_in) {
-      const tIn2 = new Date(slots.afternoon_in.timestamp);
+      const tIn2 = parseAppTimestamp(slots.afternoon_in.timestamp);
       if (slots.evening_out) {
-        const tOut2 = new Date(slots.evening_out.timestamp);
+        const tOut2 = parseAppTimestamp(slots.evening_out.timestamp);
         workedMinutes += Math.max(0, Math.round((tOut2 - tIn2) / 60000));
       } else {
         workedMinutes += Math.max(0, Math.round((now - tIn2) / 60000));
@@ -2444,7 +2486,7 @@ async function loadMyAttendanceActivity() {
 
       if (record) {
         // Completed step: Translucent emerald glass success appearance (NO WHITE GLARE)
-        const timeStr = new Date(record.timestamp).toLocaleTimeString('en-US', { 
+        const timeStr = parseAppTimestamp(record.timestamp).toLocaleTimeString('en-US', {
           timeZone: 'Asia/Phnom_Penh', 
           hour: '2-digit', 
           minute: '2-digit', 
@@ -2566,7 +2608,7 @@ async function loadMyAttendanceActivity() {
       listContainer.innerHTML = logs.slice(0, 5).map(l => {
         const meta = slotLabels[l.type] || { text: l.type, enText: l.type, icon: 'check-circle' };
         const labelStr = currentLang === 'km' ? meta.text : meta.enText;
-        const timeStr = new Date(l.timestamp).toLocaleString(loc, { 
+        const timeStr = parseAppTimestamp(l.timestamp).toLocaleString(loc, {
           timeZone: 'Asia/Phnom_Penh',
           day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true
         });
@@ -2767,7 +2809,7 @@ async function loadAdminDashboard() {
       const rangeBadge = l.is_within_range 
         ? `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>ក្នុងរង្វង់ (${l.distance_meters !== null ? l.distance_meters + 'm' : 'OK'})</span>`
         : `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20"><span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>ក្រៅរង្វង់ (${l.distance_meters}m)</span>`;
-      const timeStr = new Date(l.timestamp).toLocaleTimeString(loc);
+      const timeStr = parseAppTimestamp(l.timestamp).toLocaleTimeString(loc);
 
       return `
         <tr class="hover:bg-cyan-500/[0.08] transition-colors border-b border-slate-800">
@@ -3543,7 +3585,7 @@ function getHistoryQuery(limit = 5000) {
 
 function isLateAttendance(record) {
   if (!['morning_in', 'afternoon_in', 'check_in'].includes(record.type)) return false;
-  const d = new Date(record.timestamp);
+  const d = parseAppTimestamp(record.timestamp);
   const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Phnom_Penh', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(d);
   const hour = Number(parts.find(p => p.type === 'hour')?.value || 0);
   const minute = Number(parts.find(p => p.type === 'minute')?.value || 0);
@@ -3578,7 +3620,7 @@ function renderAttendanceHistory() {
     };
     tbody.innerHTML = pageLogs.map((l, index) => {
       const color = badgeClass[l.type] || 'bg-slate-500/10 text-slate-300 border-slate-500/20';
-      const time = new Date(l.timestamp).toLocaleString(currentLang === 'km' ? 'km-KH' : 'en-US', { timeZone: 'Asia/Phnom_Penh' });
+      const time = parseAppTimestamp(l.timestamp).toLocaleString(currentLang === 'km' ? 'km-KH' : 'en-US', { timeZone: 'Asia/Phnom_Penh' });
       return `<tr class="hover:bg-white/[0.035] transition-colors"><td class="py-3 px-4 font-mono text-slate-500">${offset + index + 1}</td><td class="py-3 px-4 font-bold text-white">${escapeHtml(l.member_name || '-')}</td><td class="py-3 px-4 font-mono text-cyan-300 font-semibold">${escapeHtml(l.member_code || '-')}</td><td class="py-3 px-4 text-slate-400">${escapeHtml(l.member_role || '-')}</td><td class="py-3 px-4"><span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${color}"><span class="w-1.5 h-1.5 rounded-full bg-current"></span>${escapeHtml(historyActionLabel(l.type))}</span>${isLateAttendance(l) ? '<span class="ml-1.5 text-[10px] font-bold text-rose-400">យឺត</span>' : ''}</td><td class="py-3 px-4 font-mono text-slate-300 whitespace-nowrap">${escapeHtml(time)}</td></tr>`;
     }).join('');
   }
@@ -3626,7 +3668,7 @@ async function exportHistoryCSV() {
   const csvRows = [['No.', 'Name', 'Code', 'Role', 'Action', 'Date & Time', 'Late', 'Note']];
   const loc = currentLang === 'km' ? 'km-KH' : 'en-US';
   for (const r of records) {
-    csvRows.push([r.id, `"${(r.member_name || '').replace(/"/g, '""')}"`, r.member_code || '', `"${(r.member_role || '').replace(/"/g, '""')}"`, `"${historyActionLabel(r.type)}"`, `"${new Date(r.timestamp).toLocaleString(loc, { timeZone: 'Asia/Phnom_Penh' })}"`, isLateAttendance(r) ? 'Yes' : 'No', `"${(r.note || '').replace(/"/g, '""')}"`]);
+    csvRows.push([r.id, `"${(r.member_name || '').replace(/"/g, '""')}"`, r.member_code || '', `"${(r.member_role || '').replace(/"/g, '""')}"`, `"${historyActionLabel(r.type)}"`, `"${parseAppTimestamp(r.timestamp).toLocaleString(loc, { timeZone: 'Asia/Phnom_Penh' })}"`, isLateAttendance(r) ? 'Yes' : 'No', `"${(r.note || '').replace(/"/g, '""')}"`]);
   }
   downloadBlob(new Blob(['\uFEFF' + csvRows.map(row => row.join(',')).join('\n')], { type: 'text/csv;charset=utf-8' }), historyExportFileName('csv'));
 }
@@ -3664,7 +3706,7 @@ function selectHistoryExportFormat(format) {
 function khWorkDate(timestamp) {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'Asia/Phnom_Penh', year: 'numeric', month: '2-digit', day: '2-digit'
-  }).formatToParts(new Date(timestamp));
+  }).formatToParts(parseAppTimestamp(timestamp));
   const value = type => parts.find(part => part.type === type)?.value || '';
   return `${value('year')}-${value('month')}-${value('day')}`;
 }
@@ -3769,7 +3811,7 @@ function buildPrintableHistoryReport() {
   const detailPages = includeDetails ? (detailChunks.length ? detailChunks : [[]]).map((chunk, chunkIndex) => {
     pageNumber++;
     const startIndex = chunkIndex * 12;
-    const rows = chunk.map((r, index) => `<tr><td>${startIndex + index + 1}</td><td class="name">${escapeHtml(r.member_name || '-')}</td><td>${escapeHtml(r.member_code || '-')}</td><td>${escapeHtml(r.member_role || '-')}</td><td>${escapeHtml(historyActionLabel(r.type))}${isLateAttendance(r) ? ` <b class="bad">(${km ? 'យឺត' : 'Late'})</b>` : ''}</td><td>${escapeHtml(new Date(r.timestamp).toLocaleString(km ? 'km-KH' : 'en-GB', { timeZone: 'Asia/Phnom_Penh' }))}</td></tr>`).join('');
+    const rows = chunk.map((r, index) => `<tr><td>${startIndex + index + 1}</td><td class="name">${escapeHtml(r.member_name || '-')}</td><td>${escapeHtml(r.member_code || '-')}</td><td>${escapeHtml(r.member_role || '-')}</td><td>${escapeHtml(historyActionLabel(r.type))}${isLateAttendance(r) ? ` <b class="bad">(${km ? 'យឺត' : 'Late'})</b>` : ''}</td><td>${escapeHtml(parseAppTimestamp(r.timestamp).toLocaleString(km ? 'km-KH' : 'en-GB', { timeZone: 'Asia/Phnom_Penh' }))}</td></tr>`).join('');
     return `<section class="report-page detail-page">${pageHeader()}<div class="meta"><span>${text.period}: ${range}</span><span>${text.details}${detailChunks.length > 1 ? ` · ${chunkIndex + 1}/${detailChunks.length}` : ''}</span></div><h3>${text.details}</h3><table><thead><tr><th>#</th><th>${text.name}</th><th>${text.code}</th><th>${text.role}</th><th>${text.action}</th><th>${text.dateTime}</th></tr></thead><tbody>${rows}</tbody></table>${pageFooter()}</section>`;
   }).join('') : '';
   const el = document.createElement('div');
@@ -4279,6 +4321,7 @@ async function executeStaffCheckIn() {
   }
 
   isSubmitting = true;
+  setCheckInBusy(true);
 
   // 2. Cambodia Time (UTC+7) Late / Early Check
   const now = new Date();
@@ -4345,6 +4388,7 @@ async function executeStaffCheckIn() {
 
     if (!reasonResult.isConfirmed) {
       isSubmitting = false;
+      setCheckInBusy(false);
       return;
     }
     staffReason = (reasonResult.value || '').trim();
@@ -4377,6 +4421,7 @@ async function executeStaffCheckIn() {
         confirmButtonColor: '#f59e0b'
       });
       isSubmitting = false;
+      setCheckInBusy(false);
       return;
     }
 
@@ -4482,6 +4527,7 @@ async function executeStaffCheckIn() {
     });
   } finally {
     isSubmitting = false;
+    setCheckInBusy(false);
   }
 }
 
@@ -4977,7 +5023,7 @@ async function loadMyLeaveRequests() {
           ${adminResponseHtml}
 
           <div class="text-[10px] text-slate-500 text-right pt-0.5">
-            កាលបរិច្ឆេទស្នើ: ${new Date(req.created_at).toLocaleString('km-KH', { timeZone: 'Asia/Phnom_Penh' })}
+            កាលបរិច្ឆេទស្នើ: ${parseAppTimestamp(req.created_at).toLocaleString('km-KH', { timeZone: 'Asia/Phnom_Penh' })}
           </div>
         </div>
       `;
@@ -5155,7 +5201,7 @@ function renderAdminLeaveCards(status = 'all') {
       `;
     }
 
-    const createdTimeStr = new Date(req.created_at).toLocaleString('km-KH', { timeZone: 'Asia/Phnom_Penh' });
+    const createdTimeStr = parseAppTimestamp(req.created_at).toLocaleString('km-KH', { timeZone: 'Asia/Phnom_Penh' });
 
     return `
       <div class="glass-crystal p-4 rounded-3xl border border-white/15 bg-slate-900/80 shadow-xl space-y-3 hover:border-white/25 transition">

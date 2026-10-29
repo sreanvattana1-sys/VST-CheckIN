@@ -143,9 +143,14 @@ async function resolveOfficeDdns(hosts) {
 
 async function getOfficeNetworkMatch(rawClientIp) {
   const clientIp = normalizeIp(rawClientIp);
-  const wifiCheckEnabled = (await getSetting('wifi_check_enabled')) !== 'false';
-  const allowedIps = parseCommaList((await getSetting('company_wifi_ips')) || '45.119.135.171, 36.37.169.199').map(normalizeIp);
-  const ddnsHosts = parseCommaList((await getSetting('company_wifi_ddns_hosts')) || 'vst-office.ddns.net');
+  const [wifiEnabledSetting, wifiIpsSetting, wifiDdnsSetting] = await Promise.all([
+    getSetting('wifi_check_enabled'),
+    getSetting('company_wifi_ips'),
+    getSetting('company_wifi_ddns_hosts')
+  ]);
+  const wifiCheckEnabled = wifiEnabledSetting !== 'false';
+  const allowedIps = parseCommaList(wifiIpsSetting || '45.119.135.171, 36.37.169.199').map(normalizeIp);
+  const ddnsHosts = parseCommaList(wifiDdnsSetting || 'vst-office.ddns.net');
   const ddnsIps = await resolveOfficeDdns(ddnsHosts);
   const isLocal = clientIp === '127.0.0.1' || clientIp === '::1' || clientIp.startsWith('192.168.') || clientIp.startsWith('10.');
   const matchedDdnsHost = ddnsIps.get(clientIp) || null;
@@ -491,8 +496,12 @@ async function getSetting(key) {
 }
 
 async function getAttendanceModeState() {
-  const configuredMode = (await getSetting('attendance_mode')) || 'wifi';
-  const expiresAt = (await getSetting('emergency_mode_expires_at')) || '';
+  const [modeSetting, expirySetting] = await Promise.all([
+    getSetting('attendance_mode'),
+    getSetting('emergency_mode_expires_at')
+  ]);
+  const configuredMode = modeSetting || 'wifi';
+  const expiresAt = expirySetting || '';
   const expiryMs = expiresAt ? Date.parse(expiresAt) : NaN;
   const active = configuredMode === 'emergency_gps' && (!Number.isFinite(expiryMs) || expiryMs > Date.now());
   return {
@@ -806,9 +815,11 @@ function formatTelegramRequest(request, status = 'pending', response = '') {
 
 // Helper: Send Telegram notification to OLD / MAIN Group (-5037746251)
 async function sendTelegramMessage(text) {
-  const token = await getTelegramToken();
-  const chatId = await getSetting('telegram_chat_id');
-  const enabled = await getSetting('telegram_enabled');
+  const [token, chatId, enabled] = await Promise.all([
+    getTelegramToken(),
+    getSetting('telegram_chat_id'),
+    getSetting('telegram_enabled')
+  ]);
 
   const targetChatId = (chatId && chatId.trim()) ? chatId.trim() : '-5037746251';
 
@@ -826,7 +837,7 @@ async function sendTelegramMessage(text) {
         text: text,
         parse_mode: 'HTML'
       }),
-      signal: AbortSignal.timeout(5000)
+      signal: AbortSignal.timeout(1500)
     });
     const result = await res.json();
     return { success: result.ok, data: result };
@@ -1948,11 +1959,17 @@ app.post('/api/attendance/check', requireAuth, requireStaffOrAdmin, async (req, 
     }
 
     // GPS is mandatory and strict only while Emergency GPS Mode is active.
-    const officeLat = parseFloat(await getSetting('office_lat'));
-    const officeLng = parseFloat(await getSetting('office_lng'));
-    const allowedRadius = parseFloat(await getSetting('allowed_radius')) || 200;
+    const [officeLatSetting, officeLngSetting, radiusSetting, accuracySetting] = await Promise.all([
+      getSetting('office_lat'),
+      getSetting('office_lng'),
+      getSetting('allowed_radius'),
+      getSetting('emergency_gps_accuracy_limit')
+    ]);
+    const officeLat = parseFloat(officeLatSetting);
+    const officeLng = parseFloat(officeLngSetting);
+    const allowedRadius = parseFloat(radiusSetting) || 200;
     const emergencyRadius = Math.min(100, allowedRadius);
-    const accuracyLimit = parseFloat(await getSetting('emergency_gps_accuracy_limit')) || 50;
+    const accuracyLimit = parseFloat(accuracySetting) || 50;
     const gpsAccuracy = Number(accuracy);
     const hasGps = Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude));
 
@@ -2836,7 +2853,7 @@ async function generateMonthlySummaryReport(dateStr = getCambodiaDateString()) {
     const memberLogs = logs.filter(log => Number(log.member_id) === Number(member.id));
     const logsByDate = new Map();
     for (const log of memberLogs) {
-      const d = new Date(log.timestamp);
+      const d = parseSqliteUtcDate(log.timestamp);
       const workDate = new Date(d.getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
       if (!logsByDate.has(workDate)) logsByDate.set(workDate, []);
       logsByDate.get(workDate).push(log);
@@ -3124,7 +3141,8 @@ if (process.env.NODE_ENV === 'test') {
     generateMonthlySummaryReport,
     buildMonthlyReportPdf,
     getScheduledAttendanceSlot,
-    getHalfDayStatus
+    getHalfDayStatus,
+    parseSqliteUtcDate
   };
 }
 
